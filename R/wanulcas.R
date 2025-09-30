@@ -3790,6 +3790,64 @@ treeprice_df$P_TWoodPrice <- c(PF_UnitTree_df$WoodP, PF_UnitTree_df$WoodS)
 treeprice_df$P_TSeedPrice <- c(PF_UnitTree_df$SeedP, PF_UnitTree_df$SeedS)
 
 
+zonetree_df$AF_ZoneTree <- rep(zone_df$AF_ZoneTree, nrow(tree_df))
+zonetree_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(tree_df))
+zonetree_df$T_TreeinZone <- rep(zone_df$T_TreeinZone, nrow(tree_df))
+zonetree_df$AF_TreePosit <- rep(tree_df$AF_TreePosit, each = nzone)
+zonetree_df$T_RelPosinZone <- rep(tree_df$T_RelPosinZone, each = nzone)
+
+
+# INIT T_PrunWeighTot[Tree] = T_PrunWeight[Zn1,Tree]*AF_ZoneFrac[Zn1]+T_PrunWeight[Zn2,Tree]*AF_ZoneFrac[Zn2]+T_PrunWeight[Zn3,Tree]*AF_ZoneFrac[Zn3]+T_PrunWeight[Zn4,Tree]*AF_ZoneFrac[Zn4]
+zonetree_df$T_PrunWeighTot_a <- zonetree_df$T_PrunWeight * zonetree_df$AF_ZoneFrac
+tree_df$T_PrunWeighTot <- aggregate(zonetree_df["T_PrunWeighTot_a"], zonetree_df["tree_id"], sum)$T_PrunWeighTot_a
+tree_df$T_PrunWeigh_sum <- aggregate(zonetree_df["T_PrunWeight"], zonetree_df["tree_id"], sum)$T_PrunWeight
+zonetree_df$T_PrunWeighTot <- rep(tree_df$T_PrunWeighTot, each = nzone)
+zonetree_df$T_PrunWeigh_sum <- rep(tree_df$T_PrunWeigh_sum, each = nzone)
+
+# INIT T_LifallWeightTot[Zone,Tree] = T_LifallWeight[Zn1,Tree]*AF_ZoneFrac[Zn1]+T_LifallWeight[Zn2,Tree]*AF_ZoneFrac[Zn2]+T_LifallWeight[Zn3,Tree]*AF_ZoneFrac[Zn3]+T_LifallWeight[Zn4,Tree]*AF_ZoneFrac[Zn4]
+zonetree_df$T_LifallWeightTot_a <- zonetree_df$T_LifallWeight * zonetree_df$AF_ZoneFrac
+tree_df$T_LifallWeightTot <- aggregate(zonetree_df["T_LifallWeightTot_a"], zonetree_df["tree_id"], sum)$T_LifallWeightTot_a
+zonetree_df$T_LifallWeightTot <- rep(tree_df$T_LifallWeightTot, each = nzone)
+
+# T_BiomAG[PlantComp,Tree] = T_LfTwig[PlantComp,Tree]+T_SapWood[PlantComp,Tree]+T_GroRes[PlantComp,Tree]
+treepcomp_df$T_BiomAG <- treepcomp_df$T_LfTwig + treepcomp_df$T_SapWood + treepcomp_df$T_GroRes
+
+# INIT T_SapWoodEqDiam[Tree] = if (T_DiamSlopeBiom[Tree]>0  and T_Treesperha[Tree]*T_DiamBiom1[Tree]>0  )then (T_BiomAG[DW,Tree]*10000/(T_Treesperha[Tree]*T_DiamBiom1[Tree]))^(1/T_DiamSlopeBiom[Tree]) else 0
+tree_df$T_SapWoodEqDiam <- ifelse(
+  tree_df$T_DiamSlopeBiom > 0  &
+    tree_df$T_Treesperha * tree_df$T_DiamBiom1 > 0 ,
+  (
+    treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_BiomAG * 10000 / (tree_df$T_Treesperha * tree_df$T_DiamBiom1)
+  )^(1 / tree_df$T_DiamSlopeBiom),
+  0
+)
+
+tree_df$T_PlantY <- apply(tree_df[c("T_Compl", "tree_id")], 1, function(x) {
+  get_graph_y(T_PlantY_df,
+              x["T_Compl"],
+              y_column = names(T_PlantY_df)[x["tree_id"]],
+              mode = "discrete")
+})
+
+tree_df$T_PlantDoY <- apply(tree_df[c("T_Compl", "tree_id")], 1, function(x) {
+  get_graph_y(T_PlantDoY_df,
+              x["T_Compl"],
+              y_column = names(T_PlantDoY_df)[x["tree_id"]],
+              mode = "discrete")
+})
+
+
+# T_PlantTime[Tree] = T_PlantDoY[Tree] + 365* (T_PlantY[Tree])-Ca_DOYStart
+tree_df$T_PlantTime <- tree_df$T_PlantDoY + 365 * (tree_df$T_PlantY) -   Ca_DOYStart
+
+# INIT TF_LeafTime[Tree] = T_PlantTime[Tree]
+tree_df$TF_LeafTime <- tree_df$T_PlantTime
+
+# INIT TF_LeaffallTime[Tree] = T_PlantTime[Tree]
+tree_df$TF_LeaffallTime <- tree_df$T_PlantTime
+
+
+
 
 
 
@@ -3825,7 +3883,6 @@ zonelayer_df[zonelayer_df$layer == 1, ]$LF_HMaxDailyFlow <- zone_df$LF_H1MaxMail
 # LF_MaxProfHOutflow = (LF_H1MaxMailyFlow[Zn1]+LF_H2MaxDailyFlow[Zn1]+LF_H3MaxDailyFlow[Zn1]+LF_H4MaxDailyFlow[Zn1])
 LF_MaxProfHOutflow <- zone_df[zone_df$zone == 1, ]$LF_H1MaxMailyFlow + sum(zonelayer_df[zonelayer_df$zone == 1 &
                                                                                           zonelayer_df$layer %in% c(2:4), "LF_HMaxDailyFlow"])
-
 
 # W_FieldCap1[Zone] = max(W_FieldCapKcrit1[Zone],W_ThetaP1[Zone])
 # W_FieldCap2[Zone] = max(W_FieldCapKcrit2[Zone],W_ThetaP2[Zone])
@@ -3875,7 +3932,6 @@ zonelayer_df[zonelayer_df$layer == 1, ]$LF_MaxVInflow <- max(
 # LF_MVI1ZF[Zone] = AF_ZoneFrac[Zone]*LF_MaxVInflow1[Zone]
 zonelayer_df$LF_MVIZF <- zonelayer_df$AF_ZoneFrac * zonelayer_df$LF_MaxVInflow
 
-
 # LF_MaxProfVAbsorption = ARRAYSUM(LF_MVI1ZF[*])
 LF_MaxProfVAbsorption <- sum(zonelayer_df[zonelayer_df$layer == 1, ]$LF_MVIZF)
 
@@ -3891,56 +3947,16 @@ zone_df$LF_SICZF <- zone_df$AF_ZoneFrac * zone_df$S_SurfInfiltrAct
 
 
 #TODO: this code below is still incorrect?
-
 zone_df$Cq_CType <- zone_df$Cq_CropWeedSwitch
 zone_df$Cq_CType <- ifelse(zone_df$Cq_CType %in% c(1:4), zone_df$Cq_CType, 5)
 
 #### Crop par curr ################################
-
 update_Cq_par()
 zone_df$Cq_StageAfterHarvest <- ifelse(zone_df$Cq_SingleCycle_is_Cur == 1, 0, 0.7)
 
 
-
-#
-# zone_df$Cq_PolyResid <- unlist(Cq_df[Cq_df$Cq_Unit == "PolypRes", zone_df$Cq_CType])
-# zone_df$Cq_PolyRt <- unlist(Cq_df[Cq_df$Cq_Unit == "PolypRoot", zone_df$Cq_CType])
-# zone_df$Cq_PotSuctAlphMaxCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "AlphMax", zone_df$Cq_CType])
-# zone_df$Cq_PotSuctAlphMinCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "AlphMin", zone_df$Cq_CType])
-# zone_df$Cq_RainWStorCapCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "RainStorCap", zone_df$Cq_CType])
-# zone_df$Cq_RelLightMaxCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "RelLight", zone_df$Cq_CType])
-# zone_df$Cq_RemobFrac <- unlist(Cq_df[Cq_df$Cq_Unit == "MaxRemob", zone_df$Cq_CType])
-# zone_df$Cq_RtDiam <- unlist(Cq_df[Cq_df$Cq_Unit == "RtDiam", zone_df$Cq_CType])
-# zone_df$Cq_SingleCycle_Cur <- unlist(Cq_df[Cq_df$Cq_Unit == "SingleCycle?", zone_df$Cq_CType])
-# zone_df$Cq_StageAfterHarvest <- ifelse(zone_df$Cq_SingleCycle_Cur == 1, 0, 0.7)
-# zone_df$Cq_TranspRatioCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "TranspRatio", zone_df$Cq_CType])
-# zone_df$Rt_CRtAllocRespCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "AllocResp", zone_df$Cq_CType])
-# zone_df$Rt_CSRLCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "SRL", zone_df$Cq_CType])
-#
-# zone_df$Cq_CTimeGenCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "TimeGen", zone_df$Cq_CType])
-# zone_df$Cq_CTimeVegCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "TimeVeg", zone_df$Cq_CType])
-# zone_df$Cq_DOYFlwDOYBegin <- unlist(Cq_df[Cq_df$Cq_Unit == "FlwBegin", zone_df$Cq_CType])
-# zone_df$Cq_DOYFlwEnd <- unlist(Cq_df[Cq_df$Cq_Unit == "FlwEnd", zone_df$Cq_CType])
-# zone_df$Cq_GroMaxCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "GroMax", zone_df$Cq_CType])
-# zone_df$Cq_GSeedCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "SeedInit", zone_df$Cq_CType])
-# zone_df$Cq_HBiomConvCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "HBiomConv", zone_df$Cq_CType])
-# zone_df$Cq_kLightCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "kLight", zone_df$Cq_CType])
-# zone_df$Cq_LignResidCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "LignRes", zone_df$Cq_CType])
-# zone_df$Cq_LignRootResCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "LignRootRes", zone_df$Cq_CType])
-# zone_df$Cq_MaxMycInf <- unlist(Cq_df[Cq_df$Cq_Unit == "MycMaxInf", zone_df$Cq_CType])
-# zone_df$Cq_NFixDailyFracCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "DayFrac", zone_df$Cq_CType])
-# zone_df$Cq_NFixDWMaxFracCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "FixDWMax", zone_df$Cq_CType])
-# zone_df$Cq_NFixDWUnitCostCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "FixDWUnit", zone_df$Cq_CType])
-# zone_df$Cq_NFixRespCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "FixResp", zone_df$Cq_CType])
-# zone_df$Cq_NFixVariable_Curr <- unlist(Cq_df[Cq_df$Cq_Unit == "NFix?", zone_df$Cq_CType])
-# zone_df$Cq_NRtConcCurr <- unlist(Cq_df[Cq_df$Cq_Unit == "RtConc", zone_df$Cq_CType])
-
-
-
 # Cq_CLWRCurr[Zone] = If(Cq_CType[Zone]=1)then(Cq_CLWR[Type1, Zone]) else if(Cq_CType[Zone]=2)then(Cq_CLWR[Type2, Zone]) else if(Cq_CType[Zone]=3)then(Cq_CLWR[Type3, Zone]) else
-#   if(Cq_CType[Zone]=4)then(Cq_CLWR[Type4, Zone]) else
-# (Cq_CLWR[Type5, Zone])
-
+#   if(Cq_CType[Zone]=4)then(Cq_CLWR[Type4, Zone]) else (Cq_CLWR[Type5, Zone])
 zone_df$Cq_CRelLUECurr <- apply(zone_df[c("zone", "Cq_Stage", "Cq_CType")], 1, function(x) {
   get_zone_stage_par(x["zone"], x["Cq_Stage"], x["Cq_CType"], "Cq_CRelLUE")
 })
@@ -3961,28 +3977,8 @@ zone_df$Cq_CRtAllocCurr <- apply(zone_df[c("zone", "Cq_Stage", "Cq_CType")], 1, 
   get_zone_stage_par(x["zone"], x["Cq_Stage"], x["Cq_CType"], "Cq_CRtAlloc")
 })
 
-
-# zone_df$crop_type <- plant_data$crop_types[zone_df$Cq_CType + 1]
-#
-# #ambil CLWR dari table
-#
-# zone_df$Cq_CLWRCurr <- apply(zone_df[c("Cq_Stage", "crop_type")], 1, function(x) {
-#   get_graph_y(plant_data$Cq_LWR_df,
-#   x["Cq_Stage"],
-#   y_column = x["crop_type"],
-#   mode = "continues")
-# })
-
-# zone_df$Cq_CSLACurr <- apply(zone_df[c("Cq_Stage", "crop_type")], 1, function(x) {
-#   get_graph_y(plant_data$Cq_SLA_df,
-#   x["Cq_Stage"],
-#   y_column = x["crop_type"],
-#   mode = "continues")
-# })
-
 # C_LAI[Zone] = Cq_CLWRCurr[Zone]*Cq_CSLACurr[Zone]*C_BiomStLv[Zone,DW]
 zone_df$C_LAI <- zone_df$Cq_CLWRCurr * zone_df$Cq_CSLACurr * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv
-
 
 # T_LeavesPotPresent?[Tree] = if (T_DOY_Compl_1_LfFall[Tree] < T_DOY_1_LfFlush[Tree]) or (T_DOY_Compl_2_LfFall[Tree] < T_DOY_2_LfFlush[Tree]) then 1 + Max(0,min(1,(mod(time,365) - T_DOY_1_LfFlush[Tree]))) -  Max(0,min(1,(mod(time,365) - T_DOY_Compl_1_LfFall[Tree]))) + Max(0,min(1,(mod(time,365) - T_DOY_2_LfFlush[Tree]))) -  Max(0,min(1,(mod(time,365) - T_DOY_Compl_2_LfFall[Tree])))
 # else
@@ -4006,12 +4002,9 @@ tree_df$T_LAI <- pmin(
   tree_df$T_LAIMax,
   treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_LfTwig * tree_df$T_LWR * tree_df$T_SLA *  tree_df$T_LeavesPotPresent
 )
+
 # T_LAIMin[Tree] = T_LAIMinMaxRatio[Tree]*T_LAIMax[Tree]
 tree_df$T_LAIMin <- tree_df$T_LAIMinMaxRatio * tree_df$T_LAIMax
-
-
-
-
 
 # TF_CrownRadius[Tree] = (TF_RecentFrondLength[Tree]*TF_RadiometricFraction[Tree])+(TF_TrunkDiam[Tree]*10^-2)/2
 tree_df$TF_CrownRadius <- (tree_df$TF_RecentFrondLength * tree_df$TF_RadiometricFraction) +
@@ -4019,22 +4012,11 @@ tree_df$TF_CrownRadius <- (tree_df$TF_RecentFrondLength * tree_df$TF_Radiometric
 
 
 
-# T_BiomAG[PlantComp,Tree] = T_LfTwig[PlantComp,Tree]+T_SapWood[PlantComp,Tree]+T_GroRes[PlantComp,Tree]
-treepcomp_df$T_BiomAG <- treepcomp_df$T_LfTwig + treepcomp_df$T_SapWood + treepcomp_df$T_GroRes
 
-
-# INIT T_SapWoodEqDiam[Tree] = if (T_DiamSlopeBiom[Tree]>0  and T_Treesperha[Tree]*T_DiamBiom1[Tree]>0  )then (T_BiomAG[DW,Tree]*10000/(T_Treesperha[Tree]*T_DiamBiom1[Tree]))^(1/T_DiamSlopeBiom[Tree]) else 0
-tree_df$T_SapWoodEqDiam <- ifelse(
-  tree_df$T_DiamSlopeBiom > 0  &
-    tree_df$T_Treesperha * tree_df$T_DiamBiom1 > 0 ,
-  (
-    treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_BiomAG * 10000 / (tree_df$T_Treesperha * tree_df$T_DiamBiom1)
-  )^(1 / tree_df$T_DiamSlopeBiom),
-  0
-)
 
 # T_StemDiam[Tree] = (T_HeartWoodDiam[Tree]^2+T_SapWoodEqDiam[Tree]^2)^0.5
 tree_df$T_StemDiam <- (tree_df$T_HeartWoodDiam^2 + tree_df$T_SapWoodEqDiam^2)^0.5
+
 # T_CanWidthD[Tree] = if T_ApplyPalm?[Tree]=1 then TF_CrownRadius[Tree] else 0.05*T_CanWidthMax[Tree]+0.95*min(T_StemDiam[Tree]/T_DCanWidthMax,1)*T_CanWidthMax[Tree]
 tree_df$T_CanWidthD <- ifelse(
   tree_df$T_ApplyPalm_is == 1,
@@ -4048,35 +4030,10 @@ tree_df$T_CanWidthMaxRel <- pmin(tree_df$T_CanWidthD / AF_ZoneTot, 1)
 # T_CanWidthRel[Tree] = MIN(T_LAI[Tree]/T_LAIMin[Tree],T_CanWidthMaxRel[Tree])
 tree_df$T_CanWidthRel <- pmin(tree_df$T_LAI / tree_df$T_LAIMin, tree_df$T_CanWidthMaxRel)
 
-# z_sp <- rep(zone_df$zone, nrow(tree_df))
-sp_z <- rep(tree_df$species, each = nzone)
-# zonetree_df <- data.frame(zone = z_sp)
-zonetree_df$AF_ZoneTree <- rep(zone_df$AF_ZoneTree, nrow(tree_df))
-zonetree_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(tree_df))
-zonetree_df$T_TreeinZone <- rep(zone_df$T_TreeinZone, nrow(tree_df))
-
-# zonetree_df$tree_id <- rep(1:nrow(tree_df), each = nzone)
-# zonetree_df$species <- rep(tree_df$species, each = nzone)
-zonetree_df$AF_TreePosit <- rep(tree_df$AF_TreePosit, each = nzone)
-zonetree_df$T_RelPosinZone <- rep(tree_df$T_RelPosinZone, each = nzone)
 zonetree_df$T_CanWidthRel <- rep(tree_df$T_CanWidthRel, each = nzone)
 zonetree_df$T_klight <- rep(tree_df$T_klight, each = nzone)
 zonetree_df$T_LAI <- rep(tree_df$T_LAI, each = nzone)
 zonetree_df$T_RainWStorCap <- rep(tree_df$T_RainWStorCap, each = nzone)
-
-
-
-# INIT T_PrunWeighTot[Tree] = T_PrunWeight[Zn1,Tree]*AF_ZoneFrac[Zn1]+T_PrunWeight[Zn2,Tree]*AF_ZoneFrac[Zn2]+T_PrunWeight[Zn3,Tree]*AF_ZoneFrac[Zn3]+T_PrunWeight[Zn4,Tree]*AF_ZoneFrac[Zn4]
-zonetree_df$T_PrunWeighTot_a <- zonetree_df$T_PrunWeight * zonetree_df$AF_ZoneFrac
-tree_df$T_PrunWeighTot <- aggregate(zonetree_df["T_PrunWeighTot_a"], zonetree_df["tree_id"], sum)$T_PrunWeighTot_a
-tree_df$T_PrunWeigh_sum <- aggregate(zonetree_df["T_PrunWeight"], zonetree_df["tree_id"], sum)$T_PrunWeight
-zonetree_df$T_PrunWeighTot <- rep(tree_df$T_PrunWeighTot, each = nzone)
-zonetree_df$T_PrunWeigh_sum <- rep(tree_df$T_PrunWeigh_sum, each = nzone)
-
-# INIT T_LifallWeightTot[Zone,Tree] = T_LifallWeight[Zn1,Tree]*AF_ZoneFrac[Zn1]+T_LifallWeight[Zn2,Tree]*AF_ZoneFrac[Zn2]+T_LifallWeight[Zn3,Tree]*AF_ZoneFrac[Zn3]+T_LifallWeight[Zn4,Tree]*AF_ZoneFrac[Zn4]
-zonetree_df$T_LifallWeightTot_a <- zonetree_df$T_LifallWeight * zonetree_df$AF_ZoneFrac
-tree_df$T_LifallWeightTot <- aggregate(zonetree_df["T_LifallWeightTot_a"], zonetree_df["tree_id"], sum)$T_LifallWeightTot_a
-zonetree_df$T_LifallWeightTot <- rep(tree_df$T_LifallWeightTot, each = nzone)
 
 
 
@@ -4883,26 +4840,7 @@ zonelayertree_df$Rt_TLrvEllipAct <- zonelayertree_df$Rt_TLrvEllip * (1 - zonelay
 
 
 
-tree_df$T_PlantY <- apply(tree_df[c("T_Compl", "tree_id")], 1, function(x) {
-  get_graph_y(T_PlantY_df,
-              x["T_Compl"],
-              y_column = names(T_PlantY_df)[x["tree_id"]],
-              mode = "discrete")
-})
 
-tree_df$T_PlantDoY <- apply(tree_df[c("T_Compl", "tree_id")], 1, function(x) {
-  get_graph_y(T_PlantDoY_df,
-              x["T_Compl"],
-              y_column = names(T_PlantDoY_df)[x["tree_id"]],
-              mode = "discrete")
-})
-
-
-# T_PlantTime[Tree] = T_PlantDoY[Tree] + 365* (T_PlantY[Tree])-Ca_DOYStart
-tree_df$T_PlantTime <- tree_df$T_PlantDoY + 365 * (tree_df$T_PlantY) -   Ca_DOYStart
-
-# INIT TF_LeafTime[Tree] = T_PlantTime[Tree]
-tree_df$TF_LeafTime <- tree_df$T_PlantTime
 
 # Rt_TPresence[Tree] = IF (TIME = (T_PlantTime[Tree]-1) OR T_GroRes[DW,Tree]>0) THEN 1 ELSE 0
 tree_df$time <- time
@@ -4914,8 +4852,7 @@ tree_df$Rt_TPresence <- ifelse(tree_df$time == (tree_df$T_PlantTime - 1) |
 zonelayertree_df$Rt_TPresence <- rep(tree_df$Rt_TPresence, each = nzone * nlayer)
 
 
-# INIT TF_LeaffallTime[Tree] = T_PlantTime[Tree]
-tree_df$TF_LeaffallTime <- tree_df$T_PlantTime
+
 
 
 
@@ -13932,7 +13869,2442 @@ zonelayernut_df[zonelayernut_df$zone != 1, ]$N_LatOutFlow_1 <- 0
 # N_LeachOutx4[Zone,SlNut] = N_VLeach4[Zone,SlNut]
 zonenut_df$N_LeachOutx4 <- zonelayernut_df[zonelayernut_df$layer == 4, ]$N_VLeach
 
+# S&B_BurntWood[Zone,PlantComp] = S&B_DW?[PlantComp]*S&B_DeadWood[Zone,PlantComp]*S&B_DeadWoodBurnFrac[Zone]*(1-S&B_AerosolFrac[Zone])
+zonepcomp_df$SB_BurntWood <- zonepcomp_df$SB_DW_is * zonepcomp_df$SB_DeadWood * zonepcomp_df$SB_DeadWoodBurnFrac *
+  (1 - zonepcomp_df$SB_AerosolFrac)
 
+# S&B_Ash[Zone] = (S&B_NecromassBurn[Zone,DW]*S&B_LeafAshCont)+S&B_BurntWood[Zone,DW]*S&B_WoodAshCont
+zp_DW <- zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]
+zone_df$SB_Ash <- (zp_DW$SB_NecromassBurn * pars$SB_par$SB_LeafAshCont) + zp_DW$SB_BurntWood *
+  pars$SB_par$SB_WoodAshCont
+
+# S&B_pH_change[Zone] = S&B_pHChangePerCationInput*S&B_Ash[Zone]/AF_DepthAct1[Zone] - S&B_pHRecFrac*(S&B_Topsoil_pH[Zone]-S&B_InitialpH)
+zone_df$SB_pH_change <- pars$SB_par$SB_pHChangePerCationInput * zone_df$SB_Ash /
+  zonelayer_df[zonelayer_df$layer == 1, ]$AF_Depth - pars$SB_par$SB_pHRecFrac *
+  (zone_df$SB_Topsoil_pH - pars$SB_par$SB_InitialpH)
+
+# RT3_CRdecay[Tree] = RT3_CoarseRtDecayCoeff[Tree]*RT3_CoarseRt[Tree]
+tree_df$RT3_CRdecay <- tree_df$RT3_CoarseRtDecayCoeff * tree_df$RT3_CoarseRt
+
+
+# C_WeedSeedInflux[Zone,PlantComp] = if AF_SimulateWeeds? = 1 then C_WeedSeedExtInflux*C_SeedConc[PlantComp]*C_UnitConv[PlantComp] else 0
+zonepcomp_df$AF_SimulateWeeds_is <- pars$AF_par$AF_SimulateWeeds_is
+zonepcomp_df$C_WeedSeedInflux <- ifelse(
+  zonepcomp_df$AF_SimulateWeeds_is == 1,
+  pars$C_par$C_WeedSeedExtInflux * zonepcomp_df$C_SeedConc * zonepcomp_df$C_UnitConv,
+  0
+)
+
+# C_WeedSeedFall[Zone,PlantComp] = if (int(Cq_Stage[Zone])) >= 2 and Cq_WeedZn?[Zone]=1 then C_YieldCurr[Zone,PlantComp]/dt else 0
+zonepcomp_df$Cq_Stage <- rep(zone_df$Cq_Stage, nrow(pcomp_df))
+zonepcomp_df$C_WeedSeedFall <- ifelse(
+  floor(zonepcomp_df$Cq_Stage) >= 2 &
+    zonepcomp_df$Cq_WeedZn_is == 1,
+  zonepcomp_df$C_YieldCurr,
+  0
+)
+
+# C_WeedGermin[Zone,PlantComp] = if Cq_WeedRestart?[Zone] = 1 then C_WeedGermFrac*C_WeedSeedBank[Zone,PlantComp] ELSE 0
+zonepcomp_df$Cq_WeedRestart_is <- rep(zone_df$Cq_WeedRestart_is, nrow(pcomp_df))
+zonepcomp_df$C_WeedGermin <- ifelse(
+  zonepcomp_df$Cq_WeedRestart_is == 1,
+  pars$C_par$C_WeedGermFrac * zonepcomp_df$C_WeedSeedBank,
+  0
+)
+
+# Mn2_CNMetab[Zone,SoilLayer] = IF(MN2_Metab[Zone,SoilLayer]>0)THEN(Mc2_Metab[Zone,SoilLayer]/MN2_Metab[Zone,SoilLayer])ELSE(0)
+zonelayer_df$Mn2_CNMetab <- ifelse(zonelayer_df$Mn2_Metab > 0,
+                                   zonelayer_df$Mc2_Metab / zonelayer_df$Mn2_Metab,
+                                   0)
+
+# Mn2_DecActMet[Zone,SoilLayer] = IF(Mn2_CNMetab[Zone,SoilLayer]>0)THEN(Mc2_MetabActF[Zone,SoilLayer]/(Mc_EffMetab*Mn2_CNMetab[Zone,SoilLayer]))ELSE(0)
+zonelayer_df$Mn2_DecActMet <- ifelse(
+  zonelayer_df$Mn2_CNMetab > 0,
+  zonelayer_df$Mc2_MetabActF / (pars$Mc_par$Mc_EffMetab * zonelayer_df$Mn2_CNMetab),
+  0
+)
+
+# Mn2_DemActMet_N[Zone,SoilLayer] = Mc2_MetabActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
+zonelayer_df$Mn2_DemActMet_N <- zonelayer_df$Mc2_MetabActF / (pars$Mn_par$Mn_CNAct *
+                                                                Mn_NutRatAct_N)
+
+# Mn2_MetabActF[Zone,SoilLayer] = MIN(Mn2_DecActMet[Zone,SoilLayer],Mn2_DemActMet_N[Zone,SoilLayer])
+zonelayer_df$Mn2_MetabActF <- pmin(zonelayer_df$Mn2_DecActMet, zonelayer_df$Mn2_DemActMet_N)
+
+
+# Mn2_DemActSt[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
+zonelayer_df$Mn2_DemActSt <- zonelayer_df$Mc2_StrucActF / (pars$Mn_par$Mn_CNAct *
+                                                             Mn_NutRatAct_N)
+
+# Mn2_DecActSt_N[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mc_EffStrucAct*Mn_CNStruc*Mn_NutRatStruc[N])
+zonelayer_df$Mn2_DecActSt_N <- zonelayer_df$Mc2_StrucActF / (pars$Mc_par$Mc_EffStrucAct *
+                                                               pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc)
+
+# Mn2_StrucActF[Zone,SoilLayer] = MIN(Mn2_DecActSt_N[Zone,SoilLayer],Mn2_DemActSt[Zone,SoilLayer])
+zonelayer_df$Mn2_StrucActF <- pmin(zonelayer_df$Mn2_DecActSt_N, zonelayer_df$Mn2_DemActSt)
+
+# Mn2_Met_SomTrans[Zn1,1] = Mn_Met_LitSomTrans[Zn1,N]- MN2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]
+# Mn2_Met_SomTrans[Zn1,2] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]- MN2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]
+# Mn2_Met_SomTrans[Zn1,3] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]- MN2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]
+# Mn2_Met_SomTrans[Zn1,4] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]- MN2_Metab[Zn1,4]*MC2_Met_LayerTrans[Zn1,4]
+# Mn2_Met_SomTrans[Zn2,1] = Mn_Met_LitSomTrans[Zn2,N]- MN2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]
+# Mn2_Met_SomTrans[Zn2,2] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]- MN2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]
+# Mn2_Met_SomTrans[Zn2,3] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]- MN2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]
+# Mn2_Met_SomTrans[Zn2,4] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]- MN2_Metab[Zn2,4]*MC2_Met_LayerTrans[Zn2,4]
+# Mn2_Met_SomTrans[Zn3,1] = Mn_Met_LitSomTrans[Zn3,N]- MN2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]
+# Mn2_Met_SomTrans[Zn3,2] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]- MN2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]
+# Mn2_Met_SomTrans[Zn3,3] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]- MN2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]
+# Mn2_Met_SomTrans[Zn3,4] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]- MN2_Metab[Zn3,4]*MC2_Met_LayerTrans[Zn3,4]
+# Mn2_Met_SomTrans[Zn4,1] = Mn_Met_LitSomTrans[Zn4,N]- MN2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]
+# Mn2_Met_SomTrans[Zn4,2] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]- MN2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]
+# Mn2_Met_SomTrans[Zn4,3] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]- MN2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]
+# Mn2_Met_SomTrans[Zn4,4] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]- MN2_Metab[Zn4,4]*MC2_Met_LayerTrans[Zn4,4]
+#
+# Mn2_Struc_SomTrans[Zn1,1] = Mn_Str_LitSomTrans[Zn1,N]- MN2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]
+# Mn2_Struc_SomTrans[Zn1,2] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]- MN2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]
+# Mn2_Struc_SomTrans[Zn1,3] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]- MN2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]
+# Mn2_Struc_SomTrans[Zn1,4] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]- MN2_Struc[Zn1,4]*MC2_Struc_LayerTrans[Zn1,4]
+# Mn2_Struc_SomTrans[Zn2,1] = Mn_Str_LitSomTrans[Zn2,N]- MN2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]
+# Mn2_Struc_SomTrans[Zn2,2] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]- MN2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]
+# Mn2_Struc_SomTrans[Zn2,3] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]- MN2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]
+# Mn2_Struc_SomTrans[Zn2,4] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]- MN2_Struc[Zn2,4]*MC2_Struc_LayerTrans[Zn2,4]
+# Mn2_Struc_SomTrans[Zn3,1] = Mn_Str_LitSomTrans[Zn3,N]- MN2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]
+# Mn2_Struc_SomTrans[Zn3,2] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]- MN2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]
+# Mn2_Struc_SomTrans[Zn3,3] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]- MN2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]
+# Mn2_Struc_SomTrans[Zn3,4] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]- MN2_Struc[Zn3,4]*MC2_Struc_LayerTrans[Zn3,4]
+# Mn2_Struc_SomTrans[Zn4,1] = Mn_Str_LitSomTrans[Zn4,N]- MN2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]
+# Mn2_Struc_SomTrans[Zn4,2] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]- MN2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]
+# Mn2_Struc_SomTrans[Zn4,3] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]- MN2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]
+# Mn2_Struc_SomTrans[Zn4,4] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]- MN2_Struc[Zn4,4]*MC2_Struc_LayerTrans[Zn4,4]
+#
+# Mn2_Act_SomTrans[Zn1,1] = Mn_Act_LitSomTrans[Zn1,N]                                            - MN2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]
+# Mn2_Act_SomTrans[Zn1,2] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]- MN2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]
+# Mn2_Act_SomTrans[Zn1,3] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]- MN2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]
+# Mn2_Act_SomTrans[Zn1,4] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]- MN2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4]
+# Mn2_Act_SomTrans[Zn2,1] = Mn_Act_LitSomTrans[Zn2,N]                                            - MN2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]
+# Mn2_Act_SomTrans[Zn2,2] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]- MN2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]
+# Mn2_Act_SomTrans[Zn2,3] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]- MN2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]
+# Mn2_Act_SomTrans[Zn2,4] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]- MN2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4]
+# Mn2_Act_SomTrans[Zn3,1] = Mn_Act_LitSomTrans[Zn3,N]                                            - MN2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]
+# Mn2_Act_SomTrans[Zn3,2] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]- MN2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]
+# Mn2_Act_SomTrans[Zn3,3] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]- MN2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]
+# Mn2_Act_SomTrans[Zn3,4] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]- MN2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4]
+# Mn2_Act_SomTrans[Zn4,1] = Mn_Act_LitSomTrans[Zn4,N]                                            - MN2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]
+# Mn2_Act_SomTrans[Zn4,2] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]- MN2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]
+# Mn2_Act_SomTrans[Zn4,3] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]- MN2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]
+# Mn2_Act_SomTrans[Zn4,4] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]- MN2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4]
+#
+# Mn2_Slw_SomTrans[Zn1,1] = Mn_Slw_LitSomTrans[Zn1,N]- MN2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]
+# Mn2_Slw_SomTrans[Zn1,2] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]- MN2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]
+# Mn2_Slw_SomTrans[Zn1,3] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]- MN2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]
+# Mn2_Slw_SomTrans[Zn1,4] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]- MN2_Slw[Zn1,4]*MC2_Slow_LayerTrans[Zn1,4]
+# Mn2_Slw_SomTrans[Zn2,1] = Mn_Slw_LitSomTrans[Zn2,N]- MN2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]
+# Mn2_Slw_SomTrans[Zn2,2] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]- MN2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]
+# Mn2_Slw_SomTrans[Zn2,3] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]- MN2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]
+# Mn2_Slw_SomTrans[Zn2,4] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]- MN2_Slw[Zn2,4]*MC2_Slow_LayerTrans[Zn2,4]
+# Mn2_Slw_SomTrans[Zn3,1] = Mn_Slw_LitSomTrans[Zn3,N]- MN2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]
+# Mn2_Slw_SomTrans[Zn3,2] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]- MN2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]
+# Mn2_Slw_SomTrans[Zn3,3] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]- MN2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]
+# Mn2_Slw_SomTrans[Zn3,4] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]- MN2_Slw[Zn3,4]*MC2_Slow_LayerTrans[Zn3,4]
+# Mn2_Slw_SomTrans[Zn4,1] = Mn_Slw_LitSomTrans[Zn4,N]- MN2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]
+# Mn2_Slw_SomTrans[Zn4,2] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]- MN2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]
+# Mn2_Slw_SomTrans[Zn4,3] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]- MN2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]
+# Mn2_Slw_SomTrans[Zn4,4] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]- MN2_Slw[Zn4,4]*MC2_Slow_LayerTrans[Zn4,4]
+#
+# Mn2_Pas_SomTrans[Zn1,1] = Mn_Pas_LitSomTrans[Zn1,N]- MN2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]
+# Mn2_Pas_SomTrans[Zn1,2] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]- MN2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]
+# Mn2_Pas_SomTrans[Zn1,3] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]- MN2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]
+# Mn2_Pas_SomTrans[Zn1,4] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]- MN2_Pass[Zn1,4]*MC2_Pass_LayerTrans[Zn1,4]
+# Mn2_Pas_SomTrans[Zn2,1] = Mn_Pas_LitSomTrans[Zn2,N]- MN2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]
+# Mn2_Pas_SomTrans[Zn2,2] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]- MN2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]
+# Mn2_Pas_SomTrans[Zn2,3] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]- MN2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]
+# Mn2_Pas_SomTrans[Zn2,4] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]- MN2_Pass[Zn2,4]*MC2_Pass_LayerTrans[Zn2,4]
+# Mn2_Pas_SomTrans[Zn3,1] = Mn_Pas_LitSomTrans[Zn3,N]- MN2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]
+# Mn2_Pas_SomTrans[Zn3,2] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]- MN2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]
+# Mn2_Pas_SomTrans[Zn3,3] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]- MN2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]
+# Mn2_Pas_SomTrans[Zn3,4] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]- MN2_Pass[Zn3,4]*MC2_Pass_LayerTrans[Zn3,4]
+# Mn2_Pas_SomTrans[Zn4,1] = Mn_Pas_LitSomTrans[Zn4,N]- MN2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]
+# Mn2_Pas_SomTrans[Zn4,2] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]- MN2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]
+# Mn2_Pas_SomTrans[Zn4,3] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]- MN2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]
+# Mn2_Pas_SomTrans[Zn4,4] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]- MN2_Pass[Zn4,4]*MC2_Pass_LayerTrans[Zn4,4]
+
+zonelayercpools_df$Mn2_cpools <- c(
+  zonelayer_df$Mn2_Metab,
+  zonelayer_df$Mn2_Struc,
+  zonelayer_df$Mn2_Act,
+  zonelayer_df$Mn2_Slw,
+  zonelayer_df$Mn2_Pass
+)
+zonelayercpools_df$Mn2_cpools_Layer <- zonelayercpools_df$Mn2_cpools * zonelayercpools_df$Mc2_LayerTrans
+zn_N <- zonenut_df[zonenut_df$SlNut == "N", ]
+zonecpools_df$Mn_LitSomTrans_N <- c(
+  zn_N$Mn_Met_LitSomTrans,
+  zn_N$Mn_Str_LitSomTrans,
+  zn_N$Mn_Act_LitSomTrans,
+  zn_N$Mn_Slw_LitSomTrans,
+  zn_N$Mn_Pas_LitSomTrans
+)
+
+zonelayercpools_df$Mn2_SomTrans <- NA
+zonelayercpools_df[zonelayercpools_df$layer == 1, ]$Mn2_SomTrans <- zonecpools_df$Mn_LitSomTrans_N - zonelayercpools_df[zonelayer_df$layer == 1, ]$Mn2_cpools_Layer
+zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mn2_SomTrans <- zonelayercpools_df[zonelayercpools_df$layer %in% c(1:3), ]$Mn2_cpools_Layer - zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mn2_cpools_Layer
+
+# Mn2_DecAct[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mc2_EffActSlw*Mn2_CNActAct_N[Zone,SoilLayer])
+zonelayer_df$Mn2_DecAct <- zonelayer_df$Mc2_ActSlw / (Mc2_EffActSlw *
+                                                        zonelayer_df$Mn2_CNActAct_N)
+
+# Mn2_ActSlw[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[N])
+zonelayer_df$Mn2_ActSlw <- zonelayer_df$Mc2_ActSlw / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw)
+
+# Mn2_ActPass[Zone,SoilLayer] = Mc2_ActPass[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[N])
+zonelayer_df$Mn2_ActPass <- zonelayer_df$Mc2_ActPass / (pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
+
+# Mn2_ActMin[Zone,SoilLayer] = MIN(MAX(0,Mn2_DecAct[Zone,SoilLayer]-Mn2_ActSlw[Zone,SoilLayer]-Mn2_ActPass[Zone,SoilLayer]),MN2_Act[Zone,SoilLayer])
+zonelayer_df$Mn2_ActMin <- pmin(
+  pmax(
+    0,
+    zonelayer_df$Mn2_DecAct - zonelayer_df$Mn2_ActSlw - zonelayer_df$Mn2_ActPass
+  ),
+  zonelayer_df$Mn2_Act
+)
+
+# Mn2_ImmobAct[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,N], MAX(0,Mn2_DemActMet_N[Zone,SoilLayer]-Mn2_DecActMet[Zone,SoilLayer])+MAX(0,Mn2_DemActSt[Zone,SoilLayer]-Mn2_DecActSt_N[Zone,SoilLayer])+MAX(0,MN2_Act[Zone,SoilLayer]*Mn2_CNActAct_N[Zone,SoilLayer]*(1/(Mn_CNAct*Mn_NutRatAct[N]) - 1/Mn2_CNActAct_N[Zone,SoilLayer]) ))
+zonelayer_df$Mn_MinNutpool_N <- rep(zonenut_df[zonenut_df$SlNut == "N", ]$Mn_MinNutpool, nlayer)
+zonelayer_df$Mn2_ImmobAct <- pmin(
+  zonelayer_df$Mn_MinNutpool_N,
+  pmax(0, zonelayer_df$Mn2_DemActMet_N -
+         zonelayer_df$Mn2_DecActMet) +
+    pmax(0, zonelayer_df$Mn2_DemActSt - zonelayer_df$Mn2_DecActSt_N) +
+    pmax(
+      0,
+      zonelayer_df$Mn2_Act * zonelayer_df$Mn2_CNActAct_N * (
+        1 / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct) - 1 /
+          zonelayer_df$Mn2_CNActAct_N
+      )
+    )
+)
+
+# Mn2_ActMinF[Zone,SoilLayer] = IF (Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer])>0
+# THEN MIN((Mn2_ActMin[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]),Mn2_Act[Zone,SoilLayer])
+# ELSE IF (Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer])=0
+# THEN 0 ELSE -MIN(ABS(Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer] +MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer]),Mn2_MinNutpool[Zone,SoilLayer])
+zonelayer_df$Mn2_ActMinF_a <- zonelayer_df$Mn2_ActMin - zonelayer_df$Mn2_ImmobAct + zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Act
+zonelayer_df$Mn2_ActMinF <- ifelse(
+  zonelayer_df$Mn2_ActMinF_a > 0,
+  pmin(zonelayer_df$Mn2_ActMinF_a, zonelayer_df$Mn2_Act),
+  ifelse(
+    zonelayer_df$Mn2_ActMinF_a == 0,
+    0,
+    -pmin(
+      abs(zonelayer_df$Mn2_ActMinF_a),
+      zonelayer_df$Mn2_MinNutpool
+    )
+  )
+)
+
+# Mn2_SlwAct[Zone,SoilLayer] = Mc2_SlwAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
+zonelayer_df$Mn2_SlwAct <- zonelayer_df$Mc2_SlwAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct)
+
+# Mn2_ActSlwF[Zone,SoilLayer] = MAX(0,Mn2_ActSlw[Zone,SoilLayer])-MAX(0,Mn2_SlwAct[Zone,SoilLayer])
+zonelayer_df$Mn2_ActSlwF <- pmax(0, zonelayer_df$Mn2_ActSlw) - pmax(0, zonelayer_df$Mn2_SlwAct)
+
+# Mn2_PassAct[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
+zonelayer_df$Mn2_PassAct <- zonelayer_df$Mc2_PassAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct)
+
+# Mn2_ActPassF[Zone,SoilLayer] = MAX(0,Mn2_ActPass[Zone,SoilLayer])-MAX(0,Mn2_PassAct[Zone,SoilLayer])
+zonelayer_df$Mn2_ActPassF <- pmax(0, zonelayer_df$Mn2_ActPass) - pmax(0, zonelayer_df$Mn2_PassAct)
+
+# Mn2_OrgInpRtN[Zone,SoilLayer] = C_RtDecay_N[Zone,SoilLayer]+T_RtDec_N[Zone,SoilLayer]
+zlp_N <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]
+zonelayer_df$Mn2_OrgInpRtN <- zlp_N$C_RtDecay + zlp_N$T_RtDec
+
+# Mn2_StrucIn[Zone,SoilLayer] = IF(Mn2_OrgInpRtN[Zone,SoilLayer]>10^-5)THEN(Mc2_StrucIn[Zone,SoilLayer]/(Mn_CNStruc*Mn_NutRatStruc[N]))ELSE(0)
+zonelayer_df$Mn2_StrucIn <- ifelse(
+  zonelayer_df$Mn2_OrgInpRtN > 10^-5,
+  zonelayer_df$Mc2_StrucIn / (pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc),
+  0
+)
+
+# Mn2_MetabIn[Zone,SoilLayer] = Mn2_OrgInpRtN[Zone,SoilLayer]-Mn2_StrucIn[Zone,SoilLayer]
+zonelayer_df$Mn2_MetabIn <- zonelayer_df$Mn2_OrgInpRtN - zonelayer_df$Mn2_StrucIn
+
+# Mn2_MetabMinF[Zone,SoilLayer] = Mn2_DecActMet[Zone,SoilLayer]-Mn2_MetabActF[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Metab[Zone,SoilLayer]
+zonelayer_df$Mn2_MetabMinF <- zonelayer_df$Mn2_DecActMet - zonelayer_df$Mn2_MetabActF +
+  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Metab
+
+# MN2_OrgN_leaching[Zone] = MN2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+MN2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+MN2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+MN2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+MN2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
+zl4c <- zonelayercpools_df[zonelayercpools_df$layer == 4, ]
+zone_df$Mn2_OrgN_leaching <- aggregate(zl4c$Mn2_cpools * zl4c$Mc2_LayerTrans, zl4c["zone"], sum)[[2]]
+
+# Mn2_DecStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mc_EffStrucSlw*Mn_CNStruc*Mn_NutRatStruc[N])
+zonelayer_df$Mn2_DecStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mc_par$Mc_EffStrucSlw * pars$Mn_par$Mn_CNStruc *
+                                                                nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc)
+
+# Mn2_DemStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[N])
+zonelayer_df$Mn2_DemStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw)
+
+# Mn2_StrucSlwF[Zone,SoilLayer] = MIN(Mn2_DecStrucSlw[Zone,SoilLayer],Mn2_DemStrucSlw[Zone,SoilLayer])
+zonelayer_df$Mn2_StrucSlwF <- pmin(zonelayer_df$Mn2_DecStrucSlw, zonelayer_df$Mn2_DemStrucSlw)
+
+# MN2_StrucMinF[Zone,SoilLayer] = (Mn2_DecStrucSlw[Zone,SoilLayer]-Mn2_StrucSlwF[Zone,SoilLayer])+(Mn2_DecActSt_N[Zone,SoilLayer]-Mn2_StrucActF[Zone,SoilLayer])+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Struc[Zone,SoilLayer]
+zonelayer_df$Mn2_StrucMinF <- (zonelayer_df$Mn2_DecStrucSlw - zonelayer_df$Mn2_StrucSlwF) +
+  (zonelayer_df$Mn2_DecActSt_N - zonelayer_df$Mn2_StrucActF) + zonelayer_df$Mn2_MinDueToSB *
+  zonelayer_df$Mn2_Struc
+
+# Mn2_SlwPassF[Zone,SoilLayer] = Mc2_SlwPassF[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[N])
+zonelayer_df$Mn2_SlwPassF <- zonelayer_df$Mc2_SlwPassF / (pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
+
+# Mn2_CNSlwAct_N[Zone,SoilLayer] = IF(TIME>1)THEN(Mc2_Slw[Zone,SoilLayer]/MN2_Slw[Zone,SoilLayer])ELSE(Mn_CNSlw*Mn_NutRatSlw[N])
+zonelayer_df$Mn2_CNSlwAct_N <- ifelse(
+  time > 1,
+  zonelayer_df$Mc2_Slw / zonelayer_df$Mn2_Slw,
+  pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw
+)
+
+# Mn2_DecSlw[Zone,SoilLayer] = IF (Mc_EffSlwPass*Mn2_CNSlwAct_N[Zone,SoilLayer])>0 THEN Mc2_SlwPassF[Zone,SoilLayer]/(Mc_EffSlwPass*Mn2_CNSlwAct_N[Zone,SoilLayer]) ELSE 0
+zonelayer_df$Mn2_DecSlw <- ifelse(
+  (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mn2_CNSlwAct_N) > 0 ,
+  zonelayer_df$Mc2_SlwPassF / (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mn2_CNSlwAct_N),
+  0
+)
+
+# Mn2_SlwMin[Zone,SoilLayer] = MAX(0,Mn2_DecSlw[Zone,SoilLayer]-Mn2_SlwAct[Zone,SoilLayer]-Mn2_SlwPassF[Zone,SoilLayer])
+zonelayer_df$Mn2_SlwMin <- pmax(0,
+                                zonelayer_df$Mn2_DecSlw - zonelayer_df$Mn2_SlwAct - zonelayer_df$Mn2_SlwPassF)
+
+# Mn2_ImmobStrucSlw[Zone,SoilLayer] =
+#   MIN(Mn_MinNutpool[Zone,N]-Mn2_ImmobAct[Zone,SoilLayer],
+#       MAX(0,Mn2_DemStrucSlw[Zone,SoilLayer]-Mn2_DecStrucSlw[Zone,SoilLayer])+
+#         MAX(0, MN2_Slw[Zone,SoilLayer]*Mn2_CNSlwAct_N[Zone,SoilLayer]*(1/(Mn_CNSlw*Mn_NutRatSlw[N]) - 1/Mn2_CNSlwAct_N[Zone,SoilLayer]) ))
+zonelayer_df$Mn2_ImmobStrucSlw <-
+  pmin(
+    zonelayer_df$Mn_MinNutpool_N - zonelayer_df$Mn2_ImmobAct,
+    pmax(
+      0,
+      zonelayer_df$Mn2_DemStrucSlw - zonelayer_df$Mn2_DecStrucSlw
+    ) +
+      pmax(
+        0,
+        zonelayer_df$Mn2_Slw * zonelayer_df$Mn2_CNSlwAct_N * (
+          1 / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw) - 1 /
+            zonelayer_df$Mn2_CNSlwAct_N
+        )
+      )
+  )
+
+# Mn2_SlwMinF[Zone,SoilLayer] = (Mn2_SlwMin[Zone,SoilLayer]-Mn2_ImmobStrucSlw[Zone,SoilLayer])+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Slw[Zone,SoilLayer]
+zonelayer_df$Mn2_SlwMinF <- (zonelayer_df$Mn2_SlwMin - zonelayer_df$Mn2_ImmobStrucSlw) +
+  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Slw
+
+# Mn2_DecPass[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]*(Mc_EffPass*Mn_CNPass*Mn_NutRatPas[N])
+zonelayer_df$Mn2_DecPass <- zonelayer_df$Mc2_PassAct * (pars$Mc_par$Mc_EffPass *
+                                                          pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
+
+# MN2_PassMinF[Zone,SoilLayer] = Mn2_DecPass[Zone,SoilLayer]-Mn2_PassAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Pass[Zone,SoilLayer]
+zonelayer_df$Mn2_PassMinF <- zonelayer_df$Mn2_DecPass - zonelayer_df$Mn2_PassAct +
+  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Pass
+
+# T_TodayRettoLab[Tree] = T_Tapping[DW,Tree]*T_TappDOW
+tree_df$T_TodayRettoLab <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Tapping * pars$T_par$T_TappDOW
+
+# T_ChExpRettoLabour[Tree] = if T_TappingDay?[Tree] = 0 then 0 else if  T_TodayRettoLab[Tree]> 0 then (1-T_MemExpY)*(T_TodayRettoLab[Tree] - T_ExpRetToLab[Tree]) else (T_RecoveryExp)*T_ExpRetThresh
+tree_df$T_ChExpRettoLabour <- ifelse(
+  tree_df$T_TappingDay_is == 0,
+  0,
+  ifelse(
+    tree_df$T_TodayRettoLab > 0,
+    (1 - pars$T_par$T_MemExpY) * (tree_df$T_TodayRettoLab - tree_df$T_ExpRetToLab),
+    pars$T_par$T_RecoveryExp * pars$T_par$T_ExpRetThresh
+  )
+)
+
+# Ca_ImmDOY[N] = GRAPH(Ca_PastImmInp[N])
+# Ca_ImmDOY[P] = GRAPH(Ca_PastImmInp[P])
+nut_df$Ca_ImmDoY <- c(
+  get_y_df(nut_df$Ca_PastImmInp[1], "Ca_ImmDOY_N"),
+  get_y_df(nut_df$Ca_PastImmInp[2], "Ca_ImmDOY_P")
+)
+
+# Ca_ImmY[N] = GRAPH(Ca_PastImmInp[N])
+# Ca_ImmY[P] = GRAPH(Ca_PastImmInp[P])
+nut_df$Ca_ImmY <- c(
+  get_y_df(nut_df$Ca_PastImmInp[1], "Ca_ImmY_N"),
+  get_y_df(nut_df$Ca_PastImmInp[2], "Ca_ImmY_P")
+)
+
+# Ca_ImmTime[SlNut] = Ca_ImmDoY[SlNut] + 365*Ca_ImmY[SlNut]-Ca_DOYStart
+nut_df$Ca_ImmTime <- nut_df$Ca_ImmDoY + 365 * nut_df$Ca_ImmY - Ca_DOYStart
+
+# Ca_ImmApp[SlNut] = if time = int(Ca_ImmTime[SlNut]) then 1 else 0
+nut_df$Ca_ImmApp <- ifelse(time == floor(nut_df$Ca_ImmTime), 1, 0)
+
+# Ca_ImmAmount[SlNut,Zone] = GRAPH(Ca_PastImmInp[SlNut])
+nut_df$Ca_ImmAmount <- get_y_df(nut_df$Ca_PastImmInp, "Ca_ImmAmount")
+
+# Ca_ImmInput[SlNut,Zone] = if Ca_ImmApp[SlNut]= 1 then Ca_ImmAmount[SlNut,Zone] else 0
+zonenut_df$Ca_ImmApp <- rep(nut_df$Ca_ImmApp, each = nzone)
+zonenut_df$Ca_ImmAmount <- rep(nut_df$Ca_ImmAmount, each = nzone)
+zonenut_df$Ca_ImmInput <- ifelse(zonenut_df$Ca_ImmApp == 1, zonenut_df$Ca_ImmAmount, 0)
+
+# N_ImmInput[Zone,SlNut] = Ca_ImmInput[SlNut,Zone]
+zonenut_df$N_ImmInput <- zonenut_df$Ca_ImmInput
+
+# N_ImmobileNut1[Zone,SlNut](t) = N_ImmobileNut1[Zone,SlNut](t - dt) + (N_ImmInput[Zone,SlNut] - N_NutMobil1[Zone,SlNut]) * dt
+# N_ImmobileNut2[Zone,SlNut](t) = N_ImmobileNut2[Zone,SlNut](t - dt) + (- N_NutMobil2[Zone,SlNut]) * dt
+# N_ImmobileNut3[Zone,SlNut](t) = N_ImmobileNut3[Zone,SlNut](t - dt) + (- N_NutMobil3[Zone,SlNut]) * dt
+# N_ImmobileNut4[Zone,SlNut](t) = N_ImmobileNut4[Zone,SlNut](t - dt) + (- N_NutMobil4[Zone,SlNut]) * dt
+zonelayernut_df$N_ImmobileNut <- zonelayernut_df$N_ImmobileNut - zonelayernut_df$N_NutMobil
+zonelayernut_df[zonelayernut_df$layer == 1, ]$N_ImmobileNut <- zonelayernut_df[zonelayernut_df$layer == 1, ]$N_ImmobileNut + zonenut_df$N_ImmInput
+
+
+# C_Root_DW[Zone,SoilLayer](t) = C_Root_DW[Zone,SoilLayer](t - dt) + (C_RtIncr_DW[Zone,SoilLayer] - C_RtDecay_DW[Zone,SoilLayer]) * dt
+# C_Root_N[Zone,SoilLayer](t) = C_Root_N[Zone,SoilLayer](t - dt) + (C_RtIncr_N[Zone,SoilLayer] - C_RtDecay_N[Zone,SoilLayer]) * dt
+# C_Root_P[Zone,SoilLayer](t) = C_Root_P[Zone,SoilLayer](t - dt) + (C_RtIncr_P[Zone,SoilLayer] - C_RtDecay_P[Zone,SoilLayer]) * dt
+zonelayerpcomp_df$C_Root <- zonelayerpcomp_df$C_Root + (zonelayerpcomp_df$C_RtIncr - zonelayerpcomp_df$C_RtDecay)
+
+# BC_WeedSeeds = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_WeedSeedBank[Zn1,DW]+AF_ZoneFrac[Zn2]*C_WeedSeedBank[Zn2,DW]+AF_ZoneFrac[Zn3]*C_WeedSeedBank[Zn3,DW]+AF_ZoneFrac[Zn4]*C_WeedSeedBank[Zn4,DW])
+BC_WeedSeeds <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac * zp_DW$C_WeedSeedBank)
+
+# BC_Crop = 1000*Mc_Carbon*(
+#   AF_ZoneFrac[Zn1]*(1-Cq_WeedZn?[Zn1])*(C_BiomStLv[Zn1,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn1,DW]+C_GroRes[Zn1,DW])+
+#     AF_ZoneFrac[Zn2]*(1-Cq_WeedZn?[Zn2])*(C_BiomStLv[Zn2,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn2,DW]+C_GroRes[Zn2,DW])+
+#     AF_ZoneFrac[Zn3]*(1-Cq_WeedZn?[Zn3])*(C_BiomStLv[Zn3,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn3,DW]+C_GroRes[Zn3,DW])+
+#     AF_ZoneFrac[Zn4]*(1-Cq_WeedZn?[Zn4])*(C_BiomStLv[Zn4,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn4,DW]+C_GroRes[Zn4,DW]))
+zonelayer_df$C_Root_DW <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "DW", ]$C_Root
+zone_df$C_Root_DW_zone <- aggregate(zonelayer_df["C_Root_DW"], zonelayer_df["zone"], sum)$C_Root_DW
+zp_DW <- zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]
+BC_Crop <- 1000 * pars$Mc_par$Mc_Carbon * sum(
+  zone_df$AF_ZoneFrac * (1 - zone_df$Cq_WeedZn_is) * (
+    zp_DW$C_BiomStLv + zone_df$C_Root_DW_zone + zp_DW$C_YieldCurr + zp_DW$C_GroRes
+  )
+)
+
+# BC_Weed = 1000*Mc_Carbon*(
+#   AF_ZoneFrac[Zn1]*((Cq_WeedZn?[Zn1])*(C_BiomStLv[Zn1,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn1,DW]+C_GroRes[Zn1,DW]))
+#   +AF_ZoneFrac[Zn2]*((Cq_WeedZn?[Zn2])*(C_BiomStLv[Zn2,DW]+ARRAYSUM(C_Root_DW[Zn2,*])+C_YieldCurr[Zn2,DW]+C_GroRes[Zn2,DW]))
+#   +AF_ZoneFrac[Zn3]*((Cq_WeedZn?[Zn3])*(C_BiomStLv[Zn3,DW]+ARRAYSUM(C_Root_DW[Zn3,*])+C_YieldCurr[Zn3,DW]+C_GroRes[Zn3,DW]))
+#   +AF_ZoneFrac[Zn4]*((Cq_WeedZn?[Zn4])*(C_BiomStLv[Zn4,DW]+ARRAYSUM(C_Root_DW[Zn4,*])+C_YieldCurr[Zn4,DW]+C_GroRes[Zn4,DW])))
+BC_Weed <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac * (
+  zone_df$Cq_WeedZn_is * (
+    zp_DW$C_BiomStLv + zone_df$C_Root_DW_zone + zp_DW$C_YieldCurr + zp_DW$C_GroRes
+  )
+))
+
+# C_Yield[Zone,PlantComp] = if (int(Cq_Stage[Zone])) >= 2 and Cq_WeedZn?[Zone]=0 then C_YieldCurr[Zone,PlantComp]/dt else 0
+zonepcomp_df$C_Yield <- ifelse (
+  floor(zonepcomp_df$Cq_Stage) >= 2 &
+    zonepcomp_df$Cq_WeedZn_is == 0,
+  zonepcomp_df$C_YieldCurr,
+  0
+)
+
+# Ca_FertApply?[N] = GRAPH(Ca_PastFertApp)
+nut_df$Ca_FertApply_is <- get_y_df(Ca_PastFertApp, "Ca_FertApply_is")
+
+# Ca_PastFertApp(t) = Ca_PastFertApp(t - dt) + (Ca_FertApp) * dt
+Ca_PastFertApp <- Ca_PastFertApp + (Ca_FertApp)
+
+# C_CropDayAc[Zone] = if Cq_Stage[Zone] = 0 then 0 else if Cq_WeedZn?[Zone] = 0  then 1 else 0
+zone_df$C_CropDayAc <- ifelse(zone_df$Cq_Stage == 0, 0, ifelse(zone_df$Cq_WeedZn_is == 0, 1, 0))
+
+# C_CurLimFac[Zn1,Water] = if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if CW_Posgro[Zn1]   <=MIN(C_NPosgro[Zn1,N],C_NPosgro[Zn1,P]) and CW_Posgro[Zn1]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn1,N] =     if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if C_NPosgro[Zn1,N] <=MIN(CW_Posgro[Zn1],C_NPosgro[Zn1,P]) and C_NPosgro[Zn1,N]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn1,P] =     if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if C_NPosgro[Zn1,P] <=MIN(CW_Posgro[Zn1],C_NPosgro[Zn1,N]) and C_NPosgro[Zn1,P]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn2,Water] = if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if CW_Posgro[Zn2]   <=MIN(C_NPosgro[Zn2,N],C_NPosgro[Zn2,P]) and CW_Posgro[Zn2]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn2,N] =     if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if C_NPosgro[Zn2,N] <=MIN(CW_Posgro[Zn2],C_NPosgro[Zn2,P]) and C_NPosgro[Zn2,N]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn2,P] =     if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if C_NPosgro[Zn2,P] <=MIN(CW_Posgro[Zn2],C_NPosgro[Zn2,N]) and C_NPosgro[Zn1,P]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn3,Water] = if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if CW_Posgro[Zn3]   <=MIN(C_NPosgro[Zn3,N],C_NPosgro[Zn3,P]) and CW_Posgro[Zn3]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn3,N] =     if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if C_NPosgro[Zn3,N] <=MIN(CW_Posgro[Zn3],C_NPosgro[Zn3,P]) and C_NPosgro[Zn3,N]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn3,P] =     if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if C_NPosgro[Zn3,P] <=MIN(CW_Posgro[Zn3],C_NPosgro[Zn3,N]) and C_NPosgro[Zn3,P]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn4,Water] = if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if CW_Posgro[Zn4]   <=MIN(C_NPosgro[Zn4,N],C_NPosgro[Zn4,P]) and CW_Posgro[Zn4]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn4,N] =     if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if C_NPosgro[Zn4,N] <=MIN(CW_Posgro[Zn4],C_NPosgro[Zn4,P]) and C_NPosgro[Zn4,N]<C_StressAccLim then 1 else 0 else 0
+# C_CurLimFac[Zn4,P] =     if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if C_NPosgro[Zn4,P] <=MIN(CW_Posgro[Zn4],C_NPosgro[Zn4,N]) and C_NPosgro[Zn4,P]<C_StressAccLim then 1 else 0 else 0
+zonelimit_df$Cq_Stage <- rep(zone_df$Cq_Stage, length(Limiting_Factors))
+zonelimit_df$Cq_WeedZn_is <- rep(zone_df$Cq_WeedZn_is, length(Limiting_Factors))
+zonelimit_df$C_Posgro <- c(zone_df$CW_Posgro, zone_df$C_NPosgro_N, zone_df$C_NPosgro_P)
+zonelimit_df$C_Posgro_limit1 <- c(zone_df$C_NPosgro_N, zone_df$C_NPosgro_P, zone_df$CW_Posgro)
+zonelimit_df$C_Posgro_limit2 <- c(zone_df$C_NPosgro_P, zone_df$CW_Posgro, zone_df$C_NPosgro_N)
+
+zonelimit_df$C_CurLimFac <- ifelse(zonelimit_df$Cq_Stage == 0,
+                                   0,
+                                   ifelse(
+                                     zonelimit_df$Cq_WeedZn_is == 0,
+                                     ifelse(
+                                       zonelimit_df$C_Posgro <= min(zonelimit_df$C_Posgro_limit1, zonelimit_df$C_Posgro_limit2) &
+                                         zonelimit_df$C_Posgro < pars$C_par$C_StressAccLim,
+                                       1,
+                                       0
+                                     ),
+                                     0
+                                   ))
+
+# Cent_SOMCTot = AF_ZoneFrac[Zn1]*(Mc_Slw[Zn1]+Mc_Pass[Zn1]+Mc_Act[Zn1])+
+#   AF_ZoneFrac[Zn2]*(Mc_Slw[Zn2]+Mc_Pass[Zn2]+Mc_Act[Zn2])+
+#   AF_ZoneFrac[Zn3]*(Mc_Slw[Zn3]+Mc_Pass[Zn3]+Mc_Act[Zn3])+
+#   AF_ZoneFrac[Zn4]*(Mc_Slw[Zn4]+Mc_Pass[Zn4]+Mc_Act[Zn4])+
+#   AF_ZoneFrac[Zn1]*(ARRAYSUM(Mc2_Slw[Zn1,*])+ARRAYSUM(Mc2_Pass[Zn1,*])+ARRAYSUM(Mc2_Act[Zn1,*]))+
+#   AF_ZoneFrac[Zn2]*(ARRAYSUM(Mc2_Slw[Zn2,*])+ARRAYSUM(Mc2_Pass[Zn2,*])+ARRAYSUM(Mc2_Act[Zn2,*]))+
+#   AF_ZoneFrac[Zn3]*(ARRAYSUM(Mc2_Slw[Zn3,*])+ARRAYSUM(Mc2_Pass[Zn3,*])+ARRAYSUM(Mc2_Act[Zn3,*]))+
+#   AF_ZoneFrac[Zn4]*(ARRAYSUM(Mc2_Slw[Zn4,*])+ARRAYSUM(Mc2_Pass[Zn4,*])+ARRAYSUM(Mc2_Act[Zn4,*]))
+Cent_SOMCTot <-  sum(zone_df$AF_ZoneFrac * (zone_df$Mc_Slw + zone_df$Mc_Pass + zone_df$Mc_Act)) +
+  sum(zone_df$AF_ZoneFrac * (
+    aggregate(
+      zonelayer_df$Mc2_Slw + zonelayer_df$Mc2_Pass + zonelayer_df$Mc2_Act,
+      zonelayer_df["zone"],
+      sum
+    )[[2]]
+  ))
+
+# Cent_MetStrCTot = AF_ZoneFrac[Zn1]*(Mc_Metab[Zn1]+ Mc_Struc[Zn1])+
+#   AF_ZoneFrac[Zn2]*(Mc_Metab[Zn2]+ Mc_Struc[Zn2])+
+#   AF_ZoneFrac[Zn3]*(Mc_Metab[Zn3]+ Mc_Struc[Zn3])+
+#   AF_ZoneFrac[Zn4]*(Mc_Metab[Zn4]+ Mc_Struc[Zn4])+
+#   AF_ZoneFrac[Zn1]*(ARRAYSUM(Mc2_Metab[Zn1,*])+ARRAYSUM(Mc2_Struc[Zn1,*]))+
+#   AF_ZoneFrac[Zn2]*(ARRAYSUM(Mc2_Metab[Zn2,*])+ARRAYSUM(Mc2_Struc[Zn2,*]))+
+#   AF_ZoneFrac[Zn3]*(ARRAYSUM(Mc2_Metab[Zn3,*])+ARRAYSUM(Mc2_Struc[Zn3,*]))+
+#   AF_ZoneFrac[Zn4]*(ARRAYSUM(Mc2_Metab[Zn4,*])+ARRAYSUM(Mc2_Struc[Zn4,*]))
+Cent_MetStrCTot <-  sum(zone_df$AF_ZoneFrac * (zone_df$Mc_Metab + zone_df$Mc_Struc)) +
+  sum(zone_df$AF_ZoneFrac * (
+    aggregate(
+      zonelayer_df$Mc2_Metab + zonelayer_df$Mc2_Struc,
+      zonelayer_df["zone"],
+      sum
+    )[[2]]
+  ))
+
+# BC_SOM = (Cent_MetStrCTot+Cent_SOMCTot)
+BC_SOM <- (Cent_MetStrCTot + Cent_SOMCTot)
+
+# E_CoverSum[Zone] = Cq_CovEffCurr[Zone]*C_LAI[Zone]+E_CovEffT[Sp1]*T_LAIEff[Zone,Sp1]+E_CovEffT[Sp2]*T_LAIEff[Zone,Sp2]+E_CovEffT[Sp3]*T_LAIEff[Zone,Sp3]+E_CovEffLitter*Mc_Struc[Zone]
+zone_df$E_CoverSum <- zone_df$Cq_CovEffCurr * zone_df$C_LAI +
+  aggregate(rep(tree_df$E_CovEffT, each = nzone) * zonetree_df$T_LAIEff,
+            zonetree_df["zone"],
+            sum)[[2]] +
+  pars$E_par$E_CovEffLitter * zone_df$Mc_Struc
+
+# MC2_OrgC_Leaching[Zone] = Mc2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+Mc2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+Mc2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+Mc2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+Mc2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
+zl4c <- zonelayercpools_df[zonelayercpools_df$layer == 4, ]
+zone_df$Mc2_OrgC_Leaching <- aggregate(zl4c$Mc2_cpools * zl4c$Mc2_LayerTrans, zl4c["zone"], sum)[[2]]
+
+# C_Respiration[Zn1,DW] = Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]+C_ApplyMaintResp?*C_MaintResp[Zn1]
+# C_Respiration[Zn1,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn1,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn2,DW] = Cq_NFixDWUnitCostCurr[Zn2]*C_NFIX[Zn2,N]+C_ApplyMaintResp?*C_MaintResp[Zn2]
+# C_Respiration[Zn2,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn2,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn3,DW] = Cq_NFixDWUnitCostCurr[Zn3]*C_NFIX[Zn3,N]+C_ApplyMaintResp?*C_MaintResp[Zn3]
+# C_Respiration[Zn3,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn3,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn4,DW] = Cq_NFixDWUnitCostCurr[Zn4]*C_NFIX[Zn4,N]+C_ApplyMaintResp?*C_MaintResp[Zn4]
+# C_Respiration[Zn4,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+# C_Respiration[Zn4,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
+zonepcomp_df$C_Respiration <- 0
+zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Respiration <- zone_df$Cq_NFixDWUnitCostCurr *  zonenut_df[zonenut_df$SlNut == "N", ]$C_NFIX +
+  pars$C_par$C_ApplyMaintResp_is * zone_df$C_MaintResp
+
+# BC_CdailyRespforFix = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_Respiration[Zn1,DW]+AF_ZoneFrac[Zn2]*C_Respiration[Zn2,DW]+AF_ZoneFrac[Zn3]*C_Respiration[Zn3,DW]+AF_ZoneFrac[Zn4]*C_Respiration[Zn4,DW])
+zone_df$C_Respiration_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Respiration
+BC_CdailyRespforFix = 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$C_Respiration_zone)
+
+# BC_SeedInc = Mc_Carbon*1000*(AF_ZoneFrac[Zn1]*C_Init[Zn1,DW]+AF_ZoneFrac[Zn2]*C_Init[Zn2,DW]+AF_ZoneFrac[Zn3]*C_Init[Zn3,DW]+AF_ZoneFrac[Zn4]*C_Init[Zn4,DW])
+zone_df$C_Init_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Init
+BC_SeedInc <- pars$Mc_par$Mc_Carbon * 1000 * sum(zone_df$C_Init_zone)
+
+# BC_CPhotoInc = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_BiomInc[Zn1,DW]+AF_ZoneFrac[Zn2]*C_BiomInc[Zn2,DW]+AF_ZoneFrac[Zn3]*C_BiomInc[Zn3,DW]+AF_ZoneFrac[Zn4]*C_BiomInc[Zn4,DW])-BC_SeedInc
+zone_df$C_BiomInc_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomInc
+BC_CPhotoInc = 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$C_BiomInc_zone) -
+  BC_SeedInc
+
+# Ca_ExtOrg[ExtOrgInputs] = if Ca_FertApp = 1 then AF_ZoneFrac[Zn1]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn1]+ AF_ZoneFrac[Zn2]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn2]+ AF_ZoneFrac[Zn3]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn3]+ AF_ZoneFrac[Zn4]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn4] else 0
+inp_df$Ca_FertApp <- Ca_FertApp
+zoneinp_df$Ca_ExtOrgAppZn_zone <- rep(zone_df$AF_ZoneFrac, nrow(inp_df)) * zoneinp_df$Ca_ExtOrgAppZn
+inp_df$Ca_ExtOrg <- ifelse(
+  inp_df$Ca_FertApp == 1,
+  aggregate(zoneinp_df["Ca_ExtOrgAppZn_zone"], zoneinp_df["ExtOrgInputs"], sum)$Ca_ExtOrgAppZn_zone,
+  0
+)
+
+# BC_ExtOrgAcc = Mc_CExtOrg[1]*Ca_ExtOrg[1]+Mc_CExtOrg[2]*Ca_ExtOrg[2]
+BC_ExtOrgAcc <- sum(inp_df$Mc_CExtOrg * inp_df$Ca_ExtOrg)
+
+# BC_Tree = Mc_Carbon*1000*(ARRAYSUM(T_LfTwig[DW,*])+ARRAYSUM(T_GroRes[DW,*])+ARRAYSUM(T_SapWood[DW,*])+ARRAYSUM(T_Fruit[DW,*])+ARRAYSUM(T_HeartWood[DW,*])+ARRAYSUM(T_LatexStock[DW,*])+ARRAYSUM(T_Root_DWtot[*]))
+tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
+BC_Tree <- pars$Mc_par$Mc_Carbon * 1000 * sum(
+  tp_DW$T_LfTwig + tp_DW$T_GroRes + tp_DW$T_SapWood + tp_DW$T_Fruit + tp_DW$T_HeartWood +
+    tp_DW$T_LatexStock + tree_df$T_Root_DWtot
+)
+
+# BC_DWDeadWood[PlantComp] = AF_ZoneFrac[Zn1]* (S&B_DeadWood[Zn1,PlantComp])+AF_ZoneFrac[Zn2]* (S&B_DeadWood[Zn2,PlantComp])+AF_ZoneFrac[Zn3]* (S&B_DeadWood[Zn3,PlantComp])+AF_ZoneFrac[Zn4]* (S&B_DeadWood[Zn4,PlantComp] )
+pcomp_df$BC_DWDeadWood <- aggregate(rep(zone_df$AF_ZoneFrac, nrow(pcomp_df)) * zonepcomp_df$SB_DeadWood,
+                                    zonepcomp_df["PlantComp"],
+                                    sum)[[2]]
+
+# BC_NecromasC = Mc_Carbon*1000*(BC_DWFineNecroM[DW]+BC_DWDeadWood[DW])
+p_DW <- pcomp_df[pcomp_df$PlantComp == "DW", ]
+BC_NecromasC <- pars$Mc_par$Mc_Carbon * 1000 * (p_DW$BC_DWFineNecroM + p_DW$BC_DWDeadWood)
+
+# BC_CurrentCStock = BC_Crop+BC_Tree+BC_Weed+BC_WeedSeeds+BC_SOM+BC_NecromasC
+BC_CurrentCStock <- BC_Crop + BC_Tree + BC_Weed + BC_WeedSeeds + BC_SOM +
+  BC_NecromasC
+
+# BC_CstockChange =  (BC_CurrentCStock-BC_TimeAvg_CStock)*dt/(TIME+DT)
+BC_CstockChange <-  (BC_CurrentCStock - BC_TimeAvg_CStock) / time
+
+
+# BC_TPhotoInc = 1000*Mc_Carbon*(ARRAYSUM(T_GroResInc[DW,*])-ARRAYSUM(T_GroInit[DW,*]))
+BC_TPhotoInc = 1000 * pars$Mc_par$Mc_Carbon * (sum(tp_DW$T_GroResInc) -
+                                                 sum(tp_DW$T_GroInit))
+
+# T_RootInit[PlantComp,Tree] = (if Rt_ATType[Tree] < 2 then 0 else T_GroResInit[Tree])*T_RtAllocInit[Tree]*T_RtConc[PlantComp,Tree]*T_UnitConv[PlantComp]
+treepcomp_df$T_RootInit <- ifelse(treepcomp_df$Rt_ATType < 2, 0, treepcomp_df$T_GroResInit) *
+  treepcomp_df$T_RtAllocInit * treepcomp_df$T_RtConc * treepcomp_df$T_UnitConv
+
+# BC_TSeedInc = If ARRAYSUM(T_GroInit[DW,*]) = 0 then 0 else 1000*Mc_Carbon*(ARRAYSUM(T_GroInit[DW,*])+ARRAYSUM(T_CanBiomIni[DW,*])+ARRAYSUM(T_WoodIni[DW,*])+ARRAYSUM(T_RootInit[DW,*]))
+tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
+BC_TSeedInc <- ifelse(sum(tp_DW$T_GroInit) == 0,
+                      0,
+                      1000 * pars$Mc_par$Mc_Carbon * (
+                        sum(tp_DW$T_GroInit) + sum(tp_DW$T_CanBiomIni) + sum(tp_DW$T_WoodIni) +
+                          sum(tp_DW$T_RootInit)
+                      ))
+
+# T_RespforFixF = ARRAYSUM(T_Respiration[DW,*])*Mc_Carbon*1000
+T_RespforFixF = sum(tp_DW$T_Respiration) * pars$Mc_par$Mc_Carbon * 1000
+
+# BC_WeedCInflux = 1000*Mc_Carbon*(
+#   AF_ZoneFrac[Zn1]*C_WeedSeedInflux[Zn1,DW]+
+#     AF_ZoneFrac[Zn2]*C_WeedSeedInflux[Zn2,DW]+
+#     AF_ZoneFrac[Zn3]*C_WeedSeedInflux[Zn3,DW]+
+#     AF_ZoneFrac[Zn4]*C_WeedSeedInflux[Zn4,DW])
+BC_WeedCInflux <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac *
+                                                       zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_WeedSeedInflux)
+
+# C_NInit[Zn1,N] = C_Init[Zn1,N]+C_WeedSeedInflux[Zn1,N]
+# C_NInit[Zn1,P] = C_Init[Zn1,P]+C_WeedSeedInflux[Zn1,P]
+# C_NInit[Zn2,N] = C_Init[Zn2,N]+C_WeedSeedInflux[Zn2,N]
+# C_NInit[Zn2,P] = C_Init[Zn2,P]+C_WeedSeedInflux[Zn2,P]
+# C_NInit[Zn3,N] = C_Init[Zn3,N]+C_WeedSeedInflux[Zn3,N]
+# C_NInit[Zn3,P] = C_Init[Zn3,P]+C_WeedSeedInflux[Zn3,P]
+# C_NInit[Zn4,N] = C_Init[Zn4,N]+C_WeedSeedInflux[Zn4,N]
+# C_NInit[Zn4,P] = C_Init[Zn4,P]+C_WeedSeedInflux[Zn4,P]
+zp_NP <- zonepcomp_df[zonepcomp_df$PlantComp %in% c("N", "P"), ]
+zonenut_df$C_NInit <- zp_NP$C_Init + zp_NP$C_WeedSeedInflux
+
+# BN_CBiomInc[SlNut] = (AF_ZoneFrac[Zn1]*C_NInit[Zn1,SlNut]+AF_ZoneFrac[Zn2]*C_NInit[Zn2,SlNut]+AF_ZoneFrac[Zn3]*C_NInit[Zn3,SlNut]+AF_ZoneFrac[Zn4]*C_NInit[Zn4,SlNut])
+nut_df$BN_CBiomInc[SlNut] = aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$C_NInit, zonenut_df["SlNut"], sum)[[2]]
+
+# BN_CBiomInit[SlNut](t) = BN_CBiomInit[SlNut](t - dt) + (BN_CBiomInc[SlNut]) * dt
+nut_df$BN_CBiomInit <- nut_df$BN_CBiomInit + (nut_df$BN_CBiomInc)
+
+# BN_CUptTot[SlNut] = AF_ZoneFrac[Zn1]*C_NUptTot[Zn1,SlNut]+AF_ZoneFrac[Zn2]*C_NUptTot[Zn2,SlNut]+AF_ZoneFrac[Zn3]*C_NUptTot[Zn3,SlNut]+AF_ZoneFrac[Zn4]*C_NUptTot[Zn4,SlNut]
+nut_df$BN_CUptTot <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$C_NUptTot,
+                               zonenut_df["SlNut"],
+                               sum)[[2]]
+
+# BN_CUptInc[SlNut] = BN_CUptTot[SlNut]
+nut_df$BN_CUptInc <- nut_df$BN_CUptTot
+
+# BN_ExtOrgAcc[SlNut] = Ca_ExtOrg[1]*Mn_ExtOrgN[1,SlNut]+Ca_ExtOrg[2]*Mn_ExtOrgN[2,SlNut]
+nutinp_df$Ca_ExtOrg <- rep(inp_df$Ca_ExtOrg, each = nrow(inp_df))
+nut_df$BN_ExtOrgAcc <- aggregate(nutinp_df$Ca_ExtOrg * nutinp_df$Mn_ExtOrgN, nutinp_df["SlNut"], sum)[[2]]
+
+# Ca_FertNZn[Zone,SlNut] = if Ca_FertApp= 1 and P_PrevCropOK? = 1 then Ca_FertApply?[SlNut]*Ca_FertAmount[Zone] else 0
+zonenut_df$Ca_FertApp <- Ca_FertApp
+zonenut_df$P_PrevCropOK_is <- P_PrevCropOK_is
+zonenut_df$Ca_FertApply_is <- rep(nut_df$Ca_FertApply_is, each = nzone)
+zonenut_df$Ca_FertAmount <- rep(zone_df$Ca_FertAmount, nrow(nut_df))
+zonenut_df$Ca_FertNZn <- ifelse(
+  zonenut_df$Ca_FertApp == 1 &
+    zonenut_df$P_PrevCropOK_is == 1,
+  zonenut_df$Ca_FertApply_is * zonenut_df$Ca_FertAmount,
+  0
+)
+
+# Ca_FertN[SlNut] = if Ca_FertApp= 1 and P_PrevCropOK? = 1 then AF_ZoneFrac[Zn1]*Ca_FertNZn[Zn1,SlNut] +  AF_ZoneFrac[Zn2]*Ca_FertNZn[Zn2,SlNut]+  AF_ZoneFrac[Zn3]*Ca_FertNZn[Zn3,SlNut] +  AF_ZoneFrac[Zn4]*Ca_FertNZn[Zn4,SlNut] else 0
+nut_df$P_PrevCropOK_is <- P_PrevCropOK_is
+nut_df$Ca_FertN <- ifelse(
+  nut_df$Ca_FertApply_is == 1 & nut_df$P_PrevCropOK_is == 1,
+  aggregate(
+    zonenut_df$AF_ZoneFrac * zonenut_df$Ca_FertNZn,
+    zonenut_df["SlNut"],
+    sum
+  )[[2]],
+  0
+)
+
+# BN_Fert[SlNut] = Ca_FertN[SlNut]
+nut_df$BN_Fert <- nut_df$Ca_FertN
+
+# BN_ImmInput[SlNut] = AF_ZoneFrac[Zn1]*Ca_ImmInput[SlNut,Zn1]+AF_ZoneFrac[Zn2]*Ca_ImmInput[SlNut,Zn2]+AF_ZoneFrac[Zn3]*Ca_ImmInput[SlNut,Zn3]+AF_ZoneFrac[Zn4]*Ca_ImmInput[SlNut,Zn4]
+nut_df$BN_ImmInput <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Ca_ImmInput,
+                                zonenut_df["SlNut"],
+                                sum)[[2]]
+
+# BN_ImmInputF[SlNut] = BN_ImmInput[SlNut]
+nut_df$BN_ImmInputF <- nut_df$BN_ImmInput
+
+# Rain_RunOffZn[Zn1] = Rain_Runoff10+0*(Rain_Runoff21+Rain_Runoff32+Rain_Runoff43)
+# Rain_RunOffZn[Zn2] = Rain_Runoff21+0*(Rain_Runoff10+Rain_Runoff32+Rain_Runoff43)
+# Rain_RunOffZn[Zn3] = Rain_Runoff32+0*(Rain_Runoff10+Rain_Runoff21+Rain_Runoff43)
+# Rain_RunOffZn[Zn4] = 0*(Rain_Runoff10+Rain_Runoff21+Rain_Runoff32)+Rain_Runoff43
+zone_df$Rain_RunOffZn <- c(Rain_Runoff10, Rain_Runoff21, Rain_Runoff32, Rain_Runoff43)
+
+# Mn_RunOffFert[Zone,SlNut] = if Mn_LatFlowFertKm > 0 then (1-Mn_FertDissFrac[SlNut])*Mn_FertOnSoil[Zone,SlNut]*Rain_RunOffZn[Zone]/(Rain_RunOffZn[Zone]+Mn_LatFlowFertKm) else 0
+zonenut_df$Mn_LatFlowFertKm <- pars$Mn_par$Mn_LatFlowFertKm
+zonenut_df$Rain_RunOffZn <- rep(zone_df$Rain_RunOffZn)
+zonenut_df$Mn_RunOffFert <- ifelse(
+  zonenut_df$Mn_LatFlowFertKm > 0,
+  (1 - zonenut_df$Mn_FertDissFrac) * zonenut_df$Mn_FertOnSoil * zonenut_df$Rain_RunOffZn /
+    (zonenut_df$Rain_RunOffZn + zonenut_df$Mn_LatFlowFertKm),
+  0
+)
+
+# BN_RunOff[SlNut] = Mn_RunOffFert[Zn1,SlNut]
+nut_df$BN_RunOff <- zonenut_df[zonenut_df$zone == 1, ]$Mn_RunOffFert
+
+# BN_StocksTotInit[SlNut] = BN_SOMInit[SlNut]+BN_LitInit[SlNut]+BN_StockInit[SlNut]+BN_ImmInit[SlNut]
+nut_df$BN_StocksTotInit <- nut_df$BN_SOMInit + nut_df$BN_LitInit + nut_df$BN_StockInit +
+  nut_df$BN_ImmInit
+
+# BN_TreeInc[N] = T_CanInit[N,Sp1]+T_GroInit[N,Sp1]+T_WoodIni[N,Sp1]+T_RootInit[N,Sp1]+T_CanInit[N,Sp2]+T_GroInit[N,Sp2]+T_WoodIni[N,Sp2]+T_RootInit[N,Sp2]+T_CanInit[N,Sp3]+T_GroInit[N,Sp3]+T_WoodIni[N,Sp3]+T_RootInit[N,Sp3]
+# BN_TreeInc[P] = T_CanInit[P,Sp1]+T_GroInit[P,Sp1]+T_WoodIni[P,Sp1]+T_RootInit[P,Sp1]+T_CanInit[P,Sp2]+T_GroInit[P,Sp2]+T_WoodIni[P,Sp2]+T_RootInit[P,Sp2]+T_CanInit[P,Sp3]+T_GroInit[P,Sp3]+T_WoodIni[P,Sp3]+T_RootInit[P,Sp3]
+tp_NP <- treepcomp_df[treepcomp_df$PlantComp %in% c("N", "P"), ]
+nut_df$BN_TreeInc <- aggregate(tp_NP$T_CanInit + tp_NP$T_GroInit + tp_NP$T_WoodIni +
+                                 tp_NP$T_RootInit,
+                               tp_NP["PlantComp"],
+                               sum)[[2]]
+
+# BN_TUptInc[SlNut,Tree] = T_NUptTot[SlNut,Tree]
+treenut_df$BN_TUptInc <- treenut_df$T_NUptTot
+
+# E_Erosiveness = GRAPH(E_SoilType)
+E_Erosiveness <- get_y_df(pars$E_par$E_SoilType, "E_Erosiveness")
+
+# E_Rain05[Zone] = Rain_In[Zone]*E_RainFac
+zone_df$E_Rain05 <- zone_df$Rain_In * pars$E_par$E_RainFac
+
+# E_SlopeFac[Zone] = GRAPH(AF_SlopeCurr[Zone])
+zone_df$E_SlopeFac <- get_y_df(zone_df$AF_SlopeCurr, "E_SlopeFac")
+
+# E_ErosUSLE[Zone] = (E_Erosiveness*E_Rain05[Zone]*(1- min(1,E_CoverSum[Zone]))*E_SlopeFac[Zone])/365*10
+zone_df$E_ErosUSLE <- (E_Erosiveness * zone_df$E_Rain05 * (1 - pmin(1, zone_df$E_CoverSum)) *
+                         zone_df$E_SlopeFac) / 365 * 10
+
+# E_SoilMovPlou[Zone] = if E_PloughTime?[Zone]=1  then E_TillZone?[Zone]*E_SoilMovperPlou else 0
+zone_df$E_SoilMovPlou <- ifelse(zone_df$E_PloughTime_is == 1,
+                                zone_df$E_TillZone_is * pars$E_par$E_SoilMovperPlou,
+                                0)
+
+# Rain_EventRunoff[Zone] = Rain_RunOffZn[Zone]
+zone_df$Rain_EventRunoff <- zone_df$Rain_RunOffZn
+
+# E_CoverFac[Zone] = min(1,E_CoverSum[Zone])
+zone_df$E_CoverFac <- pmin(1, zone_df$E_CoverSum)
+
+# E_SedConcinRunOff[Zone] = 2700*SIN(arctan(AF_SlopeCurr[Zone]/100))*(1.0-(E_CoverFac[Zone]))*E_EntrailmentCoeffBarePlot*(EXP(-15*E_CoverFac[Zone]))/100
+zone_df$E_SedConcinRunOff <- 2700 * sin(atan(zone_df$AF_SlopeCurr / 100)) *
+  (1.0 - (zone_df$E_CoverFac)) * pars$E_par$E_EntrailmentCoeffBarePlot * (exp(-15 *
+                                                                                zone_df$E_CoverFac)) / 100
+
+# E_ErosRose[Zone] = (Rain_EventRunoff[Zone]*E_SedConcinRunOff[Zone])/10
+zone_df$E_ErosRose <- (zone_df$Rain_EventRunoff * zone_df$E_SedConcinRunOff) /
+  10
+
+# E_SoilMoveCurr[Zone] = if E_ErosiType = 1 then  MIN(BS_SoilCurrZn[Zone],E_ErosUSLE[Zone]+E_SoilMovPlou[Zone]) else MIN(BS_SoilCurrZn[Zone],E_ErosRose[Zone]+E_SoilMovPlou[Zone])
+zone_df$E_ErosiType <- pars$E_par$E_ErosiType
+zone_df$E_SoilMoveCurr <- ifelse(
+  pars$E_par$E_ErosiType == 1,
+  pmin(
+    zone_df$BS_SoilCurrZn,
+    zone_df$E_ErosUSLE + zone_df$E_SoilMovPlou
+  ),
+  pmin(
+    zone_df$BS_SoilCurrZn,
+    zone_df$E_ErosRose + zone_df$E_SoilMovPlou
+  )
+)
+
+# E_SedConAvg = AF_ZoneFrac[Zn1]*E_SedConcinRunOff[Zn1]+AF_ZoneFrac[Zn2]*E_SedConcinRunOff[Zn2]+AF_ZoneFrac[Zn3]*E_SedConcinRunOff[Zn3]+AF_ZoneFrac[Zn4]*E_SedConcinRunOff[Zn4]
+E_SedConAvg <- sum(zone_df$AF_ZoneFrac * zone_df$E_SedConcinRunOff)
+
+# E_SoilInflow[Zn1] = E_SoilMoveCurr[Zn2]*AF_LatInFlowRatio[Zn1]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
+# E_SoilInflow[Zn2] = E_SoilMoveCurr[Zn3]*AF_LatInFlowRatio[Zn2]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
+# E_SoilInflow[Zn3] = E_SoilMoveCurr[Zn4]*AF_LatInFlowRatio[Zn3]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
+# E_SoilInflow[Zn4] = LF_RunOn*E_SedConAvg*E_RelSedConcRunOn*AF_LatInFlowRatio[Zn4]+0*E_SoilMoveCurr[Zn4]
+zone_df$E_SoilInflow <- c(zone_df[zone_df$zone %in% c(2:4), ]$E_SoilMoveCurr,
+                          LF_RunOn * E_SedConAvg * pars$E_par$E_RelSedConcRunOn) *
+  zone_df$AF_LatInFlowRatio
+
+# E_SoilLoss[Zone] = E_SoilMoveCurr[Zone]
+zone_df$E_SoilLoss <- zone_df$E_SoilMoveCurr
+
+# BS_SoilIncr[Zone] = E_SoilInflow[Zone]-E_SoilLoss[Zone]
+zone_df$BS_SoilIncr <- zone_df$E_SoilInflow - zone_df$E_SoilLoss
+
+# BW_Evap = AF_ZoneFrac[Zn1]*Evap_Surf[Zn1]+AF_ZoneFrac[Zn2]*Evap_Surf[Zn2]+AF_ZoneFrac[Zn3]*Evap_Surf[Zn3]+AF_ZoneFrac[Zn4]*Evap_Surf[Zn4]
+BW_Evap <- sum(zone_df$AF_ZoneFrac * zone_df$Evap_Surf)
+
+# BW_RunOff = Rain_RunOff
+BW_RunOff <- Rain_RunOff
+
+# BW_RunOn = LF_RunOn/AF_ZoneTot
+BW_RunOn <- LF_RunOn / AF_ZoneTot
+
+# BW_UptC = (1-Cq_WeedZn?[Zn1])*CW_UptTot[Zn1]*AF_ZoneFrac[Zn1]+(1-Cq_WeedZn?[Zn2])*CW_UptTot[Zn2]*AF_ZoneFrac[Zn2]+(1-Cq_WeedZn?[Zn3])*CW_UptTot[Zn3]*AF_ZoneFrac[Zn3]+(1-Cq_WeedZn?[Zn4])*AF_ZoneFrac[Zn4]*CW_UptTot[Zn4]
+BW_UptC <- sum((1 - zone_df$Cq_WeedZn_is) * zone_df$CW_UptTot * zone_df$AF_ZoneFrac)
+
+# BW_UptT[Tree] = TW_UptTot[Tree]'
+tree_df$BW_UptT <- tree_df$TW_UptTot
+
+# BW_WeedEvap = Cq_WeedZn?[Zn1]*CW_UptTot[Zn1]*AF_ZoneFrac[Zn1]+Cq_WeedZn?[Zn2]*CW_UptTot[Zn2]*AF_ZoneFrac[Zn2]+Cq_WeedZn?[Zn3]*CW_UptTot[Zn3]*AF_ZoneFrac[Zn3]+Cq_WeedZn?[Zn4]*CW_UptTot[Zn4]*AF_ZoneFrac[Zn4]
+BW_WeedEvap <- sum(zone_df$Cq_WeedZn_is * zone_df$CW_UptTot * zone_df$AF_ZoneFrac)
+
+
+# C_AgYieldAcc[Zn1,Type1] = if Cq_CType[Zn1] = 1 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
+# C_AgYieldAcc[Zn1,Type2] = if Cq_CType[Zn1] = 2 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
+# C_AgYieldAcc[Zn1,Type3] = if Cq_CType[Zn1] = 3 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
+# C_AgYieldAcc[Zn1,Type4] = if Cq_CType[Zn1] = 4 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
+# C_AgYieldAcc[Zn1,Type5] = if Cq_CType[Zn1] = 5 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
+# C_AgYieldAcc[Zn2,Type1] = if Cq_CType[Zn2] = 1 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
+# C_AgYieldAcc[Zn2,Type2] = if Cq_CType[Zn2] = 2 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
+# C_AgYieldAcc[Zn2,Type3] = if Cq_CType[Zn2] = 3 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
+# C_AgYieldAcc[Zn2,Type4] = if Cq_CType[Zn2] = 4 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
+# C_AgYieldAcc[Zn2,Type5] = if Cq_CType[Zn2] = 5 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
+# C_AgYieldAcc[Zn3,Type1] = if Cq_CType[Zn3] = 1 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
+# C_AgYieldAcc[Zn3,Type2] = if Cq_CType[Zn3] = 2 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
+# C_AgYieldAcc[Zn3,Type3] = if Cq_CType[Zn3] = 3 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
+# C_AgYieldAcc[Zn3,Type4] = if Cq_CType[Zn3] = 4 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
+# C_AgYieldAcc[Zn3,Type5] = if Cq_CType[Zn3] = 5 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
+# C_AgYieldAcc[Zn4,Type1] = if Cq_CType[Zn4] = 1 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
+# C_AgYieldAcc[Zn4,Type2] = if Cq_CType[Zn4] = 2 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
+# C_AgYieldAcc[Zn4,Type3] = if Cq_CType[Zn4] = 3 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
+# C_AgYieldAcc[Zn4,Type4] = if Cq_CType[Zn4] = 4 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
+# C_AgYieldAcc[Zn4,Type5] = if Cq_CType[Zn4] = 5 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
+zone_df$C_AgYieldAcc <- ifelse(zone_df$Cq_CType == 1,
+                               zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Yield / (1 - zone_df$Cq_AgronYieldMoistFrac),
+                               0)
+zonecrop_df$C_AgYieldAcc <- rep(zone_df$C_AgYieldAcc, ncrop)
+
+# C_YieldInc[Zone,PlantComp] = IF(C_PlantDiesToday?[Zone]=0)THEN( C_GroResMobFrac*Cq_CHarvAllocCurr[Zone]*C_GroRes[Zone,PlantComp])ELSE(0)
+zonepcomp_df$C_YieldInc <- ifelse(
+  zonepcomp_df$C_PlantDiesToday_is == 0,
+  pars$C_par$C_GroResMobFrac * zonepcomp_df$Cq_CHarvAllocCurr * zonepcomp_df$C_GroRes,
+  0
+)
+
+# CW_HydFluxPosTot[Zone] = CW_PotFluxSum[Zone]*CW_ScalingFacPos[Zone]
+zone_df$CW_HydFluxPosTot <- zone_df$CW_PotFluxSum * zone_df$CW_ScalingFacPos
+
+# Cent_ExtInpNInc[SlNut] = AF_ZoneFrac[Zn1]*(Mn_ExtOrgInpN[Zn1,SlNut])+AF_ZoneFrac[Zn2]*(Mn_ExtOrgInpN[Zn2,SlNut])+AF_ZoneFrac[Zn3]*(Mn_ExtOrgInpN[Zn3,SlNut])+AF_ZoneFrac[Zn4]*(Mn_ExtOrgInpN[Zn4,SlNut])
+nut_df$Cent_ExtInpNInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_ExtOrgInpN,
+                                    zonenut_df["SlNut"],
+                                    sum)[[2]]
+
+# Cent_LitterNInc[SlNut] = AF_ZoneFrac[Zn1]*(Mn_LitInpN[Zn1,SlNut])+AF_ZoneFrac[Zn2]*(Mn_LitInpN[Zn2,SlNut])+AF_ZoneFrac[Zn3]*(Mn_LitInpN[Zn3,SlNut])+AF_ZoneFrac[Zn4]*(Mn_LitInpN[Zn4,SlNut])
+nut_df$Cent_LitterNInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_LitInpN,
+                                    zonenut_df["SlNut"],
+                                    sum)[[2]]
+
+# Cent_NInc[SlNut] = AF_ZoneFrac[Zn1]*Mn_Mineralization[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn_Mineralization[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn_Mineralization[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn_Mineralization[Zn4,SlNut]
+nut_df$Cent_NInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_Mineralization,
+                              zonenut_df["SlNut"],
+                              sum)[[2]]
+
+# Mn_TotLitSomTrans[Zone,SlNut] = Mn_Act_LitSomTrans[Zone,SlNut]+Mn_Met_LitSomTrans[Zone,SlNut]+Mn_Pas_LitSomTrans[Zone,SlNut]+Mn_Slw_LitSomTrans[Zone,SlNut]+Mn_Str_LitSomTrans[Zone,SlNut]
+zonenut_df$Mn_TotLitSomTrans <- zonenut_df$Mn_Act_LitSomTrans + zonenut_df$Mn_Met_LitSomTrans + zonenut_df$Mn_Pas_LitSomTrans +
+  zonenut_df$Mn_Slw_LitSomTrans + zonenut_df$Mn_Str_LitSomTrans
+
+# Cent2LitSomAcc[SlNut] = AF_ZoneFrac[Zn1]*Mn_TotLitSomTrans[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn_TotLitSomTrans[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn_TotLitSomTrans[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn_TotLitSomTrans[Zn4,SlNut]
+nut_df$Cent2LitSomAcc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_TotLitSomTrans,
+                                   zonenut_df["SlNut"],
+                                   sum)[[2]]
+
+
+
+# Mn2_CentMinFlows[Zn1,N] = arraysum(Mn2_SomMinExch[Zn1,*]) + 0*arraysum(MP2_SomMinExch[Zn1,*])
+# Mn2_CentMinFlows[Zn1,P] = 0*arraysum(Mn2_SomMinExch[Zn1,*]) + arraysum(MP2_SomMinExch[Zn1,*])
+# Mn2_CentMinFlows[Zn2,N] = arraysum(Mn2_SomMinExch[Zn2,*]) +0* arraysum(MP2_SomMinExch[Zn2,*])
+# Mn2_CentMinFlows[Zn2,P] = 0*arraysum(Mn2_SomMinExch[Zn2,*]) + arraysum(MP2_SomMinExch[Zn2,*])
+# Mn2_CentMinFlows[Zn3,N] = arraysum(Mn2_SomMinExch[Zn3,*]) + 0*arraysum(MP2_SomMinExch[Zn3,*])
+# Mn2_CentMinFlows[Zn3,P] = 0*arraysum(Mn2_SomMinExch[Zn3,*]) + arraysum(MP2_SomMinExch[Zn3,*])
+# Mn2_CentMinFlows[Zn4,N] = arraysum(Mn2_SomMinExch[Zn4,*]) + 0*arraysum(MP2_SomMinExch[Zn4,*])
+# Mn2_CentMinFlows[Zn4,P] = 0*arraysum(Mn2_SomMinExch[Zn4,*]) + arraysum(MP2_SomMinExch[Zn4,*])
+zonenut_df$Mn2_CentMinFlows <- NA
+zonenut_df[zonenut_df$SlNut == "N", ]$Mn2_CentMinFlows <- aggregate(zonelayer_df["Mn2_SomMinExch"], zonelayer_df["zone"], sum)$Mn2_SomMinExch
+zonenut_df[zonenut_df$SlNut == "P", ]$Mn2_CentMinFlows <- aggregate(zonelayer_df["Mp2_SomMinExch"], zonelayer_df["zone"], sum)$Mp2_SomMinExch
+
+# Cent2_Ninc[SlNut] = AF_ZoneFrac[Zn1]*Mn2_CentMinFlows[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn2_CentMinFlows[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn2_CentMinFlows[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn2_CentMinFlows[Zn4,SlNut]
+nut_df$Cent2_Ninc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn2_CentMinFlows,
+                               zonenut_df["SlNut"],
+                               sum)[[2]]
+
+# MP2_OrgInpRtP[Zone,SoilLayer] = C_RtDecay_P[Zone,SoilLayer]+T_RtDec_P[Zone,SoilLayer]
+zonelayer_df$Mp2_OrgInpRtP <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "P", ]$C_RtDecay + zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "P", ]$T_RtDec
+
+# Cent2_SOMNInc[N] = AF_ZoneFrac[Zn1]*(ARRAYSUM(Mn2_OrgInpRtN[Zn1,*]))+AF_ZoneFrac[Zn2]*(ARRAYSUM(Mn2_OrgInpRtN[Zn2,*]))+AF_ZoneFrac[Zn3]*(ARRAYSUM(Mn2_OrgInpRtN[Zn3,*]))+AF_ZoneFrac[Zn4]*(ARRAYSUM(Mn2_OrgInpRtN[Zn4,*]))+0*MP2_OrgInpRtP[Zn1,1]
+# Cent2_SOMNInc[P] = AF_ZoneFrac[Zn1]* ARRAYSUM(MP2_OrgInpRtP[Zn1,*])+ AF_ZoneFrac[Zn2]* ARRAYSUM(MP2_OrgInpRtP[Zn2,*]) +AF_ZoneFrac[Zn3]* ARRAYSUM(MP2_OrgInpRtP[Zn3,*])+ AF_ZoneFrac[Zn4]* ARRAYSUM(MP2_OrgInpRtP[Zn4,*])+0*Mn2_OrgInpRtN[Zn1,1]
+nut_df$Cent2_SOMNInc <- NA
+nut_df[nut_df$SlNut == "N", ]$Cent2_SOMNInc <- sum(zone_df$AF_ZoneFrac *
+                                                     aggregate(zonelayer_df$Mn2_OrgInpRtN, zonelayer_df["zone"], sum)[[2]])
+nut_df[nut_df$SlNut == "P", ]$Cent2_SOMNInc <- sum(zone_df$AF_ZoneFrac *
+                                                     aggregate(zonelayer_df$Mp2_OrgInpRtP, zonelayer_df["zone"], sum)[[2]])
+
+# CW_YDayWUotChange[Zone] = if Rt_CAmount[Zone]<>0 then -CW_DemandPerRoot[Zone]+CW_DemandPot[Zone]/Rt_CAmount[Zone] else 0
+zone_df$CW_YDayWUotChange <- ifelse(
+  zone_df$Rt_CAmount != 0,
+  -zone_df$CW_DemandPerRoot + zone_df$CW_DemandPot / zone_df$Rt_CAmount,
+  0
+)
+
+# E_PloughEvent = if time = int(E_PloughTimeCal) then +1 else if time > E_PloughTimeCal +1 then +1 else 0
+E_PloughEvent <- ifelse(time == floor(E_PloughTimeCal),
+                        1,
+                        ifelse(time > E_PloughTimeCal + 1, 1, 0))
+
+# Evap_SlashInit[Zone] = Evap_InitSlashM*S&B_SlashVegetation[Zone,DW]-S&B_DailyNecromLitTransfer*Evap_SlashWater[Zone]
+zone_df$Evap_SlashInit <- pars$Evap_par$Evap_InitSlashM * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$SB_SlashVegetation - pars$SB_par$SB_DailyNecromLitTransfer * zone_df$Evap_SlashWater
+
+# S&B_DeadWoodIncr[Zone,PlantComp] = ARRAYSUM(T_WoodSlashed[PlantComp,*])
+zonepcomp_df$SB_DeadWoodIncr <- rep(aggregate(treepcomp_df$T_WoodSlashed, treepcomp_df["PlantComp"], sum)[[2]],
+                                    each = nzone)
+
+# Evap_InitWoodMoist[Zone] = Evap_InitWoodM*S&B_DeadWoodIncr[Zone,DW]-S&B_DailyDeadWoodLitTransfer*Evap_WoodMoist[Zone]
+zone_df$Evap_InitWoodMoist <- pars$Evap_par$Evap_InitWoodM * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$SB_DeadWoodIncr - pars$SB_par$SB_DailyDeadWoodLitTransfer *
+  zone_df$Evap_WoodMoist
+
+# Evap_FromDeadWood[Zone] = Evap_WoodDryFact*(S&B_FirEvapS&W[Zone])*Evap_WoodMoist[Zone]+min(max(0,Evap_Pot-Rain_InterceptEvapAvg-Evap_SlashEvap[Zone]-Evap_Surf[Zone]),Evap_WoodMoist[Zone])
+zone_df$Evap_FromDeadWood <- pars$Evap_par$Evap_WoodDryFact * zone_df$SB_FirEvapSW * zone_df$Evap_WoodMoist +
+  pmin(
+    pmax(
+      0,
+      Evap_Pot - Rain_InterceptEvapAvg - zone_df$Evap_SlashEvap - zone_df$Evap_Surf
+    ),
+    zone_df$Evap_WoodMoist
+  )
+
+# TW_UptTotAll = ARRAYSUM(TW_UptTot[*])
+TW_UptTotAll <- sum(tree_df$TW_UptTot)
+
+# Evap_TTranspHist = -Evap_YesterdayTTransp+TW_UptTotAll
+Evap_TTranspHist <- -Evap_YesterdayTTransp + TW_UptTotAll
+
+# G_GrazeAccess[Zone] = if G_Graze_Zn_?[Zone] = 1 then 1 else if Cq_Stage[Zone]<>0 then 0 else if G_Graze_Offseason? = 1 then 1 else 0
+zone_df$G_Graze_Offseason_is <- pars$G_par$G_Graze_Offseason_is
+zone_df$G_GrazeAccess <- ifelse(zone_df$G_Graze_Zn_is == 1,
+                                1,
+                                ifelse(
+                                  zone_df$Cq_Stage != 0,
+                                  0,
+                                  ifelse(zone_df$G_Graze_Offseason_is == 1, 1, 0)
+                                ))
+
+# G_BiomDep[Zone] = GRAPH(C_BiomStLv[Zone,DW])
+zone_df$G_BiomDep <- get_y_df(zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv, "G_BiomDep")
+
+# G_Ndep[Zone] = GRAPH(C_BiomStLv[Zone,N]/(C_BiomStLv[Zone,DW]+0.0001))
+zone_df$G_Ndep <- get_y_df(zonepcomp_df[zonepcomp_df$PlantComp == "N", ]$C_BiomStLv /
+                             (zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv + 0.0001),
+                           "G_Ndep")
+
+# G_StageDep[Zone] = GRAPH(Cq_Stage[Zone])
+zone_df$G_StageDep <- get_y_df(zone_df$Cq_Stage, "G_StageDep")
+
+# G_AttrractGrasStL[Zone] = G_GrazeAccess[Zone]*C_BiomStLv[Zone,DW]*AF_ZoneFrac[Zone]*G_BiomDep[Zone]*G_Ndep[Zone]*G_StageDep[Zone]
+zone_df$G_AttrractGrasStL <- zone_df$G_GrazeAccess * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv * zone_df$AF_ZoneFrac * zone_df$G_BiomDep * zone_df$G_Ndep * zone_df$G_StageDep
+
+# G_Pasture_Available = ARRAYSUM(G_AttrractGrasStL[*])
+G_Pasture_Available <- sum(zone_df$G_AttrractGrasStL)
+
+# G_GrazeToday? = if G_Grazing_Cycle<>0 then  if mod(time,G_Grazing_Cycle)=0 then G_Grazing_Cycle else 0 else 0
+G_GrazeToday_is <- ifelse(pars$G_par$G_Grazing_Cycle != 0,
+                          ifelse((time %% pars$G_par$G_Grazing_Cycle) == 0,
+                                 pars$G_par$G_Grazing_Cycle,
+                                 0
+                          ),
+                          0)
+
+# G_GrazingPressure = if G_Pasture_Available> 0 then G_GrazeToday? * G_StockingRate_per_ha*0.0001*G_StockingRate_per_ha* G_DayDempKgDay[DW]*G_SLU/G_Pasture_Available else 0
+G_GrazingPressure <- ifelse(
+  G_Pasture_Available > 0,
+  G_GrazeToday_is * pars$G_par$G_StockingRate_per_ha * 0.0001 * pars$G_par$G_StockingRate_per_ha * pcomp_df[pcomp_df$PlantComp == "DW", ]$G_DayDempKgDay *
+    pars$G_par$G_SLU / G_Pasture_Available,
+  0
+)
+
+# G_ZoneGrazeFrac[Zone] = if G_Pasture_Available> 0 then G_GrazingPressure*G_AttrractGrasStL[Zone]/G_Pasture_Available else 0
+zone_df$G_ZoneGrazeFrac <- ifelse(
+  G_Pasture_Available > 0,
+  G_GrazingPressure * zone_df$G_AttrractGrasStL / G_Pasture_Available,
+  0
+)
+
+# G_GrazedPerZone[Zone,PlantComp] = C_BiomStLv[Zone,PlantComp]*G_ZoneGrazeFrac[Zone]
+zonepcomp_df$G_ZoneGrazeFrac <- rep(zone_df$G_ZoneGrazeFrac, nrow(pcomp_df))
+zonepcomp_df$G_GrazedPerZone <- zonepcomp_df$C_BiomStLv * zonepcomp_df$G_ZoneGrazeFrac
+
+# G_BiomassGrazed[PlantComp] = AF_ZoneFrac[Zn1]*G_GrazedPerZone[Zn1,PlantComp]+AF_ZoneFrac[Zn2]*G_GrazedPerZone[Zn2,PlantComp]+AF_ZoneFrac[Zn3]*G_GrazedPerZone[Zn3,PlantComp]+AF_ZoneFrac[Zn4]*G_GrazedPerZone[Zn4,PlantComp]
+zonepcomp_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(pcomp_df))
+pcomp_df$G_BiomassGrazed <- aggregate(zonepcomp_df$AF_ZoneFrac * zonepcomp_df$G_GrazedPerZone,
+                                      zonepcomp_df["PlantComp"],
+                                      sum)[[2]]
+
+# G_Feed_Sufficiency[PlantComp] = if (G_StockingRate_per_ha*G_DayDempKgDay[PlantComp])>0 then G_BiomassGrazed[PlantComp]/(G_StockingRate_per_ha*G_DayDempKgDay[PlantComp]) else 0
+pcomp_df$G_Feed_Sufficiency <- ifelse (
+  pars$G_par$G_StockingRate_per_ha * pcomp_df$G_DayDempKgDay > 0,
+  pcomp_df$G_BiomassGrazed / (pars$G_par$G_StockingRate_per_ha *
+                                pcomp_df$G_DayDempKgDay),
+  0
+)
+
+# G_ManureProd[DW] = G_BiomassGrazed[DW]*(1-G_AnimRespFrac[DW]-G_AnmWGfrac[DW])
+# G_ManureProd[N] = G_BiomassGrazed[N]*(1-G_AnimRespFrac[N]-G_AnmWGfrac[N])
+# G_ManureProd[P] = G_BiomassGrazed[P]*(1-G_AnimRespFrac[P]-G_AnmWGfrac[P])
+pcomp_df$G_ManureProd <- pcomp_df$G_BiomassGrazed * (1 - pcomp_df$G_AnimRespFrac -
+                                                       pcomp_df$G_AnmWGfrac)
+
+# G_GrazeResp[DW] = G_BiomassGrazed[DW]*G_AnimRespFrac[DW]
+# G_GrazeResp[N] = G_BiomassGrazed[N]*G_AnimRespFrac[N]
+# G_GrazeResp[P] = G_BiomassGrazed[P]*G_AnimRespFrac[P]
+pcomp_df$G_GrazeResp <- pcomp_df$G_BiomassGrazed * pcomp_df$G_AnimRespFrac
+
+# G_Animal_Weight_Gain[DW] = G_BiomassGrazed[DW]*G_AnmWGfrac[DW]
+# G_Animal_Weight_Gain[N] = G_BiomassGrazed[N]*G_AnmWGfrac[N]
+# G_Animal_Weight_Gain[P] = G_BiomassGrazed[P]*G_AnmWGfrac[P]
+pcomp_df$G_Animal_Weight_Gain <- pcomp_df$G_BiomassGrazed * pcomp_df$G_AnmWGfrac
+
+# GHG_AnaerobIndicCh[Zone] = GHG_AnaerobMem*GHG_AnaerobIndic[Zone]-(1-GHG_AnaerobMem)*(
+#   GHG_AnaerobLayerW[1]*MAX(0,W_WaterfilledPoreF1[Zone]-GHG_AnaeroThresh)+
+#     GHG_AnaerobLayerW[2]*MAX(0,W_WaterfilledPoreF2[Zone]-GHG_AnaeroThresh)+
+#     GHG_AnaerobLayerW[3]*MAX(0,W_WaterfilledPoreF3[Zone]-GHG_AnaeroThresh)+
+#     GHG_AnaerobLayerW[4]*MAX(0,W_WaterfilledPoreF4[Zone]-GHG_AnaeroThresh))
+zonelayer_df$GHG_AnaerobLayerW <- rep(layer_df$GHG_AnaerobLayerW, each = nzone)
+zone_df$GHG_AnaerobIndicCh <- pars$GHG_par$GHG_AnaerobMem * zone_df$GHG_AnaerobIndic -
+  (1 - pars$GHG_par$GHG_AnaerobMem) *
+  aggregate(
+    zonelayer_df$GHG_AnaerobLayerW * pmax(
+      0,
+      zonelayer_df$W_WaterfilledPoreF - pars$GHG_par$GHG_AnaeroThresh
+    ),
+    zonelayer_df["zone"],
+    sum
+  )[[2]]
+
+# GHG_CH4FluxZn[Zone] = -GHG_PotCH4oxid+(GHG_PotCH4oxid-GHG_PotCH4Em)*(1-GHG_EffWaterfPoreF[Zone])/(1-GHG_EffWaterfPoreF[Zone]+GHG_CH4_Km)
+zone_df$GHG_CH4FluxZn <- -pars$GHG_par$GHG_PotCH4oxid + (pars$GHG_par$GHG_PotCH4oxid - pars$GHG_par$GHG_PotCH4Em) *
+  (1 - zone_df$GHG_EffWaterfPoreF) / (1 - zone_df$GHG_EffWaterfPoreF + pars$GHG_par$GHG_CH4_Km)
+
+# W_H1DrainF = W_H1Drain[Zn1]
+# W_H2DrainF = W_H2Drain[Zn1]
+# W_H3DrainF = W_H3Drain[Zn1]
+# W_H4DrainF = W_H4Drain[Zn1]
+layer_df$W_HDrainF <- zonelayer_df[zonelayer_df$zone == 1, ]$W_HDrain
+
+# LF_LatAc1 = LF_Lat4Inflow1
+# LF_LatAc2 = LF_Lat4Inflow2
+# LF_LatAc3 = LF_Lat4Inflow3
+# LF_LatAc4 = LF_Lat4Inflow4
+layer_df$LF_LatAc <- layer_df$LF_Lat4Inflow
+
+# Light_CRefRelCap[Zone] = 1-EXP(-Cq_kLightCurr[Zone]*C_LAI[Zone])
+zone_df$Light_CRefRelCap <- 1 - exp(-zone_df$Cq_kLightCurr * zone_df$C_LAI)
+
+# Light_CCapRelInc[Zone] = if Cq_WeedZn?[Zone] = 1 then 0 else if Light_CRefRelCap[Zone] = 0 then 0 else if Light_CRelCap[Zone] > Cq_RelLightMaxCurr[Zone] then 1 else min(Light_CRelCap[Zone],Cq_RelLightMaxCurr[Zone])/min(Light_CRefRelCap[Zone],Cq_RelLightMaxCurr[Zone])
+zone_df$Light_CCapRelInc <- ifelse(zone_df$Cq_WeedZn_is == 1,
+                                   0,
+                                   ifelse(
+                                     zone_df$Light_CRefRelCap == 0,
+                                     0,
+                                     ifelse(
+                                       zone_df$Light_CRelCap > zone_df$Cq_RelLightMaxCurr,
+                                       1,
+                                       pmin(zone_df$Light_CRelCap, zone_df$Cq_RelLightMaxCurr) / pmin(zone_df$Light_CRefRelCap, zone_df$Cq_RelLightMaxCurr)
+                                     )
+                                   ))
+
+# Mn_FertNZn[Zone,SlNut] = Ca_FertNZn[Zone,SlNut]
+zonenut_df$Mn_FertNZn <- zonenut_df$Ca_FertNZn
+
+# Mn_LatFlowFert[Zn1,N] = -Mn_RunOffFert[Zn2,N]*AF_LatInFlowRatio[Zn1]+Mn_RunOffFert[Zn1,N]
+# Mn_LatFlowFert[Zn1,P] = -Mn_RunOffFert[Zn2,P]*AF_LatInFlowRatio[Zn1]+Mn_RunOffFert[Zn1,P]
+# Mn_LatFlowFert[Zn2,N] = -Mn_RunOffFert[Zn3,N]*AF_LatInFlowRatio[Zn2]+Mn_RunOffFert[Zn2,N]
+# Mn_LatFlowFert[Zn2,P] = -Mn_RunOffFert[Zn3,P]*AF_LatInFlowRatio[Zn2]+Mn_RunOffFert[Zn2,P]
+# Mn_LatFlowFert[Zn3,N] = -Mn_RunOffFert[Zn4,N]*AF_LatInFlowRatio[Zn3]+Mn_RunOffFert[Zn3,N]
+# Mn_LatFlowFert[Zn3,P] = -Mn_RunOffFert[Zn4,P]*AF_LatInFlowRatio[Zn3]+Mn_RunOffFert[Zn3,P]
+# Mn_LatFlowFert[Zn4,N] = Mn_RunOffFert[Zn4,N]+0*AF_LatInFlowRatio[Zn4]
+# Mn_LatFlowFert[Zn4,P] = Mn_RunOffFert[Zn4,P]+0*AF_LatInFlowRatio[Zn4]
+zonenut_df$Mn_RunOffFert_right <- NA
+zonenut_df[zonenut_df$zone %in% c(1, 2, 3), ]$Mn_RunOffFert_right <- zonenut_df[zonenut_df$zone %in% c(2, 3, 4), ]$Mn_RunOffFert
+zonenut_df$AF_LatInFlowRatio <- rep(zone_df$AF_LatInFlowRatio, nrow(nut_df))
+zonenut_df$Mn_LatFlowFert <- -zonenut_df$Mn_RunOffFert_right * zonenut_df$AF_LatInFlowRatio +
+  zonenut_df$Mn_RunOffFert
+zonenut_df[zonenut_df$zone == 4, ]$Mn_LatFlowFert <- zonenut_df[zonenut_df$zone == 4, ]$Mn_RunOffFert
+
+# MP2_CNMetab[Zone,SoilLayer] = IF(MP2_Metab[Zone,SoilLayer]>0)THEN(Mc2_Metab[Zone,SoilLayer]/MP2_Metab[Zone,SoilLayer])ELSE(0)
+zonelayer_df$Mp2_CNMetab <- ifelse(zonelayer_df$Mp2_Metab > 0,
+                                   zonelayer_df$Mc2_Metab / zonelayer_df$Mp2_Metab,
+                                   0)
+
+# MP2_DecActMet[Zone,SoilLayer] = IF(MP2_CNMetab[Zone,SoilLayer]>0)THEN(Mc2_MetabActF[Zone,SoilLayer]/(Mc_EffMetab*MP2_CNMetab[Zone,SoilLayer]))ELSE(0)
+zonelayer_df$Mp2_DecActMet <- ifelse(
+  zonelayer_df$Mp2_CNMetab > 0,
+  zonelayer_df$Mc2_MetabActF / (pars$Mc_par$Mc_EffMetab * zonelayer_df$Mp2_CNMetab),
+  0
+)
+
+# MP2_DemActMet_P[Zone,SoilLayer] = Mc2_MetabActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
+zonelayer_df$Mp2_DemActMet_P <- zonelayer_df$Mc2_MetabActF / (pars$Mn_par$Mn_CNAct *
+                                                                nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
+
+# MP2_MetabActF[Zone,SoilLayer] = MIN(MP2_DecActMet[Zone,SoilLayer],MP2_DemActMet_P[Zone,SoilLayer])
+zonelayer_df$Mp2_MetabActF <- pmin(zonelayer_df$Mp2_DecActMet, zonelayer_df$Mp2_DemActMet_P)
+
+# MP2_DecActStP[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mc_EffStrucAct*Mn_CNStruc*Mn_NutRatStruc[P])
+zonelayer_df$Mp2_DecActStP <- zonelayer_df$Mc2_StrucActF / (pars$Mc_par$Mc_EffStrucAct * pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc)
+
+# MP2_DemActSt[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
+zonelayer_df$Mp2_DemActSt <- zonelayer_df$Mc2_StrucActF / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
+
+# MP2_StrucActF[Zone,SoilLayer] = MIN(MP2_DecActStP[Zone,SoilLayer],MP2_DemActSt[Zone,SoilLayer])
+zonelayer_df$Mp2_StrucActF <- pmin(zonelayer_df$Mp2_DecActStP, zonelayer_df$Mp2_DemActSt)
+
+# MP2_Act_SomTrans[Zn1,1] = (Mn_Act_LitSomTrans[Zn1,P]-MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1])
+# MP2_Act_SomTrans[Zn1,2] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]-MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2])
+# MP2_Act_SomTrans[Zn1,3] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]-MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3])
+# MP2_Act_SomTrans[Zn1,4] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]-MP2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4])
+# MP2_Act_SomTrans[Zn2,1] = (Mn_Act_LitSomTrans[Zn2,P]-MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1])
+# MP2_Act_SomTrans[Zn2,2] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]-MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2])
+# MP2_Act_SomTrans[Zn2,3] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]-MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3])
+# MP2_Act_SomTrans[Zn2,4] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]-MP2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4])
+# MP2_Act_SomTrans[Zn3,1] = (Mn_Act_LitSomTrans[Zn3,P]-MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1])
+# MP2_Act_SomTrans[Zn3,2] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]-MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2])
+# MP2_Act_SomTrans[Zn3,3] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]-MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3])
+# MP2_Act_SomTrans[Zn3,4] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]-MP2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4])
+# MP2_Act_SomTrans[Zn4,1] = (Mn_Act_LitSomTrans[Zn4,P]-MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1])
+# MP2_Act_SomTrans[Zn4,2] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]-MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2])
+# MP2_Act_SomTrans[Zn4,3] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]-MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3])
+# MP2_Act_SomTrans[Zn4,4] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]-MP2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4])
+zonelayer_df$Mp2_Act_SomTrans <- NA
+zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_Act_SomTrans <- zonenut_df[zonenut_df$SlNut == "P", ]$Mn_Act_LitSomTrans - zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_Act *
+  zonelayercpools_df[zonelayercpools_df$layer == 1 &
+                       zonelayercpools_df$Cent_Pools == "Actv", ]$Mc2_LayerTrans
+zonelayer_df$Mp2_Act_trans <- zonelayer_df$Mp2_Act * zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Actv", ]$Mc2_LayerTrans
+zonelayer_df[zonelayer_df$layer %in% c(2:4), ]$Mp2_Act_SomTrans <- zonelayer_df[zonelayer_df$layer %in% c(1:3), ]$Mp2_Act_trans - zonelayer_df[zonelayer_df$layer %in% c(2:4), ]$Mp2_Act_trans
+
+# MP2_CNActAct[Zone,SoilLayer] = IF(TIME>1)THEN (if MP2_Act[Zone,SoilLayer]>0 then (Mc2_Act[Zone,SoilLayer]/MP2_Act[Zone,SoilLayer])  else 100)  ELSE(Mn_CNAct*Mn_NutRatAct[P])
+zonelayer_df$Mp2_CNActAct <- ifelse(
+  time > 1,
+  ifelse(
+    zonelayer_df$Mp2_Act > 0,
+    zonelayer_df$Mc2_Act / zonelayer_df$Mp2_Act,
+    100
+  ),
+  pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct
+)
+
+# MP2_DecAct[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mc2_EffActSlw*MP2_CNActAct[Zone,SoilLayer])
+zonelayer_df$Mp2_DecAct <- zonelayer_df$Mc2_ActSlw / (Mc2_EffActSlw * zonelayer_df$Mp2_CNActAct)
+
+# MP2_ActSlw[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[P])
+zonelayer_df$Mp2_ActSlw <- zonelayer_df$Mc2_ActSlw / (pars$Mn_par$Mn_CNSlw *
+                                                        nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw)
+
+# MP2_ActPass[Zone,SoilLayer] = Mc2_ActPass[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[P])
+zonelayer_df$Mp2_ActPass <- zonelayer_df$Mc2_ActPass / (pars$Mn_par$Mn_CNPass *
+                                                          nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
+
+# MP2_ActMin[Zone,SoilLayer] = MIN(MAX(0,MP2_DecAct[Zone,SoilLayer]-MP2_ActSlw[Zone,SoilLayer]-MP2_ActPass[Zone,SoilLayer]),MP2_Act[Zone,SoilLayer])
+zonelayer_df$Mp2_ActMin <- pmin(
+  pmax(
+    0,
+    zonelayer_df$Mp2_DecAct - zonelayer_df$Mp2_ActSlw - zonelayer_df$Mp2_ActPass
+  ),
+  zonelayer_df$Mp2_Act
+)
+
+# MP2_ImmobAct[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,P],MAX(0,MP2_DemActMet_P[Zone,SoilLayer]-MP2_DecActMet[Zone,SoilLayer])+MAX(0,MP2_DemActSt[Zone,SoilLayer]-MP2_DecActStP[Zone,SoilLayer])+MAX(0,MP2_Act[Zone,SoilLayer]*MP2_CNActAct[Zone,SoilLayer]*(1/(Mn_CNAct*Mn_NutRatAct[P]) - 1/MP2_CNActAct[Zone,SoilLayer]) ))
+zonelayer_df$Mp2_ImmobAct <- pmin(
+  zonenut_df[zonenut_df$SlNut == "P", ]$Mn_MinNutpool,
+  pmax(0, zonelayer_df$Mp2_DemActMet_P - zonelayer_df$Mp2_DecActMet)
+  + pmax(0, zonelayer_df$Mp2_DemActSt - zonelayer_df$Mp2_DecActStP) +
+    pmax(
+      0,
+      zonelayer_df$Mp2_Act * zonelayer_df$Mp2_CNActAct * (
+        1 / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct) - 1 /
+          zonelayer_df$Mp2_CNActAct
+      )
+    )
+)
+
+# MP2_MinDueToS&B[Zn1,1] = S&B_SOMBurnFrac[Zn1]
+# MP2_MinDueToS&B[Zn1,2] = 0*S&B_SOMBurnFrac[Zn1]
+# MP2_MinDueToS&B[Zn1,3] = 0*S&B_SOMBurnFrac[Zn1]
+# MP2_MinDueToS&B[Zn1,4] = 0*S&B_SOMBurnFrac[Zn1]
+# MP2_MinDueToS&B[Zn2,1] = S&B_SOMBurnFrac[Zn2]
+# MP2_MinDueToS&B[Zn2,2] = 0*S&B_SOMBurnFrac[Zn2]
+# MP2_MinDueToS&B[Zn2,3] = 0*S&B_SOMBurnFrac[Zn2]
+# MP2_MinDueToS&B[Zn2,4] = 0*S&B_SOMBurnFrac[Zn2]
+# MP2_MinDueToS&B[Zn3,1] = S&B_SOMBurnFrac[Zn3]
+# MP2_MinDueToS&B[Zn3,2] = 0*S&B_SOMBurnFrac[Zn3]
+# MP2_MinDueToS&B[Zn3,3] = 0*S&B_SOMBurnFrac[Zn3]
+# MP2_MinDueToS&B[Zn3,4] = 0*S&B_SOMBurnFrac[Zn3]
+# MP2_MinDueToS&B[Zn4,1] = S&B_SOMBurnFrac[Zn4]
+# MP2_MinDueToS&B[Zn4,2] = 0*S&B_SOMBurnFrac[Zn4]
+# MP2_MinDueToS&B[Zn4,3] = 0*S&B_SOMBurnFrac[Zn4]
+# MP2_MinDueToS&B[Zn4,4] = 0*S&B_SOMBurnFrac[Zn4]
+zonelayer_df$Mp2_MinDueToSB <- 0
+zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_MinDueToSB <- zone_df$SB_SOMBurnFrac
+
+# MP2_ActMinF[Zone,SoilLayer] = IF (MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer])>0 THEN MIN((MP2_ActMin[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]),MP2_Act[Zone,SoilLayer]) ELSE IF (MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer])=0 THEN 0 ELSE -MIN(ABS(MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer] +MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer]),MP2_MinNutpool[Zone,SoilLayer])
+zonelayer_df$Mp2_ActMinF_a <- zonelayer_df$Mp2_ActMin - zonelayer_df$Mp2_ImmobAct + zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Act
+zonelayer_df$Mp2_ActMinF <- ifelse (
+  zonelayer_df$Mp2_ActMinF_a > 0,
+  pmin((
+    zonelayer_df$Mp2_ActMin + zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Act -
+      zonelayer_df$Mp2_ImmobAct
+  ),
+  zonelayer_df$Mp2_Act
+  ),
+  ifelse (
+    zonelayer_df$Mp2_ActMinF_a == 0,
+    0,
+    -pmin(
+      abs(zonelayer_df$Mp2_ActMinF_a),
+      zonelayer_df$Mp2_MinNutpool
+    )
+  )
+)
+
+# MP2_PassAct[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
+zonelayer_df$Mp2_PassAct <- zonelayer_df$Mc2_PassAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
+
+# MP2_ActPassF[Zone,SoilLayer] = MAX(0,MP2_ActPass[Zone,SoilLayer])-MAX(0,MP2_PassAct[Zone,SoilLayer])
+zonelayer_df$Mp2_ActPassF <- pmax(0, zonelayer_df$Mp2_ActPass) - pmax(0, zonelayer_df$Mp2_PassAct)
+
+# MP2_SlwAct[Zone,SoilLayer] = Mc2_SlwAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
+zonelayer_df$Mp2_SlwAct <- zonelayer_df$Mc2_SlwAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
+
+# MP2_ActSlwF[Zone,SoilLayer] = MAX(0,MP2_ActSlw[Zone,SoilLayer])-MAX(0,MP2_SlwAct[Zone,SoilLayer])
+zonelayer_df$Mp2_ActSlwF <- pmax(0, zonelayer_df$Mp2_ActSlw) - pmax(0, zonelayer_df$Mp2_SlwAct)
+
+# MP2_StrucIn[Zone,SoilLayer] = IF(MP2_OrgInpRtP[Zone,SoilLayer]>10^-7)THEN(Mc2_StrucIn[Zone,SoilLayer]/(Mn_CNStruc*Mn_NutRatStruc[P]))ELSE(0)
+zonelayer_df$Mp2_StrucIn <- ifelse(
+  zonelayer_df$Mp2_OrgInpRtP > 10^-7,
+  zonelayer_df$Mc2_StrucIn / (pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc),
+  0
+)
+
+# MP2_MetabIn[Zone,SoilLayer] = MP2_OrgInpRtP[Zone,SoilLayer]-MP2_StrucIn[Zone,SoilLayer]
+zonelayer_df$Mp2_MetabIn <- zonelayer_df$Mp2_OrgInpRtP - zonelayer_df$Mp2_StrucIn
+
+# MP2_Met_SomTrans[Zn1,1] = (Mn_Met_LitSomTrans[Zn1,P]-MP2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1])
+# MP2_Met_SomTrans[Zn1,2] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]-MP2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2])
+# MP2_Met_SomTrans[Zn1,3] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]-MP2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3])
+# MP2_Met_SomTrans[Zn1,4] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]-MP2_Metab[Zn1,4]*MC2_Met_LayerTrans[Zn1,4])
+# MP2_Met_SomTrans[Zn2,1] = (Mn_Met_LitSomTrans[Zn2,P]-MP2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1])
+# MP2_Met_SomTrans[Zn2,2] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]-MP2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2])
+# MP2_Met_SomTrans[Zn2,3] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]-MP2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3])
+# MP2_Met_SomTrans[Zn2,4] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]-MP2_Metab[Zn2,4]*MC2_Met_LayerTrans[Zn2,4])
+# MP2_Met_SomTrans[Zn3,1] = (Mn_Met_LitSomTrans[Zn3,P]-MP2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1])
+# MP2_Met_SomTrans[Zn3,2] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]-MP2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2])
+# MP2_Met_SomTrans[Zn3,3] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]-MP2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3])
+# MP2_Met_SomTrans[Zn3,4] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]-MP2_Metab[Zn3,4]*MC2_Met_LayerTrans[Zn3,4])
+# MP2_Met_SomTrans[Zn4,1] = (Mn_Met_LitSomTrans[Zn4,P]-MP2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1])
+# MP2_Met_SomTrans[Zn4,2] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]-MP2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2])
+# MP2_Met_SomTrans[Zn4,3] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]-MP2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3])
+# MP2_Met_SomTrans[Zn4,4] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]-MP2_Metab[Zn4,4]*MC2_Met_LayerTrans[Zn4,4])
+
+# MP2_Str_SomTrans[Zn1,1] = (Mn_Str_LitSomTrans[Zn1,P]-MP2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1])
+# MP2_Str_SomTrans[Zn1,2] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]-MP2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2])
+# MP2_Str_SomTrans[Zn1,3] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]-MP2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3])
+# MP2_Str_SomTrans[Zn1,4] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]-MP2_Struc[Zn1,4]*MC2_Struc_LayerTrans[Zn1,4])
+# MP2_Str_SomTrans[Zn2,1] = (Mn_Str_LitSomTrans[Zn2,P]-MP2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1])
+# MP2_Str_SomTrans[Zn2,2] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]-MP2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2])
+# MP2_Str_SomTrans[Zn2,3] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]-MP2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3])
+# MP2_Str_SomTrans[Zn2,4] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]-MP2_Struc[Zn2,4]*MC2_Struc_LayerTrans[Zn2,4])
+# MP2_Str_SomTrans[Zn3,1] = (Mn_Str_LitSomTrans[Zn3,P]-MP2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1])
+# MP2_Str_SomTrans[Zn3,2] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]-MP2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2])
+# MP2_Str_SomTrans[Zn3,3] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]-MP2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3])
+# MP2_Str_SomTrans[Zn3,4] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]-MP2_Struc[Zn3,4]*MC2_Struc_LayerTrans[Zn3,4])
+# MP2_Str_SomTrans[Zn4,1] = (Mn_Str_LitSomTrans[Zn4,P]-MP2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1])
+# MP2_Str_SomTrans[Zn4,2] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]-MP2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2])
+# MP2_Str_SomTrans[Zn4,3] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]-MP2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3])
+# MP2_Str_SomTrans[Zn4,4] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]-MP2_Struc[Zn4,4]*MC2_Struc_LayerTrans[Zn4,4])
+
+# MP2_Act_SomTrans[Zn1,1] = (Mn_Act_LitSomTrans[Zn1,P]-MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1])
+# MP2_Act_SomTrans[Zn1,2] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]-MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2])
+# MP2_Act_SomTrans[Zn1,3] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]-MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3])
+# MP2_Act_SomTrans[Zn1,4] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]-MP2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4])
+# MP2_Act_SomTrans[Zn2,1] = (Mn_Act_LitSomTrans[Zn2,P]-MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1])
+# MP2_Act_SomTrans[Zn2,2] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]-MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2])
+# MP2_Act_SomTrans[Zn2,3] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]-MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3])
+# MP2_Act_SomTrans[Zn2,4] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]-MP2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4])
+# MP2_Act_SomTrans[Zn3,1] = (Mn_Act_LitSomTrans[Zn3,P]-MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1])
+# MP2_Act_SomTrans[Zn3,2] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]-MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2])
+# MP2_Act_SomTrans[Zn3,3] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]-MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3])
+# MP2_Act_SomTrans[Zn3,4] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]-MP2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4])
+# MP2_Act_SomTrans[Zn4,1] = (Mn_Act_LitSomTrans[Zn4,P]-MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1])
+# MP2_Act_SomTrans[Zn4,2] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]-MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2])
+# MP2_Act_SomTrans[Zn4,3] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]-MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3])
+# MP2_Act_SomTrans[Zn4,4] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]-MP2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4])
+
+# MP2_Slw_SomTrans[Zn1,1] = (Mn_Slw_LitSomTrans[Zn1,P]-MP2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1])
+# MP2_Slw_SomTrans[Zn1,2] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]-MP2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2])
+# MP2_Slw_SomTrans[Zn1,3] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]-MP2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3])
+# MP2_Slw_SomTrans[Zn1,4] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]-MP2_Slw[Zn1,4]*MC2_Slow_LayerTrans[Zn1,4])
+# MP2_Slw_SomTrans[Zn2,1] = (Mn_Slw_LitSomTrans[Zn2,P]-MP2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1])
+# MP2_Slw_SomTrans[Zn2,2] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]-MP2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2])
+# MP2_Slw_SomTrans[Zn2,3] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]-MP2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3])
+# MP2_Slw_SomTrans[Zn2,4] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]-MP2_Slw[Zn2,4]*MC2_Slow_LayerTrans[Zn2,4])
+# MP2_Slw_SomTrans[Zn3,1] = (Mn_Slw_LitSomTrans[Zn3,P]-MP2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1])
+# MP2_Slw_SomTrans[Zn3,2] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]-MP2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2])
+# MP2_Slw_SomTrans[Zn3,3] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]-MP2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3])
+# MP2_Slw_SomTrans[Zn3,4] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]-MP2_Slw[Zn3,4]*MC2_Slow_LayerTrans[Zn3,4])
+# MP2_Slw_SomTrans[Zn4,1] = (Mn_Slw_LitSomTrans[Zn4,P]-MP2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1])
+# MP2_Slw_SomTrans[Zn4,2] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]-MP2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2])
+# MP2_Slw_SomTrans[Zn4,3] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]-MP2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3])
+# MP2_Slw_SomTrans[Zn4,4] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]-MP2_Slw[Zn4,4]*MC2_Slow_LayerTrans[Zn4,4])
+
+# MP2_Pas_SomTrans[Zn1,1] = (Mn_Pas_LitSomTrans[Zn1,P]-MP2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1])
+# MP2_Pas_SomTrans[Zn1,2] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]-MP2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2])
+# MP2_Pas_SomTrans[Zn1,3] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]-MP2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3])
+# MP2_Pas_SomTrans[Zn1,4] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]-MP2_Pass[Zn1,4]*MC2_Pass_LayerTrans[Zn1,4])
+# MP2_Pas_SomTrans[Zn2,1] = (Mn_Pas_LitSomTrans[Zn2,P]-MP2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1])
+# MP2_Pas_SomTrans[Zn2,2] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]-MP2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2])
+# MP2_Pas_SomTrans[Zn2,3] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]-MP2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3])
+# MP2_Pas_SomTrans[Zn2,4] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]-MP2_Pass[Zn2,4]*MC2_Pass_LayerTrans[Zn2,4])
+# MP2_Pas_SomTrans[Zn3,1] = (Mn_Pas_LitSomTrans[Zn3,P]-MP2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1])
+# MP2_Pas_SomTrans[Zn3,2] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]-MP2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2])
+# MP2_Pas_SomTrans[Zn3,3] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]-MP2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3])
+# MP2_Pas_SomTrans[Zn3,4] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]-MP2_Pass[Zn3,4]*MC2_Pass_LayerTrans[Zn3,4])
+# MP2_Pas_SomTrans[Zn4,1] = (Mn_Pas_LitSomTrans[Zn4,P]-MP2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1])
+# MP2_Pas_SomTrans[Zn4,2] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]-MP2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2])
+# MP2_Pas_SomTrans[Zn4,3] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]-MP2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3])
+# MP2_Pas_SomTrans[Zn4,4] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]-MP2_Pass[Zn4,4]*MC2_Pass_LayerTrans[Zn4,4])
+zonelayercpools_df$Mp2_cpools <- c(
+  zonelayer_df$Mp2_Metab,
+  zonelayer_df$Mp2_Struc,
+  zonelayer_df$Mp2_Act,
+  zonelayer_df$Mp2_Slw,
+  zonelayer_df$Mp2_Pass
+)
+zonelayercpools_df$Mp2_cpools_Layer <- zonelayercpools_df$Mp2_cpools * zonelayercpools_df$Mc2_LayerTrans
+zn_P <- zonenut_df[zonenut_df$SlNut == "P", ]
+zonecpools_df$Mn_LitSomTrans_P <- c(
+  zn_P$Mn_Met_LitSomTrans,
+  zn_P$Mn_Str_LitSomTrans,
+  zn_P$Mn_Act_LitSomTrans,
+  zn_P$Mn_Slw_LitSomTrans,
+  zn_P$Mn_Pas_LitSomTrans
+)
+
+zonelayercpools_df$Mp2_SomTrans <- NA
+zonelayercpools_df[zonelayercpools_df$layer == 1, ]$Mp2_SomTrans <- zonecpools_df$Mn_LitSomTrans_P - zonelayercpools_df[zonelayer_df$layer == 1, ]$Mp2_cpools_Layer
+zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mp2_SomTrans <- zonelayercpools_df[zonelayercpools_df$layer %in% c(1:3), ]$Mp2_cpools_Layer - zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mp2_cpools_Layer
+
+# MP_MetabMinF[Zone,SoilLayer] = MP2_DecActMet[Zone,SoilLayer]-MP2_MetabActF[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Metab[Zone,SoilLayer]
+zonelayer_df$Mp_MetabMinF <- zonelayer_df$Mp2_DecActMet - zonelayer_df$Mp2_MetabActF +
+  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Metab
+
+# MP2_CPSlwAct[Zone,SoilLayer] = IF(TIME>1)THEN(Mc2_Slw[Zone,SoilLayer]/MP2_Slw[Zone,SoilLayer])ELSE(Mn_CNSlw*Mn_NutRatSlw[P])
+zonelayer_df$Mp2_CPSlwAct <- ifelse(
+  time > 1,
+  zonelayer_df$Mc2_Slw / zonelayer_df$Mp2_Slw,
+  pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw
+)
+
+# MP2_DecSlw[Zone,SoilLayer] = IF (Mc_EffSlwPass*MP2_CPSlwAct[Zone,SoilLayer])>0 THEN Mc2_SlwPassF[Zone,SoilLayer]/(Mc_EffSlwPass*MP2_CPSlwAct[Zone,SoilLayer]) ELSE 0
+zonelayer_df$Mp2_DecSlw <- ifelse(
+  pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mp2_CPSlwAct > 0,
+  zonelayer_df$Mc2_SlwPassF / (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mp2_CPSlwAct),
+  0
+)
+
+# MP2_SlwPassF[Zone,SoilLayer] = Mc2_SlwPassF[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[P])
+zonelayer_df$Mp2_SlwPassF <- zonelayer_df$Mc2_SlwPassF / (pars$Mn_par$Mn_CNPass *
+                                                            nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
+
+# MP2_SlwMin[Zone,SoilLayer] = MAX(0,MP2_DecSlw[Zone,SoilLayer]-MP2_SlwAct[Zone,SoilLayer]-MP2_SlwPassF[Zone,SoilLayer])
+zonelayer_df$Mp2_SlwMin <- pmax(0,
+                                zonelayer_df$Mp2_DecSlw - zonelayer_df$Mp2_SlwAct - zonelayer_df$Mp2_SlwPassF)
+
+# MP2_DemStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[P])
+zonelayer_df$Mp2_DemStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw)
+
+# MP2_DecStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mc_EffStrucSlw*Mn_CNStruc*Mn_NutRatStruc[P])
+zonelayer_df$Mp2_DecStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mc_par$Mc_EffStrucSlw * pars$Mn_par$Mn_CNStruc *
+                                                                nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc)
+
+# MP2_ImmobStrucSlw[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,P]-MP2_ImmobAct[Zone,SoilLayer],MAX(0,MP2_DemStrucSlw[Zone,SoilLayer]-MP2_DecStrucSlw[Zone,SoilLayer])+MAX(0, MP2_Slw[Zone,SoilLayer]*MP2_CPSlwAct[Zone,SoilLayer]*(1/(Mn_CNSlw*Mn_NutRatSlw[P]) - 1/MP2_CPSlwAct[Zone,SoilLayer]) ))
+zonelayer_df$Mn_MinNutpool <- rep(zonenut_df[zonenut_df$SlNut == "P", ]$Mn_MinNutpool, nlayer)
+zonelayer_df$Mp2_ImmobStrucSlw <-
+  pmin(
+    zonelayer_df$Mn_MinNutpool - zonelayer_df$Mp2_ImmobAct,
+    pmax(
+      0,
+      zonelayer_df$Mp2_DemStrucSlw - zonelayer_df$Mp2_DecStrucSlw
+    ) +
+      pmax(
+        0,
+        zonelayer_df$Mp2_Slw * zonelayer_df$Mp2_CPSlwAct * (
+          1 / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw) - 1 /
+            zonelayer_df$Mp2_CPSlwAct
+        )
+      )
+  )
+
+# MP2_SlwMinF[Zone,SoilLayer] = (MP2_SlwMin[Zone,SoilLayer]-MP2_ImmobStrucSlw[Zone,SoilLayer])+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Slw[Zone,SoilLayer]
+zonelayer_df$Mp2_SlwMinF <- (zonelayer_df$Mp2_SlwMin - zonelayer_df$Mp2_ImmobStrucSlw) +
+  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Slw
+
+# MP2_DecPass[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]*(Mc_EffPass*Mn_CNPass*Mn_NutRatPas[P])
+zonelayer_df$Mp2_DecPass <- zonelayer_df$Mc2_PassAct * (pars$Mc_par$Mc_EffPass * pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
+
+# MP2_PassMinF[Zone,SoilLayer] = MP2_DecPass[Zone,SoilLayer]-MP2_PassAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Pass[Zone,SoilLayer]
+zonelayer_df$Mp2_PassMinF <- zonelayer_df$Mp2_DecPass - zonelayer_df$Mp2_PassAct +
+  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Pass
+
+# MP2_StrucSlwF[Zone,SoilLayer] = MIN(MP2_DecStrucSlw[Zone,SoilLayer],MP2_DemStrucSlw[Zone,SoilLayer])
+zonelayer_df$Mp2_StrucSlwF <- pmin(zonelayer_df$Mp2_DecStrucSlw, zonelayer_df$Mp2_DemStrucSlw)
+
+# MP2_StrucMinF[Zone,SoilLayer] = (MP2_DecStrucSlw[Zone,SoilLayer]-MP2_StrucSlwF[Zone,SoilLayer])+(MP2_DecActStP[Zone,SoilLayer]-MP2_StrucActF[Zone,SoilLayer])+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Struc[Zone,SoilLayer]
+zonelayer_df$Mp2_StrucMinF <- (zonelayer_df$Mp2_DecStrucSlw - zonelayer_df$Mp2_StrucSlwF) +
+  (zonelayer_df$Mp2_DecActStP - zonelayer_df$Mp2_StrucActF) + zonelayer_df$Mp2_MinDueToSB *
+  zonelayer_df$Mp2_Struc
+
+# MP2_OrgP_Leaching[Zone] = MP2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+MP2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+MP2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+MP2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+MP2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
+zone_df$Mp2_OrgP_Leaching <- aggregate(
+  zonelayercpools_df[zonelayercpools_df$layer == 4, ]$Mp2_cpools * zonelayercpools_df[zonelayercpools_df$layer == 4, ]$Mc2_LayerTrans,
+  zonecpools_df["zone"],
+  sum
+)[[2]]
+
+# N_AtmInp[SlNut] = N_AtmosphDepos[SlNut]
+nut_df$N_AtmInp <- nut_df$N_AtmosphDepos
+
+# N_LatInFlow1[SlNut] = N_Lat4NutInflow1[SlNut]*AF_LatInFlowRatio[Zn4]
+# N_LatInFlow2[SlNut] = N_Lat4NutInflow2[SlNut]*AF_LatInFlowRatio[Zn4]
+# N_LatInFlow3[SlNut] = N_Lat4NutInflow3[SlNut]*AF_LatInFlowRatio[Zn4]
+# N_LatInFlow4[SlNut] = N_Lat4NutInflow4[SlNut]*AF_LatInFlowRatio[Zn4]
+layernut_df$N_LatInFlow <- layernut_df$N_Lat4NutInflow * zone_df[zone_df$zone == 4, ]$AF_LatInFlowRatio
+
+
+#TODO: the if part doesn't haave logic statement
+# N15_Cupt1[Zone] = If N_Stock1[Zone,N]> 0 then N_CUpt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
+# N15_Cupt2[Zone] = if N_Stock2[Zone,N] then N_CUpt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
+# N15_Cupt3[Zone] = if N_Stock3[Zone,N] then N_CUpt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
+# N15_Cupt4[Zone] = if N_Stock4[Zone,N] then N_CUpt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
+zln_N <- zonelayernut_df[zonelayernut_df$SlNut == "N", ]
+zonelayer_df$N15_Cupt <- ifelse(zln_N$N_Stock > 0,
+                                zln_N$N_CUpt * zonelayer_df$N15_Stock / zln_N$N_Stock,
+                                0)
+
+# N15_C_Incr[Zone] = N15_Cupt1[Zone]+N15_Cupt2[Zone]+N15_Cupt3[Zone]+N15_Cupt4[Zone]
+zone_df$N15_C_Incr <- aggregate(zonelayer_df$N15_Cupt, zonelayer_df["zone"], sum)[[2]]
+
+# N15_C_StLvIncr[Zone] = if C_GroRes[Zone,N]>0 then C_StLeafInc[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
+zp_N <- zonepcomp_df[zonepcomp_df$PlantComp == "N", ]
+zone_df$N15_C_StLvIncr <- ifelse(zp_N$C_GroRes > 0,
+                                 zp_N$C_StLeafInc * zone_df$N15_C_GroRes / zp_N$C_GroRes,
+                                 0)
+
+# N15_C_RtIncr[Zone] = if C_GroRes[Zone,N]>0 then C_RootGrowth[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
+zone_df$N15_C_RtIncr <- ifelse(zp_N$C_GroRes > 0,
+                               zp_N$C_RootGrowth * zone_df$N15_C_GroRes / zp_N$C_GroRes,
+                               0)
+
+# N15_C_FrtInc[Zone] = if C_GroRes[Zone,N]>0 then C_YieldInc[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
+zone_df$N15_C_FrtInc <- ifelse(zp_N$C_GroRes > 0,
+                               zp_N$C_YieldInc * zone_df$N15_C_GroRes / zp_N$C_GroRes,
+                               0)
+
+# N15_C_residlast[Zone] = if C_GroRes[Zone,N]>0 then C_ResidLast[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
+zone_df$N15_C_residlast <- ifelse(zp_N$C_GroRes > 0,
+                                  zp_N$C_ResidLast * zone_df$N15_C_GroRes / zp_N$C_GroRes,
+                                  0)
+
+# N15_C_FruitLoss[Zone] = if C_YieldCurr[Zone,N]>0 then C_FruitLoss[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
+zone_df$N15_C_FruitLoss <- ifelse(zp_N$C_YieldCurr > 0,
+                                  zp_N$C_FruitLoss * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
+                                  0)
+
+# N15_C_StLvMulch[Zone] = if C_BiomStLv[Zone,N]>0 then C_StLeaveMulch[Zone,N]*N15_C_StLv[Zone]/C_BiomStLv[Zone,N] else 0
+zone_df$N15_C_StLvMulch <- ifelse(zp_N$C_BiomStLv > 0,
+                                  zp_N$C_StLeaveMulch * zone_df$N15_C_StLv / zp_N$C_BiomStLv,
+                                  0)
+
+# N15_ResidMulch[Zone] = N15_C_FruitLoss[Zone]+N15_C_residlast[Zone]+N15_C_StLvMulch[Zone]
+zone_df$N15_ResidMulch <- zone_df$N15_C_FruitLoss + zone_df$N15_C_residlast + zone_df$N15_C_StLvMulch
+
+# N15_C_RtDec[Zone] = if ARRAYSUM(C_Root_N[Zone,*])>0 then ARRAYSUM(C_RtDecay_N[Zone,*])*N15_C_Root[Zone]/ARRAYSUM(C_Root_N[Zone,*]) else 0
+zone_df$C_Root_N <- aggregate(zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]$C_Root, zonelayer_df["zone"], sum)[[2]]
+zone_df$N15_C_RtDec <- ifelse(
+  zone_df$C_Root_N > 0 ,
+  aggregate(zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]$C_RtDecay, zonelayer_df["zone"], sum)[[2]] * zone_df$N15_C_Root /
+    zone_df$C_Root_N,
+  0
+)
+
+# N15_C_Resid[Zone] = if C_BiomStLv[Zone,N]>0 then C_Resid[Zone,N]*N15_C_StLv[Zone]/C_BiomStLv[Zone,N] else 0
+zone_df$N15_C_Resid <- ifelse(zp_N$C_BiomStLv > 0,
+                              zp_N$C_Resid * zone_df$N15_C_StLv / zp_N$C_BiomStLv,
+                              0)
+
+# N15_C_Yield[Zone] = if C_YieldCurr[Zone,N]>0 then C_Yield[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
+zone_df$N15_C_Yield <- ifelse(zp_N$C_YieldCurr > 0,
+                              zp_N$C_Yield * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
+                              0)
+
+# N15_WeedSeedFall[Zone] = if C_YieldCurr[Zone,N]>0 then C_WeedSeedFall[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
+zone_df$N15_WeedSeedFall <- ifelse(
+  zp_N$C_YieldCurr > 0,
+  zp_N$C_WeedSeedFall * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
+  0
+)
+
+# N15_T1Upt1[Zone] = if N_Stock1[Zone,N]>0 then N_T1Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
+# N15_T2Upt1[Zone] = if N_Stock1[Zone,N] then N_T2Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
+# N15_T3Upt1[Zone] = if N_Stock1[Zone,N] then N_T3Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
+# N15_T1Upt2[Zone] = if N_Stock2[Zone,N] then N_T1Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
+# N15_T2Upt2[Zone] = if N_Stock2[Zone,N] then N_T2Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
+# N15_T3Upt2[Zone] = if N_Stock2[Zone,N] then N_T3Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
+# N15_T1Upt3[Zone] = if N_Stock3[Zone,N] then N_T1Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
+# N15_T2Upt3[Zone] = if N_Stock3[Zone,N] then N_T2Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
+# N15_T3Upt3[Zone] = if N_Stock3[Zone,N] then N_T3Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
+# N15_T1Upt4[Zone] = if N_Stock4[Zone,N] then N_T1Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
+# N15_T2Upt4[Zone] = if N_Stock4[Zone,N] then N_T2Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
+# N15_T3Upt4[Zone] = if N_Stock4[Zone,N] then N_T3Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
+zonelayertree_df$N15_Upt <- ifelse(
+  rep(zln_N$N_Stock, ntree) > 0,
+  zonelayertreenut_df[zonelayertreenut_df$SlNut == "N", ]$N_Upt * rep(zonelayer_df$N15_Stock, ntree) /
+    rep(zln_N$N_Stock, ntree),
+  0
+)
+
+# N15_T_CanIncr[Tree] = if T_GroRes[N,Tree]>0 then T_CanBiomInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
+tp_N <- treepcomp_df[treepcomp_df$PlantComp == "N", ]
+tree_df$N15_T_CanIncr <- ifelse(tp_N$T_GroRes > 0,
+                                tp_N$T_CanBiomInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
+                                0)
+
+# N15_T_WdInc[Tree] = if T_LfTwig[N,Tree]>0 then T_WoodInc[N,Tree]*N15_T_Can[Tree]/T_LfTwig[N,Tree] else 0
+tree_df$N15_T_WdInc <- ifelse(tp_N$T_LfTwig > 0,
+                              tp_N$T_WoodInc * tree_df$N15_T_Can / tp_N$T_LfTwig,
+                              0)
+
+# N15_T_CanExp[Tree] = if T_LfTwig[N,Tree]>0 then (T_CanBiomSlashed[N,Tree]+T_CanBiomTimHarv[N,Tree]+T_Herbivory[N,Tree]+T_LifallInc[N,Tree]+T_Prun[N,Tree])*N15_T_Can[Tree]/T_LfTwig[N,Tree] else 0
+tree_df$N15_T_CanExp <- ifelse(
+  tp_N$T_LfTwig > 0,
+  (
+    tp_N$T_CanBiomSlashed + tp_N$T_CanBiomTimHarv + tp_N$T_Herbivory + tp_N$T_LifallInc + tp_N$T_Prun
+  ) * tree_df$N15_T_Can / tp_N$T_LfTwig,
+  0
+)
+
+# N15_T_FruitIncr[Tree] = if T_GroRes[N,Tree]>0 then T_FruitInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
+tree_df$N15_T_FruitIncr <- ifelse(tp_N$T_GroRes > 0,
+                                  tp_N$T_FruitInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
+                                  0)
+
+# N15_T_FrtExp[Tree] = if T_Fruit[N,Tree]>0 then (T_Frug_and_Littfall[N,Tree]+T_FruitSlashed[N,Tree]+T_PrunFruit[N,Tree]+T_RipeFruitHarvest[N,Tree])*N15_T_Fruit[Tree]/T_Fruit[N,Tree] else 0
+tree_df$N15_T_FrtExp <- ifelse(
+  tp_N$T_Fruit > 0,
+  (
+    tp_N$T_Frug_and_Littfall + tp_N$T_FruitSlashed + tp_N$T_PrunFruit + tp_N$T_RipeFruitHarvest
+  ) * tree_df$N15_T_Fruit / tp_N$T_Fruit,
+  0
+)
+
+# N15_T1UptTot = AF_ZoneFrac[Zn1]*(N15_T1Upt1[Zn1]+N15_T1Upt2[Zn1]+N15_T1Upt3[Zn1]+N15_T1Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T1Upt1[Zn2]+N15_T1Upt2[Zn2]+N15_T1Upt3[Zn2]+N15_T1Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T1Upt1[Zn3]+N15_T1Upt2[Zn3]+N15_T1Upt3[Zn3]+N15_T1Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T1Upt1[Zn4]+N15_T1Upt2[Zn4]+N15_T1Upt3[Zn4]+N15_T1Upt4[Zn4])
+# N15_T2UptTot = AF_ZoneFrac[Zn1]*(N15_T2Upt2[Zn1]+N15_T2Upt2[Zn1]+N15_T2Upt3[Zn1]+N15_T2Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T2Upt1[Zn2]+N15_T2Upt2[Zn2]+N15_T2Upt3[Zn2]+N15_T2Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T2Upt1[Zn3]+N15_T2Upt2[Zn3]+N15_T2Upt3[Zn3]+N15_T2Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T2Upt1[Zn4]+N15_T2Upt2[Zn4]+N15_T2Upt3[Zn4]+N15_T2Upt4[Zn4])
+# N15_T3UptTot = AF_ZoneFrac[Zn1]*(N15_T3Upt1[Zn1]+N15_T3Upt2[Zn1]+N15_T3Upt3[Zn1]+N15_T3Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T3Upt1[Zn2]+N15_T3Upt2[Zn2]+N15_T3Upt3[Zn2]+N15_T3Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T3Upt1[Zn3]+N15_T3Upt2[Zn3]+N15_T3Upt3[Zn3]+N15_T3Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T3Upt1[Zn4]+N15_T3Upt2[Zn4]+N15_T3Upt3[Zn4]+N15_T3Upt4[Zn4])
+zonetree_df$N15_Upt_sum <- zonetree_df$AF_ZoneFrac *  aggregate(zonelayertree_df["N15_Upt"], zonelayertree_df[c("zone", "tree_id")], sum)$N15_Upt
+tree_df$N15_UptTot <- aggregate(zonetree_df$N15_Upt_sum, zonetree_df["tree_id"], sum)[[2]]
+
+# N15_T_UptTot[Sp1] = N15_T1UptTot+0*(N15_T2UptTot+N15_T3UptTot)
+# N15_T_UptTot[Sp2] = N15_T2UptTot+0*(N15_T1UptTot+N15_T3UptTot)
+# N15_T_UptTot[Sp3] = N15_T3UptTot+0*(N15_T2UptTot+N15_T1UptTot)
+tree_df$N15_T_UptTot <- tree_df$N15_UptTot
+
+# N15_T_RtInc[Tree] = if T_GroRes[N,Tree] > 0 then T_RootInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
+tree_df$N15_T_RtInc <- ifelse(tp_N$T_GroRes > 0,
+                              tp_N$T_RootInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
+                              0)
+
+# N15_T_GroResLoss[Tree] = if T_GroRes[N,Tree]>0 then T_GroResLoss[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
+tree_df$N15_T_GroResLoss <- ifelse(tp_N$T_GroRes > 0,
+                                   tp_N$T_GroResLoss * tree_df$N15_T_GroRes / tp_N$T_GroRes,
+                                   0)
+
+# T_RootNdecay[Sp1] = AF_ZoneFrac[Zn1]*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T1_Ndecay[Zn1,2]+T_Root_T1_Ndecay[Zn1,3]+T_Root_T1_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T1_Ndecay[Zn2,1]+T_Root_T1_Ndecay[Zn2,2]+T_Root_T1_Ndecay[Zn2,3]+T_Root_T1_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T1_Ndecay[Zn3,1]+T_Root_T1_Ndecay[Zn3,2]+T_Root_T1_Ndecay[Zn3,3]+T_Root_T1_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T1_Ndecay[Zn4,1]+T_Root_T1_Ndecay[Zn4,2]+T_Root_T1_Ndecay[Zn4,3]+T_Root_T1_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
+# T_RootNdecay[Sp2] = AF_ZoneFrac[Zn1]*(T_Root_T2_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,2]+T_Root_T2_Ndecay[Zn1,3]+T_Root_T2_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T2_Ndecay[Zn2,1]+T_Root_T2_Ndecay[Zn2,2]+T_Root_T2_Ndecay[Zn2,3]+T_Root_T2_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T2_Ndecay[Zn3,1]+T_Root_T2_Ndecay[Zn3,2]+T_Root_T2_Ndecay[Zn3,3]+T_Root_T2_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T2_Ndecay[Zn4,1]+T_Root_T2_Ndecay[Zn4,2]+T_Root_T2_Ndecay[Zn4,3]+T_Root_T2_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
+# T_RootNdecay[Sp3] = AF_ZoneFrac[Zn1]*(T_Root_T3_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,2]+T_Root_T3_Ndecay[Zn1,3]+T_Root_T3_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T3_Ndecay[Zn2,1]+T_Root_T3_Ndecay[Zn2,2]+T_Root_T3_Ndecay[Zn2,3]+T_Root_T3_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T3_Ndecay[Zn3,1]+T_Root_T3_Ndecay[Zn3,2]+T_Root_T3_Ndecay[Zn3,3]+T_Root_T3_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T3_Ndecay[Zn4,1]+T_Root_T3_Ndecay[Zn4,2]+T_Root_T3_Ndecay[Zn4,3]+T_Root_T3_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
+zonetree_df$T_Root_decay_N_sum <- zonetree_df$AF_ZoneFrac * aggregate(zonelayertreepcomp_df[zonelayertreepcomp_df$PlantComp == "N", ]$T_Root_decay, zonelayertree_df[c("zone", "tree_id")], sum)[[3]]
+tree_df$T_RootNdecay <- aggregate(zonetree_df$T_Root_decay_N_sum, zonetree_df["tree_id"], sum)[[2]]
+
+# N15_T_RtDec[Tree] = if T_RootNtot[Tree]>0 then T_RootNdecay[Tree]*N15_T_Rt[Tree]/T_RootNtot[Tree] else 0
+tree_df$N15_T_RtDec <- ifelse(tp_N$T_RootTot > 0,
+                              tree_df$T_RootNdecay * tree_df$N15_T_Rt / tp_N$T_RootTot,
+                              0)
+
+# N15_T_WdExp[Tree] = if T_SapWood[N,Tree]>0 then (T_Lignovory[N,Tree]+T_WoodHarvest[N,Tree]+T_WoodSlashed[N,Tree])*N15_T_Wd[Tree]/T_SapWood[N,Tree] else 0
+tree_df$N15_T_WdExp <- ifelse(
+  tp_N$T_SapWood > 0,
+  (tp_N$T_Lignovory + tp_N$T_WoodHarvest + tp_N$T_WoodSlashed) * tree_df$N15_T_Wd /
+    tp_N$T_SapWood,
+  0
+)
+
+# P_CCostExtOrg[PriceType] = 10*Ca_ExtOrg[1]*P_CostExtOrg[1,PriceType]+10*Ca_ExtOrg[2]*P_CostExtOrg[2,PriceType]
+price_df$P_CCostExtOrg <- aggregate(rep(inp_df$Ca_ExtOrg, nrow(price_df)) * inpprice_df$P_CostExtOrg,
+                                    inpprice_df["PriceType"],
+                                    sum)$x
+
+# P_CCostFert[PriceType] = 10*Ca_FertN[N]*P_PriceFert[N,PriceType]+10*Ca_FertN[P]*P_PriceFert[P,PriceType]
+nutprice_df$Ca_FertN <- rep(nut_df$Ca_FertN, nrow(price_df))
+price_df$P_CCostFert <- aggregate(10 * nutprice_df$Ca_FertN * nutprice_df$P_PriceFert,
+                                  nutprice_df["PriceType"],
+                                  sum)$x
+
+# P_Weed&PestTime[Zone] = IF(Cq_Stage[Zone]=1)THEN(1)ELSE(0)
+zone_df$P_Weed_PestTime <- ifelse(zone_df$Cq_Stage == 1, 1, 0)
+
+# P_CCostPestWeedCont[PriceType] = P_CPestContPrice[PriceType]*(AF_ZoneFrac[Zn1]*P_Weed&PestTime[Zn1]+AF_ZoneFrac[Zn2]*P_Weed&PestTime[Zn2]+AF_ZoneFrac[Zn3]*P_Weed&PestTime[Zn3]+AF_ZoneFrac[Zn4]*P_Weed&PestTime[Zn4])
+price_df$P_CCostPestWeedCont <- price_df$P_CPestContPrice * sum(zone_df$AF_ZoneFrac *
+                                                                  zone_df$P_Weed_PestTime)
+
+# P_CCostSeedZn[PriceType,Zone] = IF TIME=(int(Ca_PlantTime[Zone])) and C_GrowsToday? = 1 and  P_PrevCropOK? = 1 then C_Init[Zone,DW]*P_PriceCSeed[PriceType,Zone]*10000 else 0
+zoneprice_df$Ca_PlantTime <- rep(zone_df$Ca_PlantTime, nrow(price_df))
+zoneprice_df$C_GrowsToday_is <- pars$AF_par$AF_Crop_is
+zoneprice_df$P_PrevCropOK_is <- P_PrevCropOK_is
+zoneprice_df$C_Init_DW <- rep(zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Init, nrow(price_df))
+zoneprice_df$P_CCostSeedZn <- ifelse(
+  time == floor(zoneprice_df$Ca_PlantTime) &
+    zoneprice_df$C_GrowsToday_is == 1 &
+    zoneprice_df$P_PrevCropOK_is == 1 ,
+  zoneprice_df$C_Init_DW * zoneprice_df$P_PriceCSeed *
+    10000,
+  0
+)
+
+# P_CCostSeed[PriceType] = AF_ZoneFrac[Zn1]*P_CCostSeedZn[PriceType,Zn1]+AF_ZoneFrac[Zn2]*P_CCostSeedZn[PriceType,Zn2]+AF_ZoneFrac[Zn3]*P_CCostSeedZn[PriceType,Zn3]+AF_ZoneFrac[Zn4]*P_CCostSeedZn[PriceType,Zn4]
+zoneprice_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(price_df))
+price_df$P_CCostSeed <- aggregate(zoneprice_df$AF_ZoneFrac * zoneprice_df$P_CCostSeedZn,
+                                  zoneprice_df["PriceType"],
+                                  sum)$x
+
+# P_CCostInp[PriceType] = P_CCostExtOrg[PriceType]+P_CCostFert[PriceType]+P_CCostPestWeedCont[PriceType]+P_CCostSeed[PriceType]
+price_df$P_CCostInp <- price_df$P_CCostExtOrg + price_df$P_CCostFert + price_df$P_CCostPestWeedCont + price_df$P_CCostSeed
+
+# P_CPlantLabourZn[Zone] = IF(TIME=(int(Ca_PlantTime[Zone]))) and  P_PrevCropOK? =  1 THEN P_CPlantLab[Zone] else 0
+zone_df$P_CPlantLabourZn <- ifelse(time == floor(zone_df$Ca_PlantTime) &
+                                     P_PrevCropOK_is ==  1,
+                                   zone_df$P_CPlantLab,
+                                   0)
+
+# P_CPlantLabour = (AF_ZoneFrac[Zn1]*P_CPlantLabourZn[Zn1]+AF_ZoneFrac[Zn2]*P_CPlantLabourZn[Zn2]+AF_ZoneFrac[Zn3]*P_CPlantLabourZn[Zn3]+AF_ZoneFrac[Zn4]*P_CPlantLabourZn[Zn4])
+P_CPlantLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CPlantLabourZn)
+
+# P_CPestConLabZn[Zone] = if P_LabourforPestContrl? = 1 and P_Weed&PestTime[Zone] = 1 and  P_PrevCropOK? =  1 then P_CPestConLab[Zone] else 0
+zone_df$P_CPestConLabZn <- ifelse(
+  pars$P_par$P_LabourforPestContrl_is == 1 &
+    zone_df$P_Weed_PestTime == 1 &
+    P_PrevCropOK_is ==  1,
+  zone_df$P_CPestConLab,
+  0
+)
+
+# P_CPestConLabour = AF_ZoneFrac[Zn1]*P_CPestConLabZn[Zn1]+AF_ZoneFrac[Zn2]*P_CPestConLabZn[Zn2]+AF_ZoneFrac[Zn3]*P_CPestConLabZn[Zn3]+AF_ZoneFrac[Zn4]*P_CPestConLabZn[Zn4]
+P_CPestConLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CPestConLabZn)
+
+# P_CWeedLabZn[Zone] = if P_LabourforWeed? = 1 and P_Weed&PestTime[Zone] =1 and  P_PrevCropOK? =  1 then P_CWeedLab[Zone] ELSE 0
+zone_df$P_CWeedLabZn <- ifelse(
+  pars$P_par$P_LabourforWeed_is == 1 &
+    zone_df$P_Weed_PestTime == 1 &
+    P_PrevCropOK_is ==  1,
+  zone_df$P_CWeedLab,
+  0
+)
+
+# P_CWeedLabour = AF_ZoneFrac[Zn1]*P_CWeedLabZn[Zn1]+AF_ZoneFrac[Zn2]*P_CWeedLabZn[Zn2]+AF_ZoneFrac[Zn3]*P_CWeedLabZn[Zn3]+AF_ZoneFrac[Zn4]*P_CWeedLabZn[Zn4]
+P_CWeedLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CWeedLabZn)
+
+# P_CHarvLabourperType[Cr] = (C_AgYieldAcc[Zn1,Cr]*AF_ZoneFrac[Zn1]*P_CHarvLab[Zn1]+C_AgYieldAcc[Zn2,Cr]*AF_ZoneFrac[Zn2]*P_CHarvLab[Zn2]+C_AgYieldAcc[Zn3,Cr]*AF_ZoneFrac[Zn3]*P_CHarvLab[Zn3]+C_AgYieldAcc[Zn4,Cr]*AF_ZoneFrac[Zn4]*P_CHarvLab[Zn4])*10
+zonecrop_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, each = nrow(crop_df))
+zonecrop_df$P_CHarvLab <- rep(zone_df$P_CHarvLab, each = nrow(crop_df))
+crop_df$P_CHarvLabourperType <- aggregate(
+  zonecrop_df$C_AgYieldAcc * zonecrop_df$AF_ZoneFrac * zonecrop_df$P_CHarvLab,
+  zonecrop_df["crop_id"],
+  sum
+)$x * 10
+
+# P_CHarvLabour = P_CHarvLabourperType[Type1]+P_CHarvLabourperType[Type2]+P_CHarvLabourperType[Type3]+P_CHarvLabourperType[Type4]+P_CHarvLabourperType[Type5]
+P_CHarvLabour <- sum(crop_df$P_CHarvLabourperType)
+
+# P_CFertLabourZn[Zone] = if Ca_FertApp = 1 and  P_PrevCropOK? =  1 and C_GrowsToday? = 1 and C_PlantDiesToday?[Zone]=0 and Ca_FertAmount[Zone] > 0 then P_CNuFertAppperCropSeason*P_CFertLab[Zone] else 0
+zone_df$P_CFertLabourZn <- ifelse(
+  Ca_FertApp == 1 &
+    P_PrevCropOK_is ==  1 &
+    pars$AF_par$AF_Crop_is == 1 &
+    zone_df$C_PlantDiesToday_is == 0 & zone_df$Ca_FertAmount > 0,
+  pars$P_par$P_CNuFertAppperCropSeason * zone_df$P_CFertLab[Zone],
+  0
+)
+
+# P_CFertLabour = AF_ZoneFrac[Zn1]*P_CFertLabourZn[Zn1]+AF_ZoneFrac[Zn2]*P_CFertLabourZn[Zn2]+AF_ZoneFrac[Zn3]*P_CFertLabourZn[Zn3]+AF_ZoneFrac[Zn4]*P_CFertLabourZn[Zn4]
+P_CFertLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CFertLabourZn)
+
+# P_CCostLab[PriceType] = P_UnitLabCost[PriceType]*(P_CPlantLabour+P_CPestConLabour+P_CWeedLabour+P_CHarvLabour+P_CFertLabour)*C_GrowsToday?
+price_df$P_CCostLab <- price_df$P_UnitLabCost * (P_CPlantLabour + P_CPestConLabour +
+                                                   P_CWeedLabour + P_CHarvLabour + P_CFertLabour) * pars$AF_par$AF_Crop_is
+
+# P_CCosts[PriceType] = P_CCostInp[PriceType]+P_CCostLab[PriceType]
+price_df$P_CCosts <- price_df$P_CCostInp + price_df$P_CCostLab
+
+# P_CCostsInc[PriceType] = P_CCosts[PriceType]
+price_df$P_CCostsInc <- price_df$P_CCosts
+
+# P_CReturnperType[PriceType,Cr] = (C_AgYieldAcc[Zn1,Cr]*AF_ZoneFrac[Zn1]*P_CYieldPrice[PriceType,Zn1]+C_AgYieldAcc[Zn2,Cr]*AF_ZoneFrac[Zn2]*P_CYieldPrice[PriceType,Zn2]+C_AgYieldAcc[Zn3,Cr]*AF_ZoneFrac[Zn3]*P_CYieldPrice[PriceType,Zn3]+C_AgYieldAcc[Zn4,Cr]*AF_ZoneFrac[Zn4]*P_CYieldPrice[PriceType,Zn4])*10000
+zonecropprice_df$C_AgYieldAcc <- rep(zonecrop_df$C_AgYieldAcc, nrow(price_df))
+zonecropprice_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, each = nrow(crop_df) * nrow(price_df))
+zonecropprice_df$P_CYieldPrice <- c(
+  rep(zoneprice_df[zoneprice_df$PriceType == "Private", ]$P_CYieldPrice, each = nrow(crop_df)),
+  rep(zoneprice_df[zoneprice_df$PriceType == "Social", ]$P_CYieldPrice, each = nrow(crop_df))
+)
+cropprice_df$P_CReturnperType <-  aggregate(
+  zonecropprice_df$C_AgYieldAcc * zonecropprice_df$AF_ZoneFrac * zonecropprice_df$P_CYieldPrice,
+  zonecropprice_df[c("crop_id", "PriceType")],
+  sum
+)$x * 10000
+
+# P_CReturn[PriceType] = P_CReturnperType[PriceType,Type1]+P_CReturnperType[PriceType,Type2]+P_CReturnperType[PriceType,Type3]+P_CReturnperType[PriceType,Type4]+P_CReturnperType[PriceType,Type5]
+price_df$P_CReturn <- aggregate(cropprice_df$P_CReturnperType, cropprice_df["PriceType"], sum)$x
+
+# P_CReturnInc[PriceType] = P_CReturn[PriceType]
+price_df$P_CReturnInc <- price_df$P_CReturn
+
+# P_CropHarvest = if ARRAYSUM(Ca_CropSequen[*]) >= 1 and ARRAYSUM(Cq_CropWeedSwitch[*]) <> 4*Cq_WeedType then 1 else 0
+P_CropHarvest <- ifelse(
+  sum(zone_df$Ca_CropSequen) >= 1 &
+    sum(zone_df$Cq_CropWeedSwitch) != 4 * pars$C_par$Cq_WeedType,
+  1,
+  0
+)
+
+# PD_FenceBuildDoY = GRAPH(PD_FencePast)
+PD_FenceBuildDoY <- get_y_df(PD_FencePast, "PD_FenceBuildDoY")
+
+# PD_FenceBuildY = GRAPH(PD_FencePast)
+PD_FenceBuildY <- get_y_df(PD_FencePast, "PD_FenceBuildY")
+
+# PD_FenceTime = PD_FenceBuildDoY+365*(PD_FenceBuildY)-Ca_DOYStart
+PD_FenceTime <- PD_FenceBuildDoY + 365 * (PD_FenceBuildY) - Ca_DOYStart
+
+# PD_FenceBuildLabSeq = GRAPH(PD_FencePast)
+PD_FenceBuildLabSeq <- get_y_df(PD_FencePast, "PD_FenceBuildLabSeq")
+
+# PD_FenceBuildLab = if PD_FenceMaint?= 1 and PD_FenceQ<PD_FenceQThresh and T_CropinField? = 1 then PD_FenceMUnit*PD_HalfFenceTime else if PD_FenceTime = 1 then PD_FenceBuildLabSeq else 0
+PD_FenceBuildLab <- ifelse(
+  pars$PD_par$PD_FenceMaint_is == 1 &
+    PD_FenceQ < pars$PD_par$PD_FenceQThresh & T_CropinField_is == 1,
+  pars$PD_par$PD_FenceMUnit * pars$PD_par$PD_HalfFenceTime,
+  ifelse(PD_FenceTime == 1, PD_FenceBuildLabSeq, 0)
+)
+
+# P_TPlantLabourTree[Tree] = if (INT(T_PlantTime[Tree])=TIME) then P_TPlantLab[Tree]*T_Treesperha[Tree]*T_GrowsToday?[Tree] else 0
+tree_df$P_TPlantLabourTree <- ifelse(
+  floor(tree_df$T_PlantTime) == time,
+  tree_df$P_TPlantLab * tree_df$T_Treesperha * tree_df$T_GrowsToday_is,
+  0
+)
+
+# P_TPlantLabour = P_TPlantLabourTree[Sp1]+P_TPlantLabourTree[Sp2]+P_TPlantLabourTree[Sp3]
+P_TPlantLabour <- sum(tree_df$P_TPlantLabourTree)
+
+# T_FreshPrun[Tree] = (T_Prun[DW,Tree]/(1-T_PrunMoistFrac[Tree]))
+tree_df$T_FreshPrun <- tree_df$T_Prun_DW / (1 - tree_df$T_PrunMoistFrac)
+
+# P_TPrunLabourTree[Tree] = IF T_FreshPrun[Tree]>0 THEN P_TPrunLab[Tree]*T_FreshPrun[Tree]*10000 else 0
+tree_df$P_TPrunLabourTree <- ifelse(tree_df$T_FreshPrun > 0,
+                                    tree_df$P_TPrunLab * tree_df$T_FreshPrun * 10000,
+                                    0)
+
+# P_TPrunLabour = P_TPrunLabourTree[Sp1]+P_TPrunLabourTree[Sp2]+P_TPrunLabourTree[Sp3]
+P_TPrunLabour <- sum(tree_df$P_TPrunLabourTree)
+
+# T_FreshWoodHarv[Tree] = (T_WoodHarvest[DW,Tree]/(1-T_WoodMoistFrac[Tree]))
+tree_df$T_FreshWoodHarv <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_WoodHarvest /
+  (1 - tree_df$T_WoodMoistFrac)
+
+# P_TWoodHarvLabourTree[Tree] = if T_FreshWoodHarv[Tree]>0 then P_TWoodHarvLab[Tree]*T_FreshWoodHarv[Tree]*T_GrowsToday?[Tree]*10000 else 0
+tree_df$P_TWoodHarvLabourTree <- ifelse(
+  tree_df$T_FreshWoodHarv > 0,
+  tree_df$P_TWoodHarvLab * tree_df$T_FreshWoodHarv * tree_df$T_GrowsToday_is *
+    10000,
+  0
+)
+
+# P_TWoodHarvLabour = P_TWoodHarvLabourTree[Sp1]+P_TWoodHarvLabourTree[Sp2]+P_TWoodHarvLabourTree[Sp3]
+P_TWoodHarvLabour <- sum(tree_df$P_TWoodHarvLabourTree)
+
+# T_FreshFruitHarv[Tree] = (T_FruitHarvInc[DW,Tree]/(1-T_FruitMoistFrac[Tree]))
+tree_df$T_FreshFruitHarv <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_FruitHarvInc /
+  (1 - tree_df$T_FruitMoistFrac)
+
+# P_TFreshFruitLabourTree[Tree] = if T_FreshFruitHarv[Tree]>0 then T_FreshFruitHarv[Tree]*P_TFruitHarvLab[Tree]*T_GrowsToday?[Tree]*10000 else 0
+tree_df$P_TFreshFruitLabourTree <- ifelse(
+  tree_df$T_FreshFruitHarv > 0,
+  tree_df$T_FreshFruitHarv * tree_df$P_TFruitHarvLab * tree_df$T_GrowsToday_is *
+    10000,
+  0
+)
+
+# P_TFruitHarvLabour = P_TFreshFruitLabourTree[Sp1]+P_TFreshFruitLabourTree[Sp2]+P_TFreshFruitLabourTree[Sp3]
+P_TFruitHarvLabour <- sum(tree_df$P_TFreshFruitLabourTree)
+
+# T_SlashLabour = GRAPH(T_BiomassSlashed[DW])
+T_SlashLabour <- get_y_df(pcomp_df[pcomp_df$PlantComp == "DW", ]$T_BiomassSlashed, "T_SlashLabour")
+
+# P_TFreshLatex[Tree] = (T_LatexFormation[DW,Tree]/(1-T_LatexMoistFrac[Tree]))
+tree_df$P_TFreshLatex <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_LatexFormation /
+  (1 - tree_df$T_LatexMoistFrac)
+
+#TODO: check T_GrowsToday?[Sp1] is it supposed to be T_GrowsToday?[Tree]?
+# P_TLatexHarvLabourTree[Tree] = if P_TFreshLatex[Tree]>0 then P_TFreshLatex[Tree]*P_TLatexHarvLab[Tree]*T_GrowsToday?[Sp1]*10000 else 0
+tree_df$P_TLatexHarvLabourTree <- ifelse(
+  tree_df$P_TFreshLatex > 0,
+  tree_df$P_TFreshLatex * tree_df$P_TLatexHarvLab * tree_df$T_GrowsToday_is *
+    10000,
+  0
+)
+
+# P_TLatexHarvLabour = P_TLatexHarvLabourTree[Sp1]+P_TLatexHarvLabourTree[Sp2]+P_TLatexHarvLabourTree[Sp3]
+P_TLatexHarvLabour <- sum(tree_df$P_TLatexHarvLabourTree)
+
+# P_TFertLabourperTree[Tree] = if Ca_FertApp = 1 then P_TNuFertAppperTreeAge[Tree]*P_TFertLab[Tree]*T_GrowsToday?[Tree] else 0
+tree_df$Ca_FertApp <- Ca_FertApp
+tree_df$P_TFertLabourperTree <- ifelse(
+  tree_df$Ca_FertApp == 1,
+  tree_df$P_TNuFertAppperTreeAge * tree_df$P_TFertLab * tree_df$T_GrowsToday_is,
+  0
+)
+
+# P_TFertLabour = P_TFertLabourperTree[Sp1]+P_TFertLabourperTree[Sp2]+P_TFertLabourperTree[Sp3]
+P_TFertLabour <- sum(tree_df$P_TFertLabourperTree)
+
+# P_DayLabUse = PD_FenceBuildLab+P_CPlantLabour+P_CPestConLabour+P_CWeedLabour+P_CHarvLabour+P_TPlantLabour+P_TPrunLabour+P_TWoodHarvLabour+P_TFruitHarvLabour+P_BurnLab*S&B_FireTime?+T_SlashLabour+P_TLatexHarvLabour+P_TFertLabour+P_CFertLabour
+P_DayLabUse <- PD_FenceBuildLab + P_CPlantLabour + P_CPestConLabour + P_CWeedLabour +
+  P_CHarvLabour + P_TPlantLabour + P_TPrunLabour + P_TWoodHarvLabour + P_TFruitHarvLabour +
+  P_BurnLab * SB_FireTime_is + T_SlashLabour + P_TLatexHarvLabour + P_TFertLabour + P_CFertLabour
+
+# P_CurrCropBenefitFlow = (-P_CCosts[Private]+P_CReturn[Private])/(1+P_DiscountRate/36500)^TIME
+pp <- price_df[price_df$PriceType == "Private", ]
+P_CurrCropBenefitFlow <- (-pp$P_CCosts + pp$P_CReturn) / (1 + P_DiscountRate /
+                                                            36500)^time
+
+# P_ProfitRecCrop = if P_2DayAfterCropharv = 1 then P_CurrentCropCB/dt else 0
+P_ProfitRecCrop <- ifelse(P_2DayAfterCropharv == 1, P_CurrentCropCB, 0)
+
+# P_FlagCSet = if P_ProfitRecCrop  <> 0 then (if  P_ProfitRecCrop >P_CropProfThreshold then 0 else -1) else 0
+P_FlagCSet <- ifelse(
+  P_ProfitRecCrop  != 0,
+  ifelse(P_ProfitRecCrop > pars$P_par$P_CropProfThreshold, 0, -1),
+  0
+)
+
+# PD_FenceMatUsed[PriceType] = IF PD_HalfFenceTime>0 THEN PD_FenceBuildLab*P_FenceMatCost[PriceType]/PD_HalfFenceTime ELSE 0
+price_df$PD_FenceMatUsed <- ifelse(
+  pars$PD_par$PD_HalfFenceTime > 0,
+  PD_FenceBuildLab * price_df$P_FenceMatCost / pars$PD_par$PD_HalfFenceTime,
+  0
+)
+
+# P_GenCosts[PriceType] = P_UnitLabCost[PriceType]*(PD_FenceBuildLab+S&B_FireTime?*P_BurnLab+T_SlashLabour)+PD_FenceMatUsed[PriceType]
+price_df$P_GenCosts <- price_df$P_UnitLabCost * (PD_FenceBuildLab + SB_FireTime_is * P_BurnLab +
+                                                   T_SlashLabour) + price_df$PD_FenceMatUsed
+
+# P_GenCostsInc[PriceType] = P_GenCosts[PriceType]
+price_df$P_GenCostsInc <- price_df$P_GenCosts
+
+# P_TReturnFruit[PriceType] = P_TFruitPrice[PriceType,Sp1]*(T_FreshFruitHarv[Sp1])+P_TFruitPrice[PriceType,Sp2]*(T_FreshFruitHarv[Sp2])+P_TFruitPrice[PriceType,Sp3]*(T_FreshFruitHarv[Sp3])
+price_df$P_TReturnFruit <- aggregate(
+  treeprice_df$P_TFruitPrice * rep(tree_df$T_FreshFruitHarv, nrow(price_df)),
+  treeprice_df["PriceType"],
+  sum
+)$x
+
+# P_TReturnLatex[PriceType] = P_TFreshLatex[Sp1]*P_TLatexPrice[PriceType,Sp1]+P_TFreshLatex[Sp2]*P_TLatexPrice[PriceType,Sp2]+P_TFreshLatex[Sp3]*P_TLatexPrice[PriceType,Sp3]
+price_df$P_TReturnLatex <- aggregate(treeprice_df$P_TLatexPrice * rep(tree_df$P_TFreshLatex, nrow(price_df)),
+                                     treeprice_df["PriceType"],
+                                     sum)$x
+
+# T_FreshPrunHarvInc[Tree] = (T_PrunHarvInc[DW,Tree]/(1-T_PrunMoistFrac[Tree]))
+tree_df$T_FreshPrunHarvInc <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_PrunHarvInc /
+  (1 - tree_df$T_PrunMoistFrac)
+
+# P_TReturnPrun[PriceType] = P_TPrunPrice[PriceType,Sp1]*T_FreshPrunHarvInc[Sp1]+P_TPrunPrice[PriceType,Sp2]*T_FreshPrunHarvInc[Sp2]+P_TPrunPrice[PriceType,Sp3]*T_FreshPrunHarvInc[Sp3]
+price_df$P_TReturnPrun <- aggregate(
+  treeprice_df$P_TPrunPrice * rep(tree_df$T_FreshPrunHarvInc, nrow(price_df)),
+  treeprice_df["PriceType"],
+  sum
+)$x
+
+# P_TReturnWood[PriceType] = P_TWoodPrice[PriceType,Sp1]*T_FreshWoodHarv[Sp1]+P_TWoodPrice[PriceType,Sp2]*T_FreshWoodHarv[Sp2]+P_TWoodPrice[PriceType,Sp3]*T_FreshWoodHarv[Sp3]
+price_df$P_TReturnWood <- aggregate(treeprice_df$P_TWoodPrice * rep(tree_df$T_FreshWoodHarv, nrow(price_df)),
+                                    treeprice_df["PriceType"],
+                                    sum)$x
+
+# P_TReturn[PriceType] = (P_TReturnFruit[PriceType]+P_TReturnLatex[PriceType]+P_TReturnPrun[PriceType]+P_TReturnWood[PriceType])*10000
+price_df$P_TReturn <- (
+  price_df$P_TReturnFruit + price_df$P_TReturnLatex + price_df$P_TReturnPrun + price_df$P_TReturnWood
+) * 10000
+
+# P_TSeedPriceInp[PriceType,Tree] = IF(INT(T_PlantTime[Tree]))=TIME then P_TSeedPrice[PriceType,Tree]*T_TreesperHa[Tree]*T_GrowsToday?[Tree] else 0
+treeprice_df$T_PlantTime <- rep(tree_df$T_PlantTime, nrow(price_df))
+treeprice_df$T_Treesperha <- rep(tree_df$T_Treesperha, nrow(price_df))
+treeprice_df$T_GrowsToday_is <- rep(tree_df$T_GrowsToday_is, nrow(price_df))
+treeprice_df$P_TSeedPriceInp <- ifelse(
+  floor(treeprice_df$T_PlantTime) == time,
+  treeprice_df$P_TSeedPrice * treeprice_df$T_Treesperha * treeprice_df$T_GrowsToday_is,
+  0
+)
+
+# P_TCostInp[PriceType] = P_TSeedPriceInp[PriceType,Sp1]+P_TSeedPriceInp[PriceType,Sp2]+P_TSeedPriceInp[PriceType,Sp3]
+price_df$P_TCostInp <- aggregate(treeprice_df$P_TSeedPriceInp, treeprice_df["PriceType"], sum)$x
+
+# P_TCostLab[PriceType] = P_UnitLabCost[PriceType]*(P_TPlantLabour+P_TPrunLabour+P_TWoodHarvLabour+P_TFruitHarvLabour+P_TLatexHarvLabour+P_TFertLabour)
+price_df$P_TCostLab <- price_df$P_UnitLabCost * (
+  P_TPlantLabour + P_TPrunLabour + P_TWoodHarvLabour + P_TFruitHarvLabour + P_TLatexHarvLabour + P_TFertLabour
+)
+
+# P_TCost[PriceType] = P_TCostInp[PriceType]+P_TCostLab[PriceType]
+price_df$P_TCost <- price_df$P_TCostInp + price_df$P_TCostLab
+
+# P_Costs&Benefits[PriceType] = -(P_CReturn[PriceType]+P_TReturn[PriceType]-P_GenCosts[PriceType]-P_TCost[PriceType]-P_CCosts[PriceType])/(1+P_DiscountRate/36500)^TIME
+price_df$P_CostsBenefits <- -(
+  price_df$P_CReturn + price_df$P_TReturn - price_df$P_GenCosts - price_df$P_TCost - price_df$P_CCosts
+) / (1 + P_DiscountRate / 36500)^time
+
+# P_TCostsInc[PriceType] = P_TCost[PriceType]
+price_df$P_TCostsInc <- price_df$P_TCost
+
+# P_TPrunNoInc[PlantComp,Tree] = IF(T_Prun[PlantComp,Tree]>0)THEN(1)ELSE(0)
+treepcomp_df$P_TPrunNoInc <- ifelse(treepcomp_df$T_Prun > 0, 1, 0)
+
+# P_TReturnInc[PriceType] = P_TReturn[PriceType]
+price_df$P_TReturnInc <- price_df$P_TReturn
+
+# PD_FenceBuildEvent = if time = int(PD_FenceTime) then +1 else
+PD_FenceBuildEvent <- ifelse(time == floor(PD_FenceTime), 1, 0)
+
+# PD_FenceBuilding = PD_FenceBuildLab*(PD_FenceFullQual - PD_FenceQ)^2/(PD_HalfFenceTime*PD_FenceFullQual+PD_FenceBuildLab*(PD_FenceFullQual-PD_FenceQ))
+PD_FenceBuilding <- PD_FenceBuildLab * (pars$PD_par$PD_FenceFullQual - PD_FenceQ)^2 / (
+  pars$PD_par$PD_HalfFenceTime * pars$PD_par$PD_FenceFullQual + PD_FenceBuildLab * (pars$PD_par$PD_FenceFullQual - PD_FenceQ)
+)
+
+# PD_FenceDecay = PD_FenceQ*PD_FenceDecK
+PD_FenceDecay <- PD_FenceQ * pars$PD_par$PD_FenceDecK
+
+# Rain_FracDayWet[Zn1] = Rain_Inf1/S_SurfInfiltrAct[Zn1]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
+# Rain_FracDayWet[Zn2] = Rain_Inf2/S_SurfInfiltrAct[Zn2]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
+# Rain_FracDayWet[Zn3] = Rain_Inf3/S_SurfInfiltrAct[Zn3]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
+# Rain_FracDayWet[Zn4] = Rain_Inf4/S_SurfInfiltrAct[Zn4]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
+zone_df$Rain_FracDayWet <- zone_df$Rain_Infiltr / zone_df$S_SurfInfiltrAct
+
+# Rain_AnaerIndCh[Zone] = (-Rain_AnaerInd[Zone]+Rain_FracDayWet[Zone])/Rain_AnMemory
+zone_df$Rain_AnaerIndCh <- (-zone_df$Rain_AnaerInd + zone_df$Rain_FracDayWet) /
+  pars$Rain_par$Rain_AnMemory
+
+# S&B_HazeFromWood[Zone,PlantComp] = S&B_DW?[PlantComp]*S&B_DeadWood[Zone,PlantComp]*S&B_DeadWoodBurnFrac[Zone]*(S&B_AerosolFrac[Zone])
+zonepcomp_df$SB_HazeFromWood <- zonepcomp_df$SB_DW_is * zonepcomp_df$SB_DeadWood * zonepcomp_df$SB_DeadWoodBurnFrac * zonepcomp_df$SB_AerosolFrac
+
+# S&B_WoodFNutVolat[Zone,PlantComp] = (1-S&B_DW?[PlantComp])*S&B_DeadWoodBurnFrac[Zone]*S&B_NutVolatFrac[Zone,PlantComp]*S&B_DeadWood[Zone,PlantComp]
+zonepcomp_df$SB_WoodFNutVolat <- (1 - zonepcomp_df$SB_DW_is) * zonepcomp_df$SB_DeadWoodBurnFrac * zonepcomp_df$SB_NutVolatFrac * zonepcomp_df$SB_DeadWood
+
+# S&B_ScorchWoodRemTime? = DELAY(S&B_Fire?,S&B_TimeToWoodRemoval)
+SB_ScorchWoodRemTime_is <- delay(SB_Fire_is, pars$SB_par$SB_TimeToWoodRemoval, 0)
+
+# S&B_ScorchedWoodRem[Zone,PlantComp] = if S&B_ScorchWoodRemTime?=1 then S&B_ScorchWRemFra*S&B_DeadWood[Zone,PlantComp] else 0
+zonepcomp_df$SB_ScorchedWoodRem <- ifelse(
+  SB_ScorchWoodRemTime_is == 1,
+  pars$SB_par$SB_ScorchWRemFra * zonepcomp_df$SB_DeadWood,
+  0
+)
+
+# S&B_WPileUp[Zone,PlantComp] = if S&B_PileUpT? = 1 then S&B_PileUpFrac*(S&B_DeadWood[Zone,PlantComp]-S&B_RelPileUp[Zone]*BC_DWDeadWood[PlantComp]) else 0
+zonepcomp_df$BC_DWDeadWood <- rep(pcomp_df$BC_DWDeadWood, each = nrow(zone_df))
+zonepcomp_df$SB_WPileUp <- ifelse(
+  SB_PileUpT_is == 1,
+  pars$SB_par$SB_PileUpFrac * (
+    zonepcomp_df$SB_DeadWood - zonepcomp_df$SB_RelPileUp * zonepcomp_df$BC_DWDeadWood
+  ),
+  0
+)
+
+# S&B_SlashSequence[Tree] = if time = int(S&B_SlashTime[Tree]+S&B_MaxDryingPer+1) or S&B_Fire? = 1 then 1 else 0
+tree_df$SB_SlashSequence <- ifelse(
+  time == floor(tree_df$SB_SlashTime + pars$SB_par$SB_MaxDryingPer + 1) |
+    SB_Fire_is == 1,
+  1,
+  0
+)
+
+# S&B_FirImpPsorption[Zone] = GRAPH(S&B_FireTempIncTopSoil[Zone])
+zone_df$SB_FirImpPsorption <- get_y_df(zone_df$SB_FireTempIncTopSoil, "SB_FirImpPsorption")
+
+# S&B_PSorpCh[Zone] = if S&B_FirImpPsorption[Zone] <>1 then S&B_FirImpPsorption[Zone] - S&B_PsorpModifier[Zone] else -(S&B_PsorpModifier[Zone] - 1)*S&B_PsorpRecFrac
+zone_df$SB_PSorpCh <- ifelse(
+  zone_df$SB_FirImpPsorption != 1,
+  zone_df$SB_FirImpPsorption - zone_df$SB_PsorpModifier,
+  -(zone_df$SB_PsorpModifier - 1) * pars$SB_par$SB_PsorpRecFrac
+)
+
+# S&B_FireImpWatRet[Zone] = min(1,0.03*max(0,S&B_FireTempIncTopSoil[Zone] - 300))
+zone_df$SB_FireImpWatRet <- pmin(1, 0.03 * pmax(0, zone_df$SB_FireTempIncTopSoil - 300))
+
+# S&B_FCch[Zone] = if S&B_WatRetentionMod[Zone] <>1 then S&B_FireImpWatRet[Zone] - S&B_WatRetentionMod[Zone] else  -(S&B_WatRetentionMod[Zone] - 1)*S&B_WatRetRecFrac
+zone_df$SB_FCch <- ifelse(
+  zone_df$SB_WatRetentionMod != 1,
+  zone_df$SB_FireImpWatRet - zone_df$SB_WatRetentionMod,
+  -(zone_df$SB_WatRetentionMod - 1) * pars$SB_par$SB_WatRetRecFrac
+)
+
+# T_CurLimFac[Sp1,Water] = if T_Stage[Sp1,VegGen]>0 then if TW_Posgro[Sp1] <=MIN(T_NPosgro[N,Sp1],T_NPosgro[P,Sp1]) and TW_Posgro[Sp1]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp1,N]     = if T_Stage[Sp1,VegGen]>0 then if T_NPosgro[N,Sp1] <=MIN(TW_Posgro[Sp1],T_NPosgro[P,Sp1]) and T_NPosgro[N,Sp1]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp1,P]     = if T_Stage[Sp1,VegGen]>0 then if T_NPosgro[P,Sp1] <=MIN(TW_Posgro[Sp1],T_NPosgro[N,Sp1]) and T_NPosgro[P,Sp1]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp2,Water] = if T_Stage[Sp2,VegGen]>0 then if TW_Posgro[Sp2] <=MIN(T_NPosgro[N,Sp2],T_NPosgro[P,Sp2]) and TW_Posgro[Sp2]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp2,N]     = if T_Stage[Sp2,VegGen]>0 then if T_NPosgro[N,Sp2] <=MIN(TW_Posgro[Sp2],T_NPosgro[P,Sp2]) and T_NPosgro[N,Sp2]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp2,P]     = if T_Stage[Sp2,VegGen]>0 then if T_NPosgro[P,Sp2] <=MIN(TW_Posgro[Sp2],T_NPosgro[N,Sp2]) and T_NPosgro[P,Sp2]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp3,Water] = if T_Stage[Sp3,VegGen]>0 then if TW_Posgro[Sp3] <=MIN(T_NPosgro[N,Sp3],T_NPosgro[P,Sp3]) and TW_Posgro[Sp3]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp3,N]     = if T_Stage[Sp3,VegGen]>0 then if T_NPosgro[N,Sp3] <=MIN(TW_Posgro[Sp3],T_NPosgro[P,Sp3]) and T_NPosgro[N,Sp3]<T_StressAccLim then 1 else 0 else 0
+# T_CurLimFac[Sp3,P]     = if T_Stage[Sp3,VegGen]>0 then if T_NPosgro[P,Sp3] <=MIN(TW_Posgro[Sp3],T_NPosgro[N,Sp3]) and T_NPosgro[P,Sp3]<T_StressAccLim then 1 else 0 else 0
+treelimit_df$T_Stage_VG <- rep(treestage_df[treestage_df$Tree_Stage == "VegGen", ]$T_Stage, length(Limiting_Factors))
+treelimit_df$T_Posgro <- c(tree_df$TW_Posgro, tree_df$T_NPosgro_N, tree_df$T_NPosgro_P)
+treelimit_df$T_Posgro_lim <- pmin(
+  c(tree_df$T_NPosgro_N, tree_df$TW_Posgro, tree_df$TW_Posgro),
+  c(
+    tree_df$T_NPosgro_P,
+    tree_df$T_NPosgro_P,
+    tree_df$T_NPosgro_N
+  )
+)
+
+treelimit_df$T_CurLimFac <- ifelse(
+  treelimit_df$T_Stage_VG > 0,
+  ifelse(
+    treelimit_df$T_Posgro <= treelimit_df$T_Posgro_lim &
+      treelimit_df$T_Posgro < pars$T_par$T_StressAccLim,
+    1,
+    0
+  ),
+  0
+)
+
+# T_DelWatStress[Tree] = (1-T_WatStressMem)*(1-TW_Posgro[Tree]-T_CumWatStress[Tree])
+tree_df$T_DelWatStress <- (1 - pars$T_par$T_WatStressMem) * (1 - tree_df$TW_Posgro - tree_df$T_CumWatStress)
+
+# T_GrowDayAc[Tree] = if T_Stage[Tree,VegGen] = 0 then 0 else 1
+tree_df$T_GrowDayAc <- ifelse(treestage_df[treestage_df$Tree_Stage == "VegGen", ]$T_Stage == 0, 0, 1)
+
+# TW_HydFluxPosTot[Tree] = TW_PotFluxPos[Tree]*TW_ScalingFacPosFluxes[Tree]
+tree_df$TW_HydFluxPosTot <- tree_df$TW_PotFluxPos * tree_df$TW_ScalingFacPosFluxes
+
+# T_SetPanelInitiateFlag[Tree] = if T_PanelAlreadyInitiated?[Tree] = 0 and T_GirthMax[Tree] > T_GirthMinforTappingcm then 1 else 0
+tree_df$T_SetPanelInitiateFlag <- ifelse(
+  tree_df$T_PanelAlreadyInitiated_is == 0 &
+    tree_df$T_GirthMax > T_GirthMinforTappingcm,
+  1,
+  0
+)
+
+# T_InitiatePanel[Tree] = if T_GirthMax[Tree]>T_GirthMinforTappingcm and T_PanelAlreadyInitiated?[Tree] = 0 then T_TappableHeight*T_GirthMax[Tree] else 0
+tree_df$T_InitiatePanel <- ifelse(
+  tree_df$T_GirthMax > T_GirthMinforTappingcm &
+    tree_df$T_PanelAlreadyInitiated_is == 0,
+  pars$T_par$T_TappableHeight * tree_df$T_GirthMax,
+  0
+)
+
+# T_SecTPanelInc[Tree] = T_TappingDay?[Tree]*T_TappingSlice*T_GirthMinforTappingcm*T_TapGirthFraction
+tree_df$T_SecTPanelInc <- tree_df$T_TappingDay_is * pars$T_par$T_TappingSlice * T_GirthMinforTappingcm * pars$T_par$T_TapGirthFraction
+
+# TODO: to be check for the term: -dt
+# T_PrunLapseInc[Tree] = IF(T_Prun[DW, Tree]>0) or time = int(S&B_SlashTime[Tree])  or S&B_Fire? =1 THEN(T_PrunLapse[Tree]/DT)ELSE(-dt)
+tree_df$T_PrunLapseInc <- ifelse(
+  treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Prun > 0 |
+    time == floor(tree_df$SB_SlashTime) |
+    SB_Fire_is == 1,
+  tree_df$T_PrunLapse,
+  -1
+)
+
+# TRtRootDecZone[Zn1,DW] = (T_RtDec_DW[Zn1,1]   +T_RtDec_DW[Zn1,2]+T_RtDec_DW[Zn1,3]+T_RtDec_DW[Zn1,4]  + 0*T_RtDec_N[Zn1,1]+ 0*T_RtDec_P[Zn1,1])*AF_ZoneFrac[Zn1]
+# TRtRootDecZone[Zn1,N]  = (0*T_RtDec_DW[Zn1,1] +T_RtDec_N[Zn1,1]+T_RtDec_N[Zn1,2]+T_RtDec_N[Zn1,3]+T_RtDec_N[Zn1,4] + 0*T_RtDec_P[Zn1,1])*AF_ZoneFrac[Zn1]
+# TRtRootDecZone[Zn1,P]  = (0*T_RtDec_DW[Zn1,1] + 0*T_RtDec_N[Zn1,1]+T_RtDec_P[Zn1,1]+T_RtDec_P[Zn1,2]+T_RtDec_P[Zn1,3]+T_RtDec_P[Zn1,4])*AF_ZoneFrac[Zn1]
+# TRtRootDecZone[Zn2,DW] = (T_RtDec_DW[Zn2,1]+T_RtDec_DW[Zn2,2]+T_RtDec_DW[Zn2,3]+T_RtDec_DW[Zn2,4]  + 0*T_RtDec_N[Zn2,1]+ 0*T_RtDec_P[Zn2,1])*AF_ZoneFrac[Zn2]
+# TRtRootDecZone[Zn2,N]  = (0*T_RtDec_DW[Zn2,1]+T_RtDec_N[Zn2,1]+T_RtDec_N[Zn2,2]+T_RtDec_N[Zn2,3]+T_RtDec_N[Zn2,4] + 0*T_RtDec_P[Zn2,1])*AF_ZoneFrac[Zn2]
+# TRtRootDecZone[Zn2,P]  = (0*T_RtDec_DW[Zn2,1]+ 0*T_RtDec_N[Zn2,1]+T_RtDec_P[Zn2,1]+T_RtDec_P[Zn2,2]+T_RtDec_P[Zn2,3]+T_RtDec_P[Zn2,4])*AF_ZoneFrac[Zn2]
+# TRtRootDecZone[Zn3,DW] = (T_RtDec_DW[Zn3,1]+T_RtDec_DW[Zn3,2]+T_RtDec_DW[Zn3,3]+T_RtDec_DW[Zn3,4]  + 0*T_RtDec_N[Zn3,1]+ 0*T_RtDec_P[Zn3,1])*AF_ZoneFrac[Zn3]
+# TRtRootDecZone[Zn3,N]  = (0*T_RtDec_DW[Zn3,1]+T_RtDec_N[Zn3,1]+T_RtDec_N[Zn3,2]+T_RtDec_N[Zn3,3]+T_RtDec_N[Zn3,4] + 0*T_RtDec_P[Zn3,1])*AF_ZoneFrac[Zn3]
+# TRtRootDecZone[Zn3,P]  = (0*T_RtDec_DW[Zn3,1]+ 0*T_RtDec_N[Zn3,1]+T_RtDec_P[Zn3,1]+T_RtDec_P[Zn3,2]+T_RtDec_P[Zn3,3]+T_RtDec_P[Zn3,4])*AF_ZoneFrac[Zn3]
+# TRtRootDecZone[Zn4,DW] = (T_RtDec_DW[Zn4,1]+T_RtDec_DW[Zn4,2]+T_RtDec_DW[Zn4,3]+T_RtDec_DW[Zn4,4]  + 0*T_RtDec_N[Zn4,1]+ 0*T_RtDec_P[Zn4,1])*AF_ZoneFrac[Zn4]
+# TRtRootDecZone[Zn4,N]  = (0*T_RtDec_DW[Zn4,1]+ T_RtDec_N[Zn4,1]+T_RtDec_N[Zn4,2]+T_RtDec_N[Zn4,3]+T_RtDec_N[Zn4,4]}+ 0*T_RtDec_P[Zn4,1])*AF_ZoneFrac[Zn4]
+# TRtRootDecZone[Zn4,P]  = (0*T_RtDec_DW[Zn4,1]+ 0*T_RtDec_N[Zn4,1]+T_RtDec_P[Zn4,1]+T_RtDec_P[Zn4,2]+T_RtDec_P[Zn4,3]+T_RtDec_P[Zn4,4])*AF_ZoneFrac[Zn4]
+zonepcomp_df$TRtRootDecZone <- aggregate(zonelayerpcomp_df$T_RtDec, zonelayerpcomp_df[c("zone", "PlantComp")], sum)$x * zonepcomp_df$AF_ZoneFrac
+
+# T_RtDecDWAll[PlantComp] = ARRAYSUM(TRtRootDecZone[*,PlantComp])
+pcomp_df$T_RtDecDWAll <- aggregate(zonepcomp_df$TRtRootDecZone, zonepcomp_df["PlantComp"], sum)$x
+
+# T_RootDecAcc[PlantComp] = T_RtDecDWAll[PlantComp]
+pcomp_df$T_RootDecAcc <- pcomp_df$T_RtDecDWAll
+
+# T_TapDaysInc[Tree] = T_TappingDay?[Tree]
+tree_df$T_TapDaysInc <- tree_df$T_TappingDay_is
+
+# T_Tapping?[Tree] = if T_Tapping[DW,Tree]> 0 then 1 else 0
+tree_df$T_Tapping_is <- ifelse(treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Tapping > 0, 1, 0)
+
+# TF_GenderPassOn[Sp1,Ripe] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe]+TF_BunchGender[Sp1,Ripe_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_1] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_1]+TF_BunchGender[Sp1,Ripe_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_2] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_2]+TF_BunchGender[Sp1,Ripe_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_3] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_3]+TF_BunchGender[Sp1,Ripe_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_4] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_4]+TF_BunchGender[Sp1,Ripe_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_5] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_5]+TF_BunchGender[Sp1,Ripe_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_6] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_6]+TF_BunchGender[Sp1,Ripe_7] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_7] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_7]+TF_BunchGender[Sp1,Ripe_8] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_8] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_8]+TF_BunchGender[Sp1,Ripe_9] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_9] = if TF_NewLeaf?[Sp1] = 1then -TF_BunchGender[Sp1,Ripe_9]+TF_BunchGender[Sp1,Ripe_10] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_10] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_10]+TF_BunchGender[Sp1,Ripe_11] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_11] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_11]+TF_BunchGender[Sp1,Ripe_12] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Ripe_12] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_12]+TF_BunchGender[Sp1,Early_fruit] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Early_fruit] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Early_fruit] + TF_BunchGender[Sp1,Pollinated] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Pollinated] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Pollinated] + TF_BunchGender[Sp1,Anthesis] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Anthesis] + TF_BunchGender[Sp1,Anthesis_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_1] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_1] + TF_BunchGender[Sp1,Anthesis_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_2] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_2] + TF_BunchGender[Sp1,Anthesis_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_3] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_3] + TF_BunchGender[Sp1,Anthesis_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_4] = if TF_NewLeaf?[Sp1] = 1then  -TF_BunchGender[Sp1,Anthesis_4] + TF_BunchGender[Sp1,Anthesis_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_5] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_5] + TF_BunchGender[Sp1,Anthesis_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp1,Anthesis_6] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Anthesis_6]+TF_Nextgender[Sp1] else 0
+
+# TF_GenderPassOn[Sp2,Ripe] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Ripe]+TF_BunchGender[Sp2,Ripe_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_1] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_1]+TF_BunchGender[Sp2,Ripe_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_2] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_2]+TF_BunchGender[Sp2,Ripe_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_3] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_3]+TF_BunchGender[Sp2,Ripe_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_4] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_4]+TF_BunchGender[Sp2,Ripe_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_5] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_5]+TF_BunchGender[Sp2,Ripe_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_6] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_6]+TF_BunchGender[Sp2,Ripe_7] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_7] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_7]+TF_BunchGender[Sp2,Ripe_8] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_8] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_8]+TF_BunchGender[Sp2,Ripe_9] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_9] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_9]+TF_BunchGender[Sp2,Ripe_10] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_10] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_10]+TF_BunchGender[Sp2,Ripe_11] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_11] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_11]+TF_BunchGender[Sp2,Ripe_12] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Ripe_12] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_12]+TF_BunchGender[Sp2,Early_fruit] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Early_fruit] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Early_fruit] + TF_BunchGender[Sp2,Pollinated] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Pollinated] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Pollinated] + TF_BunchGender[Sp2,Anthesis] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Anthesis] + TF_BunchGender[Sp2,Anthesis_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_1] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_1] + TF_BunchGender[Sp2,Anthesis_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_2] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_2] + TF_BunchGender[Sp2,Anthesis_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_3] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_3] + TF_BunchGender[Sp2,Anthesis_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_4] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_4] + TF_BunchGender[Sp2,Anthesis_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_5] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_5] + TF_BunchGender[Sp2,Anthesis_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp2,Anthesis_6] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Anthesis_6]+TF_Nextgender[Sp2] else 0
+
+# TF_GenderPassOn[Sp3,Ripe] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe]+TF_BunchGender[Sp3,Ripe_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_1] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_1]+TF_BunchGender[Sp3,Ripe_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_2] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_2]+TF_BunchGender[Sp3,Ripe_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_3] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_3]+TF_BunchGender[Sp3,Ripe_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_4] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_4]+TF_BunchGender[Sp3,Ripe_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_5] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_5]+TF_BunchGender[Sp3,Ripe_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_6] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_6]+TF_BunchGender[Sp3,Ripe_7] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_7] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_7]+TF_BunchGender[Sp3,Ripe_8] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_8] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_8]+TF_BunchGender[Sp3,Ripe_9] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_9] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_9]+TF_BunchGender[Sp3,Ripe_10] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_10] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_10]+TF_BunchGender[Sp3,Ripe_11] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_11] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_11]+TF_BunchGender[Sp3,Ripe_12] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Ripe_12] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_12]+TF_BunchGender[Sp3,Early_fruit] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Early_fruit] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Early_fruit] + TF_BunchGender[Sp3,Pollinated] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Pollinated] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Pollinated] + TF_BunchGender[Sp3,Anthesis] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis] + TF_BunchGender[Sp3,Anthesis_1] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_1] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_1] + TF_BunchGender[Sp3,Anthesis_2] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_2] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis_2] + TF_BunchGender[Sp3,Anthesis_3] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_3] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis_3] + TF_BunchGender[Sp3,Anthesis_4] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_4] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_4] + TF_BunchGender[Sp3,Anthesis_5] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_5] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_5] + TF_BunchGender[Sp3,Anthesis_6] else 0*TF_Nextgender[Sp1]
+# TF_GenderPassOn[Sp3,Anthesis_6] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Anthesis_6]+TF_Nextgender[Sp3] else 0
+treefruit_df$TF_BunchGender_next <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", c("tree_id", "Fruitbunch")]$TF_BunchGender, tree_df$TF_NextGender)
+treefruit_df$TF_GenderPassOn <- ifelse(
+  treefruit_df$TF_NewLeaf_is == 1,
+  -treefruit_df$TF_BunchGender + treefruit_df$TF_BunchGender_next,
+  0
+)
+
+# TF_WeightPassOn[Sp1,Ripe] = if TF_yNewLeaf?[Sp1] = 1 then +TF_BunchWeight_kgpbunch[Sp1,Ripe_1] else 0
+# TF_WeightPassOn[Sp1,Ripe_1] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_1]+TF_BunchWeight_kgpbunch[Sp1,Ripe_2] else 0
+# TF_WeightPassOn[Sp1,Ripe_2] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_2]+TF_BunchWeight_kgpbunch[Sp1,Ripe_3] else 0
+# TF_WeightPassOn[Sp1,Ripe_3] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_3]+TF_BunchWeight_kgpbunch[Sp1,Ripe_4] else 0
+# TF_WeightPassOn[Sp1,Ripe_4] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_4]+TF_BunchWeight_kgpbunch[Sp1,Ripe_5] else 0
+# TF_WeightPassOn[Sp1,Ripe_5] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_5]+TF_BunchWeight_kgpbunch[Sp1,Ripe_6] else 0
+# TF_WeightPassOn[Sp1,Ripe_6] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_6]+TF_BunchWeight_kgpbunch[Sp1,Ripe_7] else 0
+# TF_WeightPassOn[Sp1,Ripe_7] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_7]+TF_BunchWeight_kgpbunch[Sp1,Ripe_8] else 0
+# TF_WeightPassOn[Sp1,Ripe_8] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_8]+TF_BunchWeight_kgpbunch[Sp1,Ripe_9] else 0
+# TF_WeightPassOn[Sp1,Ripe_9] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_9]+TF_BunchWeight_kgpbunch[Sp1,Ripe_10] else 0
+# TF_WeightPassOn[Sp1,Ripe_10] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_10]+TF_BunchWeight_kgpbunch[Sp1,Ripe_11] else 0
+# TF_WeightPassOn[Sp1,Ripe_11] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_11] + TF_BunchWeight_kgpbunch[Sp1,Ripe_12]else 0
+# TF_WeightPassOn[Sp1,Ripe_12] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_12] + TF_BunchWeight_kgpbunch[Sp1,Early_fruit] else 0
+# TF_WeightPassOn[Sp1,Early_fruit] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Early_fruit]+TF_BunchWeight_kgpbunch[Sp1,Pollinated] else 0
+# TF_WeightPassOn[Sp1,Pollinated] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Pollinated] + TF_BunchWeight_kgpbunch[Sp1,Anthesis] else 0
+# TF_WeightPassOn[Sp1,Anthesis] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_1] else 0
+# TF_WeightPassOn[Sp1,Anthesis_1] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_2] else 0
+# TF_WeightPassOn[Sp1,Anthesis_2] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_3] else 0
+# TF_WeightPassOn[Sp1,Anthesis_3] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_4] else 0
+# TF_WeightPassOn[Sp1,Anthesis_4] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_5] else 0
+# TF_WeightPassOn[Sp1,Anthesis_5] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_6] else 0
+# TF_WeightPassOn[Sp1,Anthesis_6] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_6] else 0
+# TF_WeightPassOn[Sp2,Ripe] = if TF_yNewLeaf?[Sp2] = 1 then +TF_BunchWeight_kgpbunch[Sp2,Ripe_1] else 0
+# TF_WeightPassOn[Sp2,Ripe_1] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_1]+TF_BunchWeight_kgpbunch[Sp2,Ripe_2] else 0
+# TF_WeightPassOn[Sp2,Ripe_2] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_2]+TF_BunchWeight_kgpbunch[Sp2,Ripe_3] else 0
+# TF_WeightPassOn[Sp2,Ripe_3] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_3]+TF_BunchWeight_kgpbunch[Sp2,Ripe_4] else 0
+# TF_WeightPassOn[Sp2,Ripe_4] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_4]+TF_BunchWeight_kgpbunch[Sp2,Ripe_5] else 0
+# TF_WeightPassOn[Sp2,Ripe_5] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_5]+TF_BunchWeight_kgpbunch[Sp2,Ripe_6] else 0
+# TF_WeightPassOn[Sp2,Ripe_6] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_6]+TF_BunchWeight_kgpbunch[Sp2,Ripe_7] else 0
+# TF_WeightPassOn[Sp2,Ripe_7] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_7]+TF_BunchWeight_kgpbunch[Sp2,Ripe_8] else 0
+# TF_WeightPassOn[Sp2,Ripe_8] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_8]+TF_BunchWeight_kgpbunch[Sp2,Ripe_9] else 0
+# TF_WeightPassOn[Sp2,Ripe_9] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_9]+TF_BunchWeight_kgpbunch[Sp2,Ripe_10] else 0
+# TF_WeightPassOn[Sp2,Ripe_10] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_10]+TF_BunchWeight_kgpbunch[Sp2,Ripe_11] else 0
+# TF_WeightPassOn[Sp2,Ripe_11] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_11] + TF_BunchWeight_kgpbunch[Sp2,Ripe_12] else 0
+# TF_WeightPassOn[Sp2,Ripe_12] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_12] + TF_BunchWeight_kgpbunch[Sp2,Early_fruit] else 0
+# TF_WeightPassOn[Sp2,Early_fruit] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Early_fruit]+TF_BunchWeight_kgpbunch[Sp2,Pollinated] else 0
+# TF_WeightPassOn[Sp2,Pollinated] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Pollinated] + TF_BunchWeight_kgpbunch[Sp2,Anthesis] else 0
+# TF_WeightPassOn[Sp2,Anthesis] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_1] else 0
+# TF_WeightPassOn[Sp2,Anthesis_1] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_2] else 0
+# TF_WeightPassOn[Sp2,Anthesis_2] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_3] else 0
+# TF_WeightPassOn[Sp2,Anthesis_3] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_4] else 0
+# TF_WeightPassOn[Sp2,Anthesis_4] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_5] else 0
+# TF_WeightPassOn[Sp2,Anthesis_5] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_6] else 0
+# TF_WeightPassOn[Sp2,Anthesis_6] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_6] else 0
+
+# TF_WeightPassOn[Sp3,Ripe] = if TF_yNewLeaf?[Sp3] = 1 then +TF_BunchWeight_kgpbunch[Sp3,Ripe_1] else 0
+# TF_WeightPassOn[Sp3,Ripe_1] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_1]+TF_BunchWeight_kgpbunch[Sp3,Ripe_2] else 0
+# TF_WeightPassOn[Sp3,Ripe_2] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_2]+TF_BunchWeight_kgpbunch[Sp3,Ripe_3] else 0
+# TF_WeightPassOn[Sp3,Ripe_3] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_3]+TF_BunchWeight_kgpbunch[Sp3,Ripe_4] else 0
+# TF_WeightPassOn[Sp3,Ripe_4] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_4]+TF_BunchWeight_kgpbunch[Sp3,Ripe_5] else 0
+# TF_WeightPassOn[Sp3,Ripe_5] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_5]+TF_BunchWeight_kgpbunch[Sp3,Ripe_6] else 0
+# TF_WeightPassOn[Sp3,Ripe_6] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_6]+TF_BunchWeight_kgpbunch[Sp3,Ripe_7] else 0
+# TF_WeightPassOn[Sp3,Ripe_7] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_7]+TF_BunchWeight_kgpbunch[Sp3,Ripe_8] else 0
+# TF_WeightPassOn[Sp3,Ripe_8] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_8]+TF_BunchWeight_kgpbunch[Sp3,Ripe_9] else 0
+# TF_WeightPassOn[Sp3,Ripe_9] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_9]+TF_BunchWeight_kgpbunch[Sp3,Ripe_10] else 0
+# TF_WeightPassOn[Sp3,Ripe_10] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_10]+TF_BunchWeight_kgpbunch[Sp3,Ripe_11] else 0
+# TF_WeightPassOn[Sp3,Ripe_11] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Ripe_11] + TF_BunchWeight_kgpbunch[Sp3,Ripe_12] else 0
+# TF_WeightPassOn[Sp3,Ripe_12] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Ripe_12] + TF_BunchWeight_kgpbunch[Sp3,Early_fruit] else 0
+# TF_WeightPassOn[Sp3,Early_fruit] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Early_fruit]+TF_BunchWeight_kgpbunch[Sp3,Pollinated] else 0
+# TF_WeightPassOn[Sp3,Pollinated] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Pollinated] + TF_BunchWeight_kgpbunch[Sp3,Anthesis] else 0
+# TF_WeightPassOn[Sp3,Anthesis] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_1] else 0
+# TF_WeightPassOn[Sp3,Anthesis_1] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_2] else 0
+# TF_WeightPassOn[Sp3,Anthesis_2] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_3] else 0
+# TF_WeightPassOn[Sp3,Anthesis_3] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_4] else 0
+# TF_WeightPassOn[Sp3,Anthesis_4] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_5] else 0
+# TF_WeightPassOn[Sp3,Anthesis_5] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_6] else 0
+# TF_WeightPassOn[Sp3,Anthesis_6] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_6] else 0
+treefruit_df$TF_BunchWeight_kgpbunch_a <- c(0, 0, 0, treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_BunchWeight_kgpbunch)
+treefruit_df$TF_BunchWeight_kgpbunch_b <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_BunchWeight_kgpbunch, 0, 0, 0)
+treefruit_df$TF_YNewLeaf_is <- rep(tree_df$TF_YNewLeaf_is, nrow(fruit_df))
+treefruit_df$TF_WeightPassOn <- ifelse(
+  treefruit_df$TF_YNewLeaf_is == 1,
+  -treefruit_df$TF_BunchWeight_kgpbunch_a + treefruit_df$TF_BunchWeight_kgpbunch_b,
+  0
+)
+
+# TF_BunchWeightIncrAct[Tree,Fruitbunch] = if arraysum(TF_BunchweightIncrTarget[Tree,*] ) > 0 then T_FruitInc[DW,Tree]*(TF_BunchweightIncrTarget[Tree,Fruitbunch]/arraysum(TF_BunchweightIncrTarget[Tree,*]))* 10^4 /T_TreesperHa[Tree] else 0
+treefruit_df$TF_BunchweightIncrTarget_sum <- rep(tree_df$TF_BunchweightIncrTarget_sum, nrow(fruit_df))
+treefruit_df$T_FruitInc_DW <- rep(treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_FruitInc, nrow(fruit_df))
+treefruit_df$T_Treesperha <- rep(tree_df$T_Treesperha, nrow(fruit_df))
+treefruit_df$TF_BunchWeightIncrAct <- ifelse(
+  treefruit_df$TF_BunchweightIncrTarget_sum > 0,
+  treefruit_df$T_FruitInc_DW *
+    (
+      treefruit_df$TF_BunchweightIncrTarget / treefruit_df$TF_BunchweightIncrTarget_sum
+    ) * 10^4 / treefruit_df$T_Treesperha,
+  0
+)
+
+# TF_FruitLitterfall[Tree,Fruitbunch] = TF_FruitLitterFalloAm[Tree,Fruitbunch]
+treefruit_df$TF_FruitLitterfall <- treefruit_df$TF_FruitLitterFalloAm
+
+# TF_BunchNo?[Tree] = If TF_BunchWeightHarvest[Tree,Ripe]>0 then 1 else 0
+tree_df$TF_BunchNo_is <- ifelse(treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_BunchWeightHarvest > 0, 1, 0)
+
+# TF_BunchNo[Tree] = TF_BunchNo?[Tree]
+tree_df$TF_BunchNo <- tree_df$TF_BunchNo_is
+
+# TF_TargetOilPrev[Sp1,Ripe] = TF_TargetOilperBunch[Sp1,Ripe_1]
+# TF_TargetOilPrev[Sp1,Ripe_1] = TF_TargetOilperBunch[Sp1,Ripe_2]
+# TF_TargetOilPrev[Sp1,Ripe_2] = TF_TargetOilperBunch[Sp1,Ripe_3]
+# TF_TargetOilPrev[Sp1,Ripe_3] = TF_TargetOilperBunch[Sp1,Ripe_4]
+# TF_TargetOilPrev[Sp1,Ripe_4] = TF_TargetOilperBunch[Sp1,Ripe_5]
+# TF_TargetOilPrev[Sp1,Ripe_5] = TF_TargetOilperBunch[Sp1,Ripe_6]
+# TF_TargetOilPrev[Sp1,Ripe_6] = TF_TargetOilperBunch[Sp1,Ripe_7]
+# TF_TargetOilPrev[Sp1,Ripe_7] = TF_TargetOilperBunch[Sp1,Ripe_8]
+# TF_TargetOilPrev[Sp1,Ripe_8] = TF_TargetOilperBunch[Sp1,Ripe_9]
+# TF_TargetOilPrev[Sp1,Ripe_9] = TF_TargetOilperBunch[Sp1,Ripe_10]
+# TF_TargetOilPrev[Sp1,Ripe_10] = TF_TargetOilperBunch[Sp1,Ripe_11]
+# TF_TargetOilPrev[Sp1,Ripe_11] = TF_TargetOilperBunch[Sp1,Ripe_12]
+# TF_TargetOilPrev[Sp1,Ripe_12] = TF_TargetOilperBunch[Sp1,Early_fruit]
+# TF_TargetOilPrev[Sp1,Early_fruit] = TF_TargetOilperBunch[Sp1,Pollinated]
+# TF_TargetOilPrev[Sp1,Pollinated] = TF_TargetOilperBunch[Sp1,Anthesis]
+# TF_TargetOilPrev[Sp1,Anthesis] = TF_TargetOilperBunch[Sp1,Anthesis_1]
+# TF_TargetOilPrev[Sp1,Anthesis_1] = TF_TargetOilperBunch[Sp1,Anthesis_2]
+# TF_TargetOilPrev[Sp1,Anthesis_2] = TF_TargetOilperBunch[Sp1,Anthesis_3]
+# TF_TargetOilPrev[Sp1,Anthesis_3] = TF_TargetOilperBunch[Sp1,Anthesis_4]
+# TF_TargetOilPrev[Sp1,Anthesis_4] = TF_TargetOilperBunch[Sp1,Anthesis_5]
+# TF_TargetOilPrev[Sp1,Anthesis_5] = TF_TargetOilperBunch[Sp1,Anthesis_6]
+# TF_TargetOilPrev[Sp1,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
+# TF_TargetOilPrev[Sp2,Ripe] = TF_TargetOilperBunch[Sp2,Ripe_1]
+# TF_TargetOilPrev[Sp2,Ripe_1] = TF_TargetOilperBunch[Sp2,Ripe_2]
+# TF_TargetOilPrev[Sp2,Ripe_2] = TF_TargetOilperBunch[Sp2,Ripe_3]
+# TF_TargetOilPrev[Sp2,Ripe_3] = TF_TargetOilperBunch[Sp2,Ripe_4]
+# TF_TargetOilPrev[Sp2,Ripe_4] = TF_TargetOilperBunch[Sp2,Ripe_5]
+# TF_TargetOilPrev[Sp2,Ripe_5] = TF_TargetOilperBunch[Sp2,Ripe_6]
+# TF_TargetOilPrev[Sp2,Ripe_6] = TF_TargetOilperBunch[Sp2,Ripe_7]
+# TF_TargetOilPrev[Sp2,Ripe_7] = TF_TargetOilperBunch[Sp2,Ripe_8]
+# TF_TargetOilPrev[Sp2,Ripe_8] = TF_TargetOilperBunch[Sp2,Ripe_9]
+# TF_TargetOilPrev[Sp2,Ripe_9] = TF_TargetOilperBunch[Sp2,Ripe_10]
+# TF_TargetOilPrev[Sp2,Ripe_10] = TF_TargetOilperBunch[Sp2,Ripe_11]
+# TF_TargetOilPrev[Sp2,Ripe_11] = TF_TargetOilperBunch[Sp2,Ripe_12]
+# TF_TargetOilPrev[Sp2,Ripe_12] = TF_TargetOilperBunch[Sp2,Early_fruit]
+# TF_TargetOilPrev[Sp2,Early_fruit] = TF_TargetOilperBunch[Sp2,Pollinated]
+# TF_TargetOilPrev[Sp2,Pollinated] = TF_TargetOilperBunch[Sp2,Anthesis]
+# TF_TargetOilPrev[Sp2,Anthesis] = TF_TargetOilperBunch[Sp2,Anthesis_1]
+# TF_TargetOilPrev[Sp2,Anthesis_1] = TF_TargetOilperBunch[Sp2,Anthesis_2]
+# TF_TargetOilPrev[Sp2,Anthesis_2] = TF_TargetOilperBunch[Sp2,Anthesis_3]
+# TF_TargetOilPrev[Sp2,Anthesis_3] = TF_TargetOilperBunch[Sp2,Anthesis_4]
+# TF_TargetOilPrev[Sp2,Anthesis_4] = TF_TargetOilperBunch[Sp2,Anthesis_5]
+# TF_TargetOilPrev[Sp2,Anthesis_5] = TF_TargetOilperBunch[Sp2,Anthesis_6]
+# TF_TargetOilPrev[Sp2,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
+# TF_TargetOilPrev[Sp3,Ripe] = TF_TargetOilperBunch[Sp3,Ripe_1]
+# TF_TargetOilPrev[Sp3,Ripe_1] = TF_TargetOilperBunch[Sp3,Ripe_2]
+# TF_TargetOilPrev[Sp3,Ripe_2] = TF_TargetOilperBunch[Sp3,Ripe_3]
+# TF_TargetOilPrev[Sp3,Ripe_3] = TF_TargetOilperBunch[Sp3,Ripe_4]
+# TF_TargetOilPrev[Sp3,Ripe_4] = TF_TargetOilperBunch[Sp3,Ripe_5]
+# TF_TargetOilPrev[Sp3,Ripe_5] = TF_TargetOilperBunch[Sp3,Ripe_6]
+# TF_TargetOilPrev[Sp3,Ripe_6] = TF_TargetOilperBunch[Sp3,Ripe_7]
+# TF_TargetOilPrev[Sp3,Ripe_7] = TF_TargetOilperBunch[Sp3,Ripe_8]
+# TF_TargetOilPrev[Sp3,Ripe_8] = TF_TargetOilperBunch[Sp3,Ripe_9]
+# TF_TargetOilPrev[Sp3,Ripe_9] = TF_TargetOilperBunch[Sp3,Ripe_10]
+# TF_TargetOilPrev[Sp3,Ripe_10] = TF_TargetOilperBunch[Sp3,Ripe_11]
+# TF_TargetOilPrev[Sp3,Ripe_11] = TF_TargetOilperBunch[Sp3,Ripe_12]
+# TF_TargetOilPrev[Sp3,Ripe_12] = TF_TargetOilperBunch[Sp3,Early_fruit]
+# TF_TargetOilPrev[Sp3,Early_fruit] = TF_TargetOilperBunch[Sp3,Pollinated]
+# TF_TargetOilPrev[Sp3,Pollinated] = TF_TargetOilperBunch[Sp3,Anthesis]
+# TF_TargetOilPrev[Sp3,Anthesis] = TF_TargetOilperBunch[Sp3,Anthesis_1]
+# TF_TargetOilPrev[Sp3,Anthesis_1] = TF_TargetOilperBunch[Sp3,Anthesis_2]
+# TF_TargetOilPrev[Sp3,Anthesis_2] = TF_TargetOilperBunch[Sp3,Anthesis_3]
+# TF_TargetOilPrev[Sp3,Anthesis_3] = TF_TargetOilperBunch[Sp3,Anthesis_4]
+# TF_TargetOilPrev[Sp3,Anthesis_4] = TF_TargetOilperBunch[Sp3,Anthesis_5]
+# TF_TargetOilPrev[Sp3,Anthesis_5] = TF_TargetOilperBunch[Sp3,Anthesis_6]
+# TF_TargetOilPrev[Sp3,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
+treefruit_df$TF_TargetOilPrev <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_TargetOilperBunch, 0, 0, 0)
+
+# TF_RelAgeNewLf[Tree] = if Simulation_Time <T_PlantTime[Tree] then 0 else if TF_PhyllochronTime[Tree] = 0 then 0 else (Time-TF_LeafTime[Tree])/TF_PhyllochronTime[Tree]
+tree_df$TF_RelAgeNewLf <- ifelse(
+  time < tree_df$T_PlantTime,
+  0,
+  ifelse(
+    tree_df$TF_PhyllochronTime == 0,
+    0,
+    (time - tree_df$TF_LeafTime) / tree_df$TF_PhyllochronTime
+  )
+)
+
+# TF_TargetOilCurr[Tree,Fruitbunch] = TF_TargetOilPrev[Tree,Fruitbunch]+TF_RelAgeNewLf[Tree]*(TF_TargetOilperBunch[Tree,Fruitbunch]-TF_TargetOilPrev[Tree,Fruitbunch])
+treefruit_df$TF_TargetOilCurr <- treefruit_df$TF_TargetOilPrev + tree_df$TF_RelAgeNewLf * (treefruit_df$TF_TargetOilperBunch - treefruit_df$TF_TargetOilPrev)
+
+# TF_OilinFruits[Tree,Fruitbunch] = TF_BunchWeight_kgpbunch[Tree,Fruitbunch]*TF_TargetOilCurr[Tree,Fruitbunch]
+treefruit_df$TF_OilinFruits <- treefruit_df$TF_BunchWeight_kgpbunch * treefruit_df$TF_TargetOilCurr
+
+# TF_OilHarvest[Tree] = if TF_BunchWeightHarvest[Tree,Ripe] > 0 then TF_OilinFruits[Tree,Ripe] else 0
+tree_df$TF_OilHarvest <- ifelse(treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_BunchWeightHarvest > 0,
+                                treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_OilinFruits,
+                                0)
+
+# TF_OilProd[Tree] = ARRAYSUM(TF_OilinFruits[Tree,*])+TF_CumOilHarvest[Tree]-TF_CumOilProd[Tree]
+tree_df$TF_OilProd <- aggregate(treefruit_df$TF_OilinFruits, treefruit_df["tree_id"], sum)$x + tree_df$TF_CumOilHarvest - tree_df$TF_CumOilProd
+
+# TF_DMStressChange[Tree] = TF_StreesUpdateFraction*(TF_DWSufficiency[Tree]-TF_DW_Sufficiency_Yesterday[Tree])
+tree_df$TF_DMStressChange <- pars$T_par$TF_StreesUpdateFraction * (tree_df$TF_DWSufficiency - tree_df$TF_DW_Sufficiency_Yesterday)
+
+# TF_LeavesTargetF[Tree] = TF_TargetLeafAlloc[Tree]
+tree_df$TF_LeavesTargetF <- tree_df$TF_TargetLeafAlloc
+
+# TF_SexDetermination[Tree] = if TF_CurrentLeafNo[Tree] < TF_FirstBudtoFlowerInit[Tree] then 0 else if TF_NewLeaf?[Tree] = 0 then 0 else if ((T_GroRes[DW,Tree]+T_GrowStor[DW,Tree])/T_BiomAG[DW,Tree]<TF_MaleThresh[Tree]) or (TF_WatNutSuff[Tree]<(TF_MThreshtoWatStress[Tree])) then 1-TF_NextGender[Tree] else 2-TF_NextGender[Tree]
+tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
+tree_df$TF_SexDetermination <- ifelse(
+  tree_df$TF_CurrentLeafNo < tree_df$TF_FirstBudtoFlowerInit,
+  0,
+  ifelse(
+    tree_df$TF_NewLeaf_is == 0,
+    0,
+    ifelse ((tp_DW$T_GroRes + tp_DW$T_GrowStor) / tp_DW$T_BiomAG < tree_df$TF_MaleThresh
+            |
+              tree_df$TF_WatNutSuff < tree_df$TF_MThreshtoWatStress,
+            1 - tree_df$TF_NextGender ,
+            2 - tree_df$TF_NextGender
+    )
+  )
+)
+
+# TF_Herbivory[Tree] = T_Herbivory[DW,Tree]
+tree_df$TF_Herbivory <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Herbivory
+
+# TF_StressRec[Tree] = TF_ForgetStress[Tree]*(TW_Posgro[Tree]-TF_RecentTWPosgro[Tree])
+tree_df$TF_StressRec <- tree_df$TF_ForgetStress * (tree_df$TW_Posgro - tree_df$TF_RecentTWPosgro)
+
+# TF_TrunkTargetF[Tree] = TF_TrunkBiomass_GrowthAllocation[Tree]
+tree_df$TF_TrunkTargetF <- tree_df$TF_TrunkBiomass_GrowthAllocation
+
+
+# TF_YNewLeafF?[Tree] = -TF_YNewLeaf?[Tree]+TF_NewLeaf?[Tree]
+tree_df$TF_YNewLeafF_is <- -tree_df$TF_YNewLeaf_is + tree_df$TF_NewLeaf_is
+
+# TP_RelNutSupply[Tree] = if TP_Nutrient_Demand[Tree,N] = 0 then 0 else min(1,T_NUptTot[N,Tree]/TP_Nutrient_Demand[Tree,N],T_NUptTot[P,Tree]/TP_Nutrient_Demand[Tree,P])
+tn_N <- treenut_df[treenut_df$SlNut == "N", ]
+tn_P <- treenut_df[treenut_df$SlNut == "P", ]
+tree_df$TP_RelNutSupply <- ifelse(
+  tn_N$TP_Nutrient_Demand == 0,
+  0,
+  pmin(
+    1,
+    tn_N$T_NUptTot / tn_N$TP_Nutrient_Demand,
+    tn_P$T_NUptTot / tn_P$TP_Nutrient_Demand
+  )
+)
+
+# TP_RelNutSupplChange[Tree] = TP_RelNutSupply[Tree]-TP_RelNutSupplyDelayed[Tree]
+tree_df$TP_RelNutSupplChange <- tree_df$TP_RelNutSupply - tree_df$TP_RelNutSupplyDelayed
+
+# Rt_TAmount1[Zone,Tree] = Rt_TLrv1[Zone,Tree]*AF_DepthAct1[Zone]*100
+# Rt_TAmount2[Zone,Tree] = AF_Depth2[Zone]*Rt_TLrv2[Zone,Tree]*100
+# Rt_TAmount3[Zone,Tree] = AF_Depth3[Zone]*Rt_TLrv3[Zone,Tree]*100
+# Rt_TAmount4[Zone,Tree] = AF_Depth4[Zone]*Rt_TLrv4[Zone,Tree]*100
+zonelayertree_df$Rt_TAmount <- zonelayertree_df$AF_Depth * zonelayertree_df$Rt_TLrv *
+  100
+
+# Rt_TAmount[Zone,Tree] = Rt_TAmount1[Zone,Tree]+Rt_TAmount2[Zone,Tree]+Rt_TAmount3[Zone,Tree]+Rt_TAmount4[Zone,Tree]
+zonetree_df$Rt_TAmount <- aggregate(zonelayertree_df$Rt_TAmount, zonelayertree_df[c("zone", "tree_id")], sum)$x
+
+# Rt_TAmountPerTree[Tree] = AF_ZoneFrac[Zn1]*Rt_TAmount[Zn1,Tree]+AF_ZoneFrac[Zn2]*Rt_TAmount[Zn2,Tree]+AF_ZoneFrac[Zn3]*Rt_TAmount[Zn3,Tree]+AF_ZoneFrac[Zn4]*Rt_TAmount[Zn4,Tree]
+tree_df$Rt_TAmountPerTree <- aggregate(zonetree_df$AF_ZoneFrac * zonetree_df$Rt_TAmount,
+                                       zonetree_df["tree_id"],
+                                       sum)$x
+
+# TW_YDayUptChange[Tree] = if Rt_TAmountPerTree[Tree] <> 0 then -TW_DemandPerRoot[Tree]+TW_DemandPot[Tree]/Rt_TAmountPerTree[Tree] else 0
+tree_df$TW_YDayUptChange <- ifelse(
+  tree_df$Rt_TAmountPerTree != 0,
+  -tree_df$TW_DemandPerRoot + tree_df$TW_DemandPot / tree_df$Rt_TAmountPerTree,
+  0
+)
+
+# W_V4DrainF[Zone] = W_V4Drain[Zone]
+zone_df$W_V4DrainF <- zone_df$W_V4Drain
 
 
 
@@ -14175,574 +16547,50 @@ zonelayernut_df[zonelayernut_df$layer == 1, ]$N_Stock_inc <- zonelayernut_df[zon
 zonelayernut_df[zonelayernut_df$layer == 4, ]$N_Stock_inc <- zonelayernut_df[zonelayernut_df$layer == 4, ]$N_Stock_inc - zonenut_df$N_LeachOutx4
 zonelayernut_df$N_Stock <- zonelayernut_df$N_Stock + zonelayernut_df$N_Stock_inc
 
-
-
-
-
-# S&B_BurntWood[Zone,PlantComp] = S&B_DW?[PlantComp]*S&B_DeadWood[Zone,PlantComp]*S&B_DeadWoodBurnFrac[Zone]*(1-S&B_AerosolFrac[Zone])
-zonepcomp_df$SB_BurntWood <- zonepcomp_df$SB_DW_is * zonepcomp_df$SB_DeadWood * zonepcomp_df$SB_DeadWoodBurnFrac *
-  (1 - zonepcomp_df$SB_AerosolFrac)
-
-# S&B_Ash[Zone] = (S&B_NecromassBurn[Zone,DW]*S&B_LeafAshCont)+S&B_BurntWood[Zone,DW]*S&B_WoodAshCont
-zp_DW <- zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]
-zone_df$SB_Ash <- (zp_DW$SB_NecromassBurn * pars$SB_par$SB_LeafAshCont) + zp_DW$SB_BurntWood *
-  pars$SB_par$SB_WoodAshCont
-
-# S&B_pH_change[Zone] = S&B_pHChangePerCationInput*S&B_Ash[Zone]/AF_DepthAct1[Zone] - S&B_pHRecFrac*(S&B_Topsoil_pH[Zone]-S&B_InitialpH)
-zone_df$SB_pH_change <- pars$SB_par$SB_pHChangePerCationInput * zone_df$SB_Ash /
-  zonelayer_df[zonelayer_df$layer == 1, ]$AF_Depth - pars$SB_par$SB_pHRecFrac *
-  (zone_df$SB_Topsoil_pH - pars$SB_par$SB_InitialpH)
-
 # S&B_Topsoil_pH[Zone](t) = S&B_Topsoil_pH[Zone](t - dt) + (S&B_pH_change[Zone]) * dt
 zone_df$SB_Topsoil_pH <- zone_df$SB_Topsoil_pH + (zone_df$SB_pH_change)
 
-# RT3_CRdecay[Tree] = RT3_CoarseRtDecayCoeff[Tree]*RT3_CoarseRt[Tree]
-tree_df$RT3_CRdecay <- tree_df$RT3_CoarseRtDecayCoeff * tree_df$RT3_CoarseRt
-
 # RT3_CoarseRt[Tree](t) = RT3_CoarseRt[Tree](t - dt) + (RT3_CRincr[Tree] - RT3_CRdecay[Tree]) * dt
 tree_df$RT3_CoarseRt <- tree_df$RT3_CoarseRt + (tree_df$RT3_CRincr - tree_df$RT3_CRdecay)
-
-# C_WeedSeedInflux[Zone,PlantComp] = if AF_SimulateWeeds? = 1 then C_WeedSeedExtInflux*C_SeedConc[PlantComp]*C_UnitConv[PlantComp] else 0
-zonepcomp_df$AF_SimulateWeeds_is <- pars$AF_par$AF_SimulateWeeds_is
-zonepcomp_df$C_WeedSeedInflux <- ifelse(
-  zonepcomp_df$AF_SimulateWeeds_is == 1,
-  pars$C_par$C_WeedSeedExtInflux * zonepcomp_df$C_SeedConc * zonepcomp_df$C_UnitConv,
-  0
-)
-
-# C_WeedSeedFall[Zone,PlantComp] = if (int(Cq_Stage[Zone])) >= 2 and Cq_WeedZn?[Zone]=1 then C_YieldCurr[Zone,PlantComp]/dt else 0
-zonepcomp_df$Cq_Stage <- rep(zone_df$Cq_Stage, nrow(pcomp_df))
-zonepcomp_df$C_WeedSeedFall <- ifelse(
-  floor(zonepcomp_df$Cq_Stage) >= 2 &
-    zonepcomp_df$Cq_WeedZn_is == 1,
-  zonepcomp_df$C_YieldCurr,
-  0
-)
-
-# C_WeedGermin[Zone,PlantComp] = if Cq_WeedRestart?[Zone] = 1 then C_WeedGermFrac*C_WeedSeedBank[Zone,PlantComp] ELSE 0
-zonepcomp_df$Cq_WeedRestart_is <- rep(zone_df$Cq_WeedRestart_is, nrow(pcomp_df))
-zonepcomp_df$C_WeedGermin <- ifelse(
-  zonepcomp_df$Cq_WeedRestart_is == 1,
-  pars$C_par$C_WeedGermFrac * zonepcomp_df$C_WeedSeedBank,
-  0
-)
-
-
-
-# Mn2_CNMetab[Zone,SoilLayer] = IF(MN2_Metab[Zone,SoilLayer]>0)THEN(Mc2_Metab[Zone,SoilLayer]/MN2_Metab[Zone,SoilLayer])ELSE(0)
-zonelayer_df$Mn2_CNMetab <- ifelse(zonelayer_df$Mn2_Metab > 0,
-                                   zonelayer_df$Mc2_Metab / zonelayer_df$Mn2_Metab,
-                                   0)
-
-# Mn2_DecActMet[Zone,SoilLayer] = IF(Mn2_CNMetab[Zone,SoilLayer]>0)THEN(Mc2_MetabActF[Zone,SoilLayer]/(Mc_EffMetab*Mn2_CNMetab[Zone,SoilLayer]))ELSE(0)
-zonelayer_df$Mn2_DecActMet <- ifelse(
-  zonelayer_df$Mn2_CNMetab > 0,
-  zonelayer_df$Mc2_MetabActF / (pars$Mc_par$Mc_EffMetab * zonelayer_df$Mn2_CNMetab),
-  0
-)
-
-# Mn2_DemActMet_N[Zone,SoilLayer] = Mc2_MetabActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
-zonelayer_df$Mn2_DemActMet_N <- zonelayer_df$Mc2_MetabActF / (pars$Mn_par$Mn_CNAct *
-                                                                Mn_NutRatAct_N)
-
-# Mn2_MetabActF[Zone,SoilLayer] = MIN(Mn2_DecActMet[Zone,SoilLayer],Mn2_DemActMet_N[Zone,SoilLayer])
-zonelayer_df$Mn2_MetabActF <- pmin(zonelayer_df$Mn2_DecActMet, zonelayer_df$Mn2_DemActMet_N)
-
-
-# Mn2_DemActSt[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
-zonelayer_df$Mn2_DemActSt <- zonelayer_df$Mc2_StrucActF / (pars$Mn_par$Mn_CNAct *
-                                                             Mn_NutRatAct_N)
-
-# Mn2_DecActSt_N[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mc_EffStrucAct*Mn_CNStruc*Mn_NutRatStruc[N])
-zonelayer_df$Mn2_DecActSt_N <- zonelayer_df$Mc2_StrucActF / (pars$Mc_par$Mc_EffStrucAct *
-                                                               pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc)
-
-# Mn2_StrucActF[Zone,SoilLayer] = MIN(Mn2_DecActSt_N[Zone,SoilLayer],Mn2_DemActSt[Zone,SoilLayer])
-zonelayer_df$Mn2_StrucActF <- pmin(zonelayer_df$Mn2_DecActSt_N, zonelayer_df$Mn2_DemActSt)
-
-# Mn2_Met_SomTrans[Zn1,1] = Mn_Met_LitSomTrans[Zn1,N]- MN2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]
-# Mn2_Met_SomTrans[Zn1,2] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]- MN2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]
-# Mn2_Met_SomTrans[Zn1,3] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]- MN2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]
-# Mn2_Met_SomTrans[Zn1,4] = 0*Mn_Met_LitSomTrans[Zn1,N]+ MN2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]- MN2_Metab[Zn1,4]*MC2_Met_LayerTrans[Zn1,4]
-# Mn2_Met_SomTrans[Zn2,1] = Mn_Met_LitSomTrans[Zn2,N]- MN2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]
-# Mn2_Met_SomTrans[Zn2,2] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]- MN2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]
-# Mn2_Met_SomTrans[Zn2,3] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]- MN2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]
-# Mn2_Met_SomTrans[Zn2,4] = 0*Mn_Met_LitSomTrans[Zn2,N]+ MN2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]- MN2_Metab[Zn2,4]*MC2_Met_LayerTrans[Zn2,4]
-# Mn2_Met_SomTrans[Zn3,1] = Mn_Met_LitSomTrans[Zn3,N]- MN2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]
-# Mn2_Met_SomTrans[Zn3,2] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]- MN2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]
-# Mn2_Met_SomTrans[Zn3,3] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]- MN2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]
-# Mn2_Met_SomTrans[Zn3,4] = 0*Mn_Met_LitSomTrans[Zn3,N]+ MN2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]- MN2_Metab[Zn3,4]*MC2_Met_LayerTrans[Zn3,4]
-# Mn2_Met_SomTrans[Zn4,1] = Mn_Met_LitSomTrans[Zn4,N]- MN2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]
-# Mn2_Met_SomTrans[Zn4,2] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]- MN2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]
-# Mn2_Met_SomTrans[Zn4,3] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]- MN2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]
-# Mn2_Met_SomTrans[Zn4,4] = 0*Mn_Met_LitSomTrans[Zn4,N]+ MN2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]- MN2_Metab[Zn4,4]*MC2_Met_LayerTrans[Zn4,4]
-#
-# Mn2_Struc_SomTrans[Zn1,1] = Mn_Str_LitSomTrans[Zn1,N]- MN2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]
-# Mn2_Struc_SomTrans[Zn1,2] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]- MN2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]
-# Mn2_Struc_SomTrans[Zn1,3] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]- MN2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]
-# Mn2_Struc_SomTrans[Zn1,4] = 0*Mn_Str_LitSomTrans[Zn1,N]+ MN2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]- MN2_Struc[Zn1,4]*MC2_Struc_LayerTrans[Zn1,4]
-# Mn2_Struc_SomTrans[Zn2,1] = Mn_Str_LitSomTrans[Zn2,N]- MN2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]
-# Mn2_Struc_SomTrans[Zn2,2] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]- MN2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]
-# Mn2_Struc_SomTrans[Zn2,3] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]- MN2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]
-# Mn2_Struc_SomTrans[Zn2,4] = 0*Mn_Str_LitSomTrans[Zn2,N]+ MN2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]- MN2_Struc[Zn2,4]*MC2_Struc_LayerTrans[Zn2,4]
-# Mn2_Struc_SomTrans[Zn3,1] = Mn_Str_LitSomTrans[Zn3,N]- MN2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]
-# Mn2_Struc_SomTrans[Zn3,2] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]- MN2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]
-# Mn2_Struc_SomTrans[Zn3,3] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]- MN2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]
-# Mn2_Struc_SomTrans[Zn3,4] = 0*Mn_Str_LitSomTrans[Zn3,N]+ MN2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]- MN2_Struc[Zn3,4]*MC2_Struc_LayerTrans[Zn3,4]
-# Mn2_Struc_SomTrans[Zn4,1] = Mn_Str_LitSomTrans[Zn4,N]- MN2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]
-# Mn2_Struc_SomTrans[Zn4,2] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]- MN2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]
-# Mn2_Struc_SomTrans[Zn4,3] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]- MN2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]
-# Mn2_Struc_SomTrans[Zn4,4] = 0*Mn_Str_LitSomTrans[Zn4,N]+ MN2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]- MN2_Struc[Zn4,4]*MC2_Struc_LayerTrans[Zn4,4]
-#
-# Mn2_Act_SomTrans[Zn1,1] = Mn_Act_LitSomTrans[Zn1,N]                                            - MN2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]
-# Mn2_Act_SomTrans[Zn1,2] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]- MN2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]
-# Mn2_Act_SomTrans[Zn1,3] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]- MN2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]
-# Mn2_Act_SomTrans[Zn1,4] = 0*Mn_Act_LitSomTrans[Zn1,N]+ MN2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]- MN2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4]
-# Mn2_Act_SomTrans[Zn2,1] = Mn_Act_LitSomTrans[Zn2,N]                                            - MN2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]
-# Mn2_Act_SomTrans[Zn2,2] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]- MN2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]
-# Mn2_Act_SomTrans[Zn2,3] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]- MN2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]
-# Mn2_Act_SomTrans[Zn2,4] = 0*Mn_Act_LitSomTrans[Zn2,N]+ MN2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]- MN2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4]
-# Mn2_Act_SomTrans[Zn3,1] = Mn_Act_LitSomTrans[Zn3,N]                                            - MN2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]
-# Mn2_Act_SomTrans[Zn3,2] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]- MN2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]
-# Mn2_Act_SomTrans[Zn3,3] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]- MN2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]
-# Mn2_Act_SomTrans[Zn3,4] = 0*Mn_Act_LitSomTrans[Zn3,N]+ MN2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]- MN2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4]
-# Mn2_Act_SomTrans[Zn4,1] = Mn_Act_LitSomTrans[Zn4,N]                                            - MN2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]
-# Mn2_Act_SomTrans[Zn4,2] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]- MN2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]
-# Mn2_Act_SomTrans[Zn4,3] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]- MN2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]
-# Mn2_Act_SomTrans[Zn4,4] = 0*Mn_Act_LitSomTrans[Zn4,N]+ MN2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]- MN2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4]
-#
-# Mn2_Slw_SomTrans[Zn1,1] = Mn_Slw_LitSomTrans[Zn1,N]- MN2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]
-# Mn2_Slw_SomTrans[Zn1,2] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]- MN2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]
-# Mn2_Slw_SomTrans[Zn1,3] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]- MN2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]
-# Mn2_Slw_SomTrans[Zn1,4] = 0*Mn_Slw_LitSomTrans[Zn1,N]+ MN2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]- MN2_Slw[Zn1,4]*MC2_Slow_LayerTrans[Zn1,4]
-# Mn2_Slw_SomTrans[Zn2,1] = Mn_Slw_LitSomTrans[Zn2,N]- MN2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]
-# Mn2_Slw_SomTrans[Zn2,2] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]- MN2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]
-# Mn2_Slw_SomTrans[Zn2,3] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]- MN2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]
-# Mn2_Slw_SomTrans[Zn2,4] = 0*Mn_Slw_LitSomTrans[Zn2,N]+ MN2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]- MN2_Slw[Zn2,4]*MC2_Slow_LayerTrans[Zn2,4]
-# Mn2_Slw_SomTrans[Zn3,1] = Mn_Slw_LitSomTrans[Zn3,N]- MN2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]
-# Mn2_Slw_SomTrans[Zn3,2] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]- MN2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]
-# Mn2_Slw_SomTrans[Zn3,3] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]- MN2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]
-# Mn2_Slw_SomTrans[Zn3,4] = 0*Mn_Slw_LitSomTrans[Zn3,N]+ MN2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]- MN2_Slw[Zn3,4]*MC2_Slow_LayerTrans[Zn3,4]
-# Mn2_Slw_SomTrans[Zn4,1] = Mn_Slw_LitSomTrans[Zn4,N]- MN2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]
-# Mn2_Slw_SomTrans[Zn4,2] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]- MN2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]
-# Mn2_Slw_SomTrans[Zn4,3] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]- MN2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]
-# Mn2_Slw_SomTrans[Zn4,4] = 0*Mn_Slw_LitSomTrans[Zn4,N]+ MN2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]- MN2_Slw[Zn4,4]*MC2_Slow_LayerTrans[Zn4,4]
-#
-# Mn2_Pas_SomTrans[Zn1,1] = Mn_Pas_LitSomTrans[Zn1,N]- MN2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]
-# Mn2_Pas_SomTrans[Zn1,2] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]- MN2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]
-# Mn2_Pas_SomTrans[Zn1,3] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]- MN2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]
-# Mn2_Pas_SomTrans[Zn1,4] = 0*Mn_Pas_LitSomTrans[Zn1,N]+ MN2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]- MN2_Pass[Zn1,4]*MC2_Pass_LayerTrans[Zn1,4]
-# Mn2_Pas_SomTrans[Zn2,1] = Mn_Pas_LitSomTrans[Zn2,N]- MN2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]
-# Mn2_Pas_SomTrans[Zn2,2] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]- MN2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]
-# Mn2_Pas_SomTrans[Zn2,3] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]- MN2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]
-# Mn2_Pas_SomTrans[Zn2,4] = 0*Mn_Pas_LitSomTrans[Zn2,N]+ MN2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]- MN2_Pass[Zn2,4]*MC2_Pass_LayerTrans[Zn2,4]
-# Mn2_Pas_SomTrans[Zn3,1] = Mn_Pas_LitSomTrans[Zn3,N]- MN2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]
-# Mn2_Pas_SomTrans[Zn3,2] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]- MN2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]
-# Mn2_Pas_SomTrans[Zn3,3] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]- MN2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]
-# Mn2_Pas_SomTrans[Zn3,4] = 0*Mn_Pas_LitSomTrans[Zn3,N]+ MN2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]- MN2_Pass[Zn3,4]*MC2_Pass_LayerTrans[Zn3,4]
-# Mn2_Pas_SomTrans[Zn4,1] = Mn_Pas_LitSomTrans[Zn4,N]- MN2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]
-# Mn2_Pas_SomTrans[Zn4,2] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]- MN2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]
-# Mn2_Pas_SomTrans[Zn4,3] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]- MN2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]
-# Mn2_Pas_SomTrans[Zn4,4] = 0*Mn_Pas_LitSomTrans[Zn4,N]+ MN2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]- MN2_Pass[Zn4,4]*MC2_Pass_LayerTrans[Zn4,4]
-
-zonelayercpools_df$Mn2_cpools <- c(
-  zonelayer_df$Mn2_Metab,
-  zonelayer_df$Mn2_Struc,
-  zonelayer_df$Mn2_Act,
-  zonelayer_df$Mn2_Slw,
-  zonelayer_df$Mn2_Pass
-)
-zonelayercpools_df$Mn2_cpools_Layer <- zonelayercpools_df$Mn2_cpools * zonelayercpools_df$Mc2_LayerTrans
-zn_N <- zonenut_df[zonenut_df$SlNut == "N", ]
-zonecpools_df$Mn_LitSomTrans_N <- c(
-  zn_N$Mn_Met_LitSomTrans,
-  zn_N$Mn_Str_LitSomTrans,
-  zn_N$Mn_Act_LitSomTrans,
-  zn_N$Mn_Slw_LitSomTrans,
-  zn_N$Mn_Pas_LitSomTrans
-)
-
-zonelayercpools_df$Mn2_SomTrans <- NA
-zonelayercpools_df[zonelayercpools_df$layer == 1, ]$Mn2_SomTrans <- zonecpools_df$Mn_LitSomTrans_N - zonelayercpools_df[zonelayer_df$layer == 1, ]$Mn2_cpools_Layer
-zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mn2_SomTrans <- zonelayercpools_df[zonelayercpools_df$layer %in% c(1:3), ]$Mn2_cpools_Layer - zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mn2_cpools_Layer
-
-# Mn2_DecAct[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mc2_EffActSlw*Mn2_CNActAct_N[Zone,SoilLayer])
-zonelayer_df$Mn2_DecAct <- zonelayer_df$Mc2_ActSlw / (Mc2_EffActSlw *
-                                                        zonelayer_df$Mn2_CNActAct_N)
-
-# Mn2_ActSlw[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[N])
-zonelayer_df$Mn2_ActSlw <- zonelayer_df$Mc2_ActSlw / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw)
-
-# Mn2_ActPass[Zone,SoilLayer] = Mc2_ActPass[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[N])
-zonelayer_df$Mn2_ActPass <- zonelayer_df$Mc2_ActPass / (pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
-
-# Mn2_ActMin[Zone,SoilLayer] = MIN(MAX(0,Mn2_DecAct[Zone,SoilLayer]-Mn2_ActSlw[Zone,SoilLayer]-Mn2_ActPass[Zone,SoilLayer]),MN2_Act[Zone,SoilLayer])
-zonelayer_df$Mn2_ActMin <- pmin(
-  pmax(
-    0,
-    zonelayer_df$Mn2_DecAct - zonelayer_df$Mn2_ActSlw - zonelayer_df$Mn2_ActPass
-  ),
-  zonelayer_df$Mn2_Act
-)
-
-# Mn2_ImmobAct[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,N], MAX(0,Mn2_DemActMet_N[Zone,SoilLayer]-Mn2_DecActMet[Zone,SoilLayer])+MAX(0,Mn2_DemActSt[Zone,SoilLayer]-Mn2_DecActSt_N[Zone,SoilLayer])+MAX(0,MN2_Act[Zone,SoilLayer]*Mn2_CNActAct_N[Zone,SoilLayer]*(1/(Mn_CNAct*Mn_NutRatAct[N]) - 1/Mn2_CNActAct_N[Zone,SoilLayer]) ))
-zonelayer_df$Mn_MinNutpool_N <- rep(zonenut_df[zonenut_df$SlNut == "N", ]$Mn_MinNutpool, nlayer)
-zonelayer_df$Mn2_ImmobAct <- pmin(
-  zonelayer_df$Mn_MinNutpool_N,
-  pmax(0, zonelayer_df$Mn2_DemActMet_N -
-         zonelayer_df$Mn2_DecActMet) +
-    pmax(0, zonelayer_df$Mn2_DemActSt - zonelayer_df$Mn2_DecActSt_N) +
-    pmax(
-      0,
-      zonelayer_df$Mn2_Act * zonelayer_df$Mn2_CNActAct_N * (
-        1 / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct) - 1 /
-          zonelayer_df$Mn2_CNActAct_N
-      )
-    )
-)
-
-# Mn2_ActMinF[Zone,SoilLayer] = IF (Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer])>0
-# THEN MIN((Mn2_ActMin[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]),Mn2_Act[Zone,SoilLayer])
-# ELSE IF (Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer])=0
-# THEN 0 ELSE -MIN(ABS(Mn2_ActMin[Zone,SoilLayer]-Mn2_ImmobAct[Zone,SoilLayer] +MN2_MinDueToS&B[Zone,SoilLayer]*Mn2_Act[Zone,SoilLayer]),Mn2_MinNutpool[Zone,SoilLayer])
-zonelayer_df$Mn2_ActMinF_a <- zonelayer_df$Mn2_ActMin - zonelayer_df$Mn2_ImmobAct + zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Act
-zonelayer_df$Mn2_ActMinF <- ifelse(
-  zonelayer_df$Mn2_ActMinF_a > 0,
-  pmin(zonelayer_df$Mn2_ActMinF_a, zonelayer_df$Mn2_Act),
-  ifelse(
-    zonelayer_df$Mn2_ActMinF_a == 0,
-    0,
-    -pmin(
-      abs(zonelayer_df$Mn2_ActMinF_a),
-      zonelayer_df$Mn2_MinNutpool
-    )
-  )
-)
-
-# Mn2_SlwAct[Zone,SoilLayer] = Mc2_SlwAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
-zonelayer_df$Mn2_SlwAct <- zonelayer_df$Mc2_SlwAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct)
-
-# Mn2_ActSlwF[Zone,SoilLayer] = MAX(0,Mn2_ActSlw[Zone,SoilLayer])-MAX(0,Mn2_SlwAct[Zone,SoilLayer])
-zonelayer_df$Mn2_ActSlwF <- pmax(0, zonelayer_df$Mn2_ActSlw) - pmax(0, zonelayer_df$Mn2_SlwAct)
-
-# Mn2_PassAct[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[N])
-zonelayer_df$Mn2_PassAct <- zonelayer_df$Mc2_PassAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatAct)
-
-# Mn2_ActPassF[Zone,SoilLayer] = MAX(0,Mn2_ActPass[Zone,SoilLayer])-MAX(0,Mn2_PassAct[Zone,SoilLayer])
-zonelayer_df$Mn2_ActPassF <- pmax(0, zonelayer_df$Mn2_ActPass) - pmax(0, zonelayer_df$Mn2_PassAct)
 
 # MN2_Act[Zone,SoilLayer](t) = MN2_Act[Zone,SoilLayer](t - dt) + (Mn2_MetabActF[Zone,SoilLayer] + Mn2_StrucActF[Zone,SoilLayer] + Mn2_Act_SomTrans[Zone,SoilLayer] - Mn2_ActMinF[Zone,SoilLayer] - Mn2_ActSlwF[Zone,SoilLayer] - Mn2_ActPassF[Zone,SoilLayer]) * dt
 zonelayer_df$Mn2_Act <- zonelayer_df$Mn2_Act + (
   zonelayer_df$Mn2_MetabActF + zonelayer_df$Mn2_StrucActF + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Actv", ]$Mn2_SomTrans - zonelayer_df$Mn2_ActMinF - zonelayer_df$Mn2_ActSlwF - zonelayer_df$Mn2_ActPassF
 )
 
-# Mn2_OrgInpRtN[Zone,SoilLayer] = C_RtDecay_N[Zone,SoilLayer]+T_RtDec_N[Zone,SoilLayer]
-zlp_N <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]
-zonelayer_df$Mn2_OrgInpRtN <- zlp_N$C_RtDecay + zlp_N$T_RtDec
-
-# Mn2_StrucIn[Zone,SoilLayer] = IF(Mn2_OrgInpRtN[Zone,SoilLayer]>10^-5)THEN(Mc2_StrucIn[Zone,SoilLayer]/(Mn_CNStruc*Mn_NutRatStruc[N]))ELSE(0)
-zonelayer_df$Mn2_StrucIn <- ifelse(
-  zonelayer_df$Mn2_OrgInpRtN > 10^-5,
-  zonelayer_df$Mc2_StrucIn / (pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc),
-  0
-)
-
-# Mn2_MetabIn[Zone,SoilLayer] = Mn2_OrgInpRtN[Zone,SoilLayer]-Mn2_StrucIn[Zone,SoilLayer]
-zonelayer_df$Mn2_MetabIn <- zonelayer_df$Mn2_OrgInpRtN - zonelayer_df$Mn2_StrucIn
-
-# Mn2_MetabMinF[Zone,SoilLayer] = Mn2_DecActMet[Zone,SoilLayer]-Mn2_MetabActF[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Metab[Zone,SoilLayer]
-zonelayer_df$Mn2_MetabMinF <- zonelayer_df$Mn2_DecActMet - zonelayer_df$Mn2_MetabActF +
-  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Metab
-
-# MN2_OrgN_leaching[Zone] = MN2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+MN2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+MN2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+MN2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+MN2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
-zl4c <- zonelayercpools_df[zonelayercpools_df$layer == 4, ]
-zone_df$Mn2_OrgN_leaching <- aggregate(zl4c$Mn2_cpools * zl4c$Mc2_LayerTrans, zl4c["zone"], sum)[[2]]
-
 # MN2_Metab[Zone,SoilLayer](t) = MN2_Metab[Zone,SoilLayer](t - dt) + (Mn2_MetabIn[Zone,SoilLayer] + Mn2_Met_SomTrans[Zone,SoilLayer] - Mn2_MetabActF[Zone,SoilLayer] - Mn2_MetabMinF[Zone,SoilLayer]) * dt
 zonelayer_df$Mn2_Metab <- zonelayer_df$Mn2_Metab + (
   zonelayer_df$Mn2_MetabIn + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Met", ]$Mn2_SomTrans - zonelayer_df$Mn2_MetabActF - zonelayer_df$Mn2_MetabMinF
 )
-
-# Mn2_DecStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mc_EffStrucSlw*Mn_CNStruc*Mn_NutRatStruc[N])
-zonelayer_df$Mn2_DecStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mc_par$Mc_EffStrucSlw * pars$Mn_par$Mn_CNStruc *
-                                                                nut_df[nut_df$SlNut == "N", ]$Mn_NutRatStruc)
-
-# Mn2_DemStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[N])
-zonelayer_df$Mn2_DemStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw)
-
-# Mn2_StrucSlwF[Zone,SoilLayer] = MIN(Mn2_DecStrucSlw[Zone,SoilLayer],Mn2_DemStrucSlw[Zone,SoilLayer])
-zonelayer_df$Mn2_StrucSlwF <- pmin(zonelayer_df$Mn2_DecStrucSlw, zonelayer_df$Mn2_DemStrucSlw)
-
-# MN2_StrucMinF[Zone,SoilLayer] = (Mn2_DecStrucSlw[Zone,SoilLayer]-Mn2_StrucSlwF[Zone,SoilLayer])+(Mn2_DecActSt_N[Zone,SoilLayer]-Mn2_StrucActF[Zone,SoilLayer])+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Struc[Zone,SoilLayer]
-zonelayer_df$Mn2_StrucMinF <- (zonelayer_df$Mn2_DecStrucSlw - zonelayer_df$Mn2_StrucSlwF) +
-  (zonelayer_df$Mn2_DecActSt_N - zonelayer_df$Mn2_StrucActF) + zonelayer_df$Mn2_MinDueToSB *
-  zonelayer_df$Mn2_Struc
 
 # MN2_Struc[Zone,SoilLayer](t) = MN2_Struc[Zone,SoilLayer](t - dt) + (Mn2_StrucIn[Zone,SoilLayer] + Mn2_Struc_SomTrans[Zone,SoilLayer] - Mn2_StrucActF[Zone,SoilLayer] - Mn2_StrucSlwF[Zone,SoilLayer] - MN2_StrucMinF[Zone,SoilLayer]) * dt
 zonelayer_df$Mn2_Struc = zonelayer_df$Mn2_Struc + (
   zonelayer_df$Mn2_StrucIn + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Str", ]$Mn2_SomTrans - zonelayer_df$Mn2_StrucActF - zonelayer_df$Mn2_StrucSlwF - zonelayer_df$Mn2_StrucMinF
 )
 
-# Mn2_SlwPassF[Zone,SoilLayer] = Mc2_SlwPassF[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[N])
-zonelayer_df$Mn2_SlwPassF <- zonelayer_df$Mc2_SlwPassF / (pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
-
-# Mn2_CNSlwAct_N[Zone,SoilLayer] = IF(TIME>1)THEN(Mc2_Slw[Zone,SoilLayer]/MN2_Slw[Zone,SoilLayer])ELSE(Mn_CNSlw*Mn_NutRatSlw[N])
-zonelayer_df$Mn2_CNSlwAct_N <- ifelse(
-  time > 1,
-  zonelayer_df$Mc2_Slw / zonelayer_df$Mn2_Slw,
-  pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw
-)
-
-# Mn2_DecSlw[Zone,SoilLayer] = IF (Mc_EffSlwPass*Mn2_CNSlwAct_N[Zone,SoilLayer])>0 THEN Mc2_SlwPassF[Zone,SoilLayer]/(Mc_EffSlwPass*Mn2_CNSlwAct_N[Zone,SoilLayer]) ELSE 0
-zonelayer_df$Mn2_DecSlw <- ifelse(
-  (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mn2_CNSlwAct_N) > 0 ,
-  zonelayer_df$Mc2_SlwPassF / (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mn2_CNSlwAct_N),
-  0
-)
-
-# Mn2_SlwMin[Zone,SoilLayer] = MAX(0,Mn2_DecSlw[Zone,SoilLayer]-Mn2_SlwAct[Zone,SoilLayer]-Mn2_SlwPassF[Zone,SoilLayer])
-zonelayer_df$Mn2_SlwMin <- pmax(0,
-                                zonelayer_df$Mn2_DecSlw - zonelayer_df$Mn2_SlwAct - zonelayer_df$Mn2_SlwPassF)
-
-# Mn2_ImmobStrucSlw[Zone,SoilLayer] =
-#   MIN(Mn_MinNutpool[Zone,N]-Mn2_ImmobAct[Zone,SoilLayer],
-#       MAX(0,Mn2_DemStrucSlw[Zone,SoilLayer]-Mn2_DecStrucSlw[Zone,SoilLayer])+
-#         MAX(0, MN2_Slw[Zone,SoilLayer]*Mn2_CNSlwAct_N[Zone,SoilLayer]*(1/(Mn_CNSlw*Mn_NutRatSlw[N]) - 1/Mn2_CNSlwAct_N[Zone,SoilLayer]) ))
-zonelayer_df$Mn2_ImmobStrucSlw <-
-  pmin(
-    zonelayer_df$Mn_MinNutpool_N - zonelayer_df$Mn2_ImmobAct,
-    pmax(
-      0,
-      zonelayer_df$Mn2_DemStrucSlw - zonelayer_df$Mn2_DecStrucSlw
-    ) +
-      pmax(
-        0,
-        zonelayer_df$Mn2_Slw * zonelayer_df$Mn2_CNSlwAct_N * (
-          1 / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatSlw) - 1 /
-            zonelayer_df$Mn2_CNSlwAct_N
-        )
-      )
-  )
-
-# Mn2_SlwMinF[Zone,SoilLayer] = (Mn2_SlwMin[Zone,SoilLayer]-Mn2_ImmobStrucSlw[Zone,SoilLayer])+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Slw[Zone,SoilLayer]
-zonelayer_df$Mn2_SlwMinF <- (zonelayer_df$Mn2_SlwMin - zonelayer_df$Mn2_ImmobStrucSlw) +
-  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Slw
-
 # MN2_Slw[Zone,SoilLayer](t) = MN2_Slw[Zone,SoilLayer](t - dt) + (Mn2_StrucSlwF[Zone,SoilLayer] + Mn2_ActSlwF[Zone,SoilLayer] + Mn2_Slw_SomTrans[Zone,SoilLayer] - Mn2_SlwPassF[Zone,SoilLayer] - Mn2_SlwMinF[Zone,SoilLayer]) * dt
 zonelayer_df$Mn2_Slw <- zonelayer_df$Mn2_Slw + (
   zonelayer_df$Mn2_StrucSlwF + zonelayer_df$Mn2_ActSlwF + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Slow", ]$Mn2_SomTrans - zonelayer_df$Mn2_SlwPassF - zonelayer_df$Mn2_SlwMinF
 )
-
-# Mn2_DecPass[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]*(Mc_EffPass*Mn_CNPass*Mn_NutRatPas[N])
-zonelayer_df$Mn2_DecPass <- zonelayer_df$Mc2_PassAct * (pars$Mc_par$Mc_EffPass *
-                                                          pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "N", ]$Mn_NutRatPas)
-
-# MN2_PassMinF[Zone,SoilLayer] = Mn2_DecPass[Zone,SoilLayer]-Mn2_PassAct[Zone,SoilLayer]+MN2_MinDueToS&B[Zone,SoilLayer]*MN2_Pass[Zone,SoilLayer]
-zonelayer_df$Mn2_PassMinF <- zonelayer_df$Mn2_DecPass - zonelayer_df$Mn2_PassAct +
-  zonelayer_df$Mn2_MinDueToSB * zonelayer_df$Mn2_Pass
 
 # MN2_Pass[Zone,SoilLayer](t) = MN2_Pass[Zone,SoilLayer](t - dt) + (Mn2_SlwPassF[Zone,SoilLayer] + Mn2_ActPassF[Zone,SoilLayer] + Mn2_Pas_SomTrans[Zone,SoilLayer] - MN2_PassMinF[Zone,SoilLayer]) * dt
 zonelayer_df$Mn2_Pass <- zonelayer_df$Mn2_Pass + (
   zonelayer_df$Mn2_SlwPassF + zonelayer_df$Mn2_ActPassF + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Pass", ]$Mn2_SomTrans - zonelayer_df$Mn2_PassMinF
 )
 
-# T_TodayRettoLab[Tree] = T_Tapping[DW,Tree]*T_TappDOW
-tree_df$T_TodayRettoLab <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Tapping * pars$T_par$T_TappDOW
-
-# T_ChExpRettoLabour[Tree] = if T_TappingDay?[Tree] = 0 then 0 else if  T_TodayRettoLab[Tree]> 0 then (1-T_MemExpY)*(T_TodayRettoLab[Tree] - T_ExpRetToLab[Tree]) else (T_RecoveryExp)*T_ExpRetThresh
-tree_df$T_ChExpRettoLabour <- ifelse(
-  tree_df$T_TappingDay_is == 0,
-  0,
-  ifelse(
-    tree_df$T_TodayRettoLab > 0,
-    (1 - pars$T_par$T_MemExpY) * (tree_df$T_TodayRettoLab - tree_df$T_ExpRetToLab),
-    pars$T_par$T_RecoveryExp * pars$T_par$T_ExpRetThresh
-  )
-)
-
 # T_ExpRetToLab[Tree](t) = T_ExpRetToLab[Tree](t - dt) + (T_ChExpRettoLabour[Tree]) * dt
 tree_df$T_ExpRetToLab <- tree_df$T_ExpRetToLab + (tree_df$T_ChExpRettoLabour)
-
-# Ca_ImmDOY[N] = GRAPH(Ca_PastImmInp[N])
-# Ca_ImmDOY[P] = GRAPH(Ca_PastImmInp[P])
-nut_df$Ca_ImmDoY <- c(
-  get_y_df(nut_df$Ca_PastImmInp[1], "Ca_ImmDOY_N"),
-  get_y_df(nut_df$Ca_PastImmInp[2], "Ca_ImmDOY_P")
-)
-
-# Ca_ImmY[N] = GRAPH(Ca_PastImmInp[N])
-# Ca_ImmY[P] = GRAPH(Ca_PastImmInp[P])
-nut_df$Ca_ImmY <- c(
-  get_y_df(nut_df$Ca_PastImmInp[1], "Ca_ImmY_N"),
-  get_y_df(nut_df$Ca_PastImmInp[2], "Ca_ImmY_P")
-)
-
-# Ca_ImmTime[SlNut] = Ca_ImmDoY[SlNut] + 365*Ca_ImmY[SlNut]-Ca_DOYStart
-nut_df$Ca_ImmTime <- nut_df$Ca_ImmDoY + 365 * nut_df$Ca_ImmY - Ca_DOYStart
-
-# Ca_ImmApp[SlNut] = if time = int(Ca_ImmTime[SlNut]) then 1 else 0
-nut_df$Ca_ImmApp <- ifelse(time == floor(nut_df$Ca_ImmTime), 1, 0)
-
-# Ca_ImmAmount[SlNut,Zone] = GRAPH(Ca_PastImmInp[SlNut])
-nut_df$Ca_ImmAmount <- get_y_df(nut_df$Ca_PastImmInp, "Ca_ImmAmount")
-
-# Ca_ImmInput[SlNut,Zone] = if Ca_ImmApp[SlNut]= 1 then Ca_ImmAmount[SlNut,Zone] else 0
-zonenut_df$Ca_ImmApp <- rep(nut_df$Ca_ImmApp, each = nzone)
-zonenut_df$Ca_ImmAmount <- rep(nut_df$Ca_ImmAmount, each = nzone)
-zonenut_df$Ca_ImmInput <- ifelse(zonenut_df$Ca_ImmApp == 1, zonenut_df$Ca_ImmAmount, 0)
-
-# N_ImmInput[Zone,SlNut] = Ca_ImmInput[SlNut,Zone]
-zonenut_df$N_ImmInput <- zonenut_df$Ca_ImmInput
-
-# N_ImmobileNut1[Zone,SlNut](t) = N_ImmobileNut1[Zone,SlNut](t - dt) + (N_ImmInput[Zone,SlNut] - N_NutMobil1[Zone,SlNut]) * dt
-# N_ImmobileNut2[Zone,SlNut](t) = N_ImmobileNut2[Zone,SlNut](t - dt) + (- N_NutMobil2[Zone,SlNut]) * dt
-# N_ImmobileNut3[Zone,SlNut](t) = N_ImmobileNut3[Zone,SlNut](t - dt) + (- N_NutMobil3[Zone,SlNut]) * dt
-# N_ImmobileNut4[Zone,SlNut](t) = N_ImmobileNut4[Zone,SlNut](t - dt) + (- N_NutMobil4[Zone,SlNut]) * dt
-zonelayernut_df$N_ImmobileNut <- zonelayernut_df$N_ImmobileNut - zonelayernut_df$N_NutMobil
-zonelayernut_df[zonelayernut_df$layer == 1, ]$N_ImmobileNut <- zonelayernut_df[zonelayernut_df$layer == 1, ]$N_ImmobileNut + zonenut_df$N_ImmInput
-
-
-# C_Root_DW[Zone,SoilLayer](t) = C_Root_DW[Zone,SoilLayer](t - dt) + (C_RtIncr_DW[Zone,SoilLayer] - C_RtDecay_DW[Zone,SoilLayer]) * dt
-# C_Root_N[Zone,SoilLayer](t) = C_Root_N[Zone,SoilLayer](t - dt) + (C_RtIncr_N[Zone,SoilLayer] - C_RtDecay_N[Zone,SoilLayer]) * dt
-# C_Root_P[Zone,SoilLayer](t) = C_Root_P[Zone,SoilLayer](t - dt) + (C_RtIncr_P[Zone,SoilLayer] - C_RtDecay_P[Zone,SoilLayer]) * dt
-zonelayerpcomp_df$C_Root <- zonelayerpcomp_df$C_Root + (zonelayerpcomp_df$C_RtIncr - zonelayerpcomp_df$C_RtDecay)
-
-# BC_WeedSeeds = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_WeedSeedBank[Zn1,DW]+AF_ZoneFrac[Zn2]*C_WeedSeedBank[Zn2,DW]+AF_ZoneFrac[Zn3]*C_WeedSeedBank[Zn3,DW]+AF_ZoneFrac[Zn4]*C_WeedSeedBank[Zn4,DW])
-BC_WeedSeeds <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac * zp_DW$C_WeedSeedBank)
 
 # C_WeedSeedBank[Zone,PlantComp](t) = C_WeedSeedBank[Zone,PlantComp](t - dt) + (C_WeedSeedInflux[Zone,PlantComp] + C_WeedSeedFall[Zone,PlantComp] - C_WeedSeedDecay[Zone,PlantComp] - C_WeedGermin[Zone,PlantComp]) * dt
 zonepcomp_df$C_WeedSeedBank <- zonepcomp_df$C_WeedSeedBank + (
   zonepcomp_df$C_WeedSeedInflux + zonepcomp_df$C_WeedSeedFall - zonepcomp_df$C_WeedSeedDecay - zonepcomp_df$C_WeedGermin
 )
 
-# BC_Crop = 1000*Mc_Carbon*(
-#   AF_ZoneFrac[Zn1]*(1-Cq_WeedZn?[Zn1])*(C_BiomStLv[Zn1,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn1,DW]+C_GroRes[Zn1,DW])+
-#     AF_ZoneFrac[Zn2]*(1-Cq_WeedZn?[Zn2])*(C_BiomStLv[Zn2,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn2,DW]+C_GroRes[Zn2,DW])+
-#     AF_ZoneFrac[Zn3]*(1-Cq_WeedZn?[Zn3])*(C_BiomStLv[Zn3,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn3,DW]+C_GroRes[Zn3,DW])+
-#     AF_ZoneFrac[Zn4]*(1-Cq_WeedZn?[Zn4])*(C_BiomStLv[Zn4,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn4,DW]+C_GroRes[Zn4,DW]))
-zonelayer_df$C_Root_DW <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "DW", ]$C_Root
-zone_df$C_Root_DW_zone <- aggregate(zonelayer_df["C_Root_DW"], zonelayer_df["zone"], sum)$C_Root_DW
-zp_DW <- zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]
-BC_Crop <- 1000 * pars$Mc_par$Mc_Carbon * sum(
-  zone_df$AF_ZoneFrac * (1 - zone_df$Cq_WeedZn_is) * (
-    zp_DW$C_BiomStLv + zone_df$C_Root_DW_zone + zp_DW$C_YieldCurr + zp_DW$C_GroRes
-  )
-)
-
-# BC_Weed = 1000*Mc_Carbon*(
-#   AF_ZoneFrac[Zn1]*((Cq_WeedZn?[Zn1])*(C_BiomStLv[Zn1,DW]+ARRAYSUM(C_Root_DW[Zn1,*])+C_YieldCurr[Zn1,DW]+C_GroRes[Zn1,DW]))
-#   +AF_ZoneFrac[Zn2]*((Cq_WeedZn?[Zn2])*(C_BiomStLv[Zn2,DW]+ARRAYSUM(C_Root_DW[Zn2,*])+C_YieldCurr[Zn2,DW]+C_GroRes[Zn2,DW]))
-#   +AF_ZoneFrac[Zn3]*((Cq_WeedZn?[Zn3])*(C_BiomStLv[Zn3,DW]+ARRAYSUM(C_Root_DW[Zn3,*])+C_YieldCurr[Zn3,DW]+C_GroRes[Zn3,DW]))
-#   +AF_ZoneFrac[Zn4]*((Cq_WeedZn?[Zn4])*(C_BiomStLv[Zn4,DW]+ARRAYSUM(C_Root_DW[Zn4,*])+C_YieldCurr[Zn4,DW]+C_GroRes[Zn4,DW])))
-BC_Weed <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac * (
-  zone_df$Cq_WeedZn_is * (
-    zp_DW$C_BiomStLv + zone_df$C_Root_DW_zone + zp_DW$C_YieldCurr + zp_DW$C_GroRes
-  )
-))
-
-# C_Yield[Zone,PlantComp] = if (int(Cq_Stage[Zone])) >= 2 and Cq_WeedZn?[Zone]=0 then C_YieldCurr[Zone,PlantComp]/dt else 0
-zonepcomp_df$C_Yield <- ifelse (
-  floor(zonepcomp_df$Cq_Stage) >= 2 &
-    zonepcomp_df$Cq_WeedZn_is == 0,
-  zonepcomp_df$C_YieldCurr,
-  0
-)
-
-
-
-# Ca_FertApply?[N] = GRAPH(Ca_PastFertApp)
-nut_df$Ca_FertApply_is <- get_y_df(Ca_PastFertApp, "Ca_FertApply_is")
-
-# Ca_PastFertApp(t) = Ca_PastFertApp(t - dt) + (Ca_FertApp) * dt
-Ca_PastFertApp <- Ca_PastFertApp + (Ca_FertApp)
-
 # Ca_PastImmInp[SlNut](t) = Ca_PastImmInp[SlNut](t - dt) + (Ca_ImmApp[SlNut]) * dt
 nut_df$Ca_PastImmInp <- nut_df$Ca_PastImmInp + (nut_df$Ca_ImmApp)
 
-# C_CropDayAc[Zone] = if Cq_Stage[Zone] = 0 then 0 else if Cq_WeedZn?[Zone] = 0  then 1 else 0
-zone_df$C_CropDayAc <- ifelse(zone_df$Cq_Stage == 0, 0, ifelse(zone_df$Cq_WeedZn_is == 0, 1, 0))
-
-# C_CurLimFac[Zn1,Water] = if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if CW_Posgro[Zn1]   <=MIN(C_NPosgro[Zn1,N],C_NPosgro[Zn1,P]) and CW_Posgro[Zn1]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn1,N] =     if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if C_NPosgro[Zn1,N] <=MIN(CW_Posgro[Zn1],C_NPosgro[Zn1,P]) and C_NPosgro[Zn1,N]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn1,P] =     if Cq_Stage[Zn1] = 0 then 0 elseif Cq_WeedZn?[Zn1] = 0  then if C_NPosgro[Zn1,P] <=MIN(CW_Posgro[Zn1],C_NPosgro[Zn1,N]) and C_NPosgro[Zn1,P]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn2,Water] = if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if CW_Posgro[Zn2]   <=MIN(C_NPosgro[Zn2,N],C_NPosgro[Zn2,P]) and CW_Posgro[Zn2]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn2,N] =     if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if C_NPosgro[Zn2,N] <=MIN(CW_Posgro[Zn2],C_NPosgro[Zn2,P]) and C_NPosgro[Zn2,N]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn2,P] =     if Cq_Stage[Zn2] = 0 then 0 elseif Cq_WeedZn?[Zn2] = 0  then if C_NPosgro[Zn2,P] <=MIN(CW_Posgro[Zn2],C_NPosgro[Zn2,N]) and C_NPosgro[Zn1,P]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn3,Water] = if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if CW_Posgro[Zn3]   <=MIN(C_NPosgro[Zn3,N],C_NPosgro[Zn3,P]) and CW_Posgro[Zn3]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn3,N] =     if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if C_NPosgro[Zn3,N] <=MIN(CW_Posgro[Zn3],C_NPosgro[Zn3,P]) and C_NPosgro[Zn3,N]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn3,P] =     if Cq_Stage[Zn3] = 0 then 0 elseif Cq_WeedZn?[Zn3] = 0  then if C_NPosgro[Zn3,P] <=MIN(CW_Posgro[Zn3],C_NPosgro[Zn3,N]) and C_NPosgro[Zn3,P]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn4,Water] = if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if CW_Posgro[Zn4]   <=MIN(C_NPosgro[Zn4,N],C_NPosgro[Zn4,P]) and CW_Posgro[Zn4]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn4,N] =     if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if C_NPosgro[Zn4,N] <=MIN(CW_Posgro[Zn4],C_NPosgro[Zn4,P]) and C_NPosgro[Zn4,N]<C_StressAccLim then 1 else 0 else 0
-# C_CurLimFac[Zn4,P] =     if Cq_Stage[Zn4] = 0 then 0 elseif Cq_WeedZn?[Zn4] = 0  then if C_NPosgro[Zn4,P] <=MIN(CW_Posgro[Zn4],C_NPosgro[Zn4,N]) and C_NPosgro[Zn4,P]<C_StressAccLim then 1 else 0 else 0
-zonelimit_df$Cq_Stage <- rep(zone_df$Cq_Stage, length(Limiting_Factors))
-zonelimit_df$Cq_WeedZn_is <- rep(zone_df$Cq_WeedZn_is, length(Limiting_Factors))
-zonelimit_df$C_Posgro <- c(zone_df$CW_Posgro, zone_df$C_NPosgro_N, zone_df$C_NPosgro_P)
-zonelimit_df$C_Posgro_limit1 <- c(zone_df$C_NPosgro_N, zone_df$C_NPosgro_P, zone_df$CW_Posgro)
-zonelimit_df$C_Posgro_limit2 <- c(zone_df$C_NPosgro_P, zone_df$CW_Posgro, zone_df$C_NPosgro_N)
-
-zonelimit_df$C_CurLimFac <- ifelse(zonelimit_df$Cq_Stage == 0,
-                                   0,
-                                   ifelse(
-                                     zonelimit_df$Cq_WeedZn_is == 0,
-                                     ifelse(
-                                       zonelimit_df$C_Posgro <= min(zonelimit_df$C_Posgro_limit1, zonelimit_df$C_Posgro_limit2) &
-                                         zonelimit_df$C_Posgro < pars$C_par$C_StressAccLim,
-                                       1,
-                                       0
-                                     ),
-                                     0
-                                   ))
-
 # Cq_Stage[Zone](t) = Cq_Stage[Zone](t - dt) + (Cq_StageInc[Zone]) * dt
 zone_df$Cq_Stage <- zone_df$Cq_Stage + zone_df$Cq_StageInc
-
-# Cent_SOMCTot = AF_ZoneFrac[Zn1]*(Mc_Slw[Zn1]+Mc_Pass[Zn1]+Mc_Act[Zn1])+
-#   AF_ZoneFrac[Zn2]*(Mc_Slw[Zn2]+Mc_Pass[Zn2]+Mc_Act[Zn2])+
-#   AF_ZoneFrac[Zn3]*(Mc_Slw[Zn3]+Mc_Pass[Zn3]+Mc_Act[Zn3])+
-#   AF_ZoneFrac[Zn4]*(Mc_Slw[Zn4]+Mc_Pass[Zn4]+Mc_Act[Zn4])+
-#   AF_ZoneFrac[Zn1]*(ARRAYSUM(Mc2_Slw[Zn1,*])+ARRAYSUM(Mc2_Pass[Zn1,*])+ARRAYSUM(Mc2_Act[Zn1,*]))+
-#   AF_ZoneFrac[Zn2]*(ARRAYSUM(Mc2_Slw[Zn2,*])+ARRAYSUM(Mc2_Pass[Zn2,*])+ARRAYSUM(Mc2_Act[Zn2,*]))+
-#   AF_ZoneFrac[Zn3]*(ARRAYSUM(Mc2_Slw[Zn3,*])+ARRAYSUM(Mc2_Pass[Zn3,*])+ARRAYSUM(Mc2_Act[Zn3,*]))+
-#   AF_ZoneFrac[Zn4]*(ARRAYSUM(Mc2_Slw[Zn4,*])+ARRAYSUM(Mc2_Pass[Zn4,*])+ARRAYSUM(Mc2_Act[Zn4,*]))
-Cent_SOMCTot <-  sum(zone_df$AF_ZoneFrac * (zone_df$Mc_Slw + zone_df$Mc_Pass + zone_df$Mc_Act)) +
-  sum(zone_df$AF_ZoneFrac * (
-    aggregate(
-      zonelayer_df$Mc2_Slw + zonelayer_df$Mc2_Pass + zonelayer_df$Mc2_Act,
-      zonelayer_df["zone"],
-      sum
-    )[[2]]
-  ))
-
-# Cent_MetStrCTot = AF_ZoneFrac[Zn1]*(Mc_Metab[Zn1]+ Mc_Struc[Zn1])+
-#   AF_ZoneFrac[Zn2]*(Mc_Metab[Zn2]+ Mc_Struc[Zn2])+
-#   AF_ZoneFrac[Zn3]*(Mc_Metab[Zn3]+ Mc_Struc[Zn3])+
-#   AF_ZoneFrac[Zn4]*(Mc_Metab[Zn4]+ Mc_Struc[Zn4])+
-#   AF_ZoneFrac[Zn1]*(ARRAYSUM(Mc2_Metab[Zn1,*])+ARRAYSUM(Mc2_Struc[Zn1,*]))+
-#   AF_ZoneFrac[Zn2]*(ARRAYSUM(Mc2_Metab[Zn2,*])+ARRAYSUM(Mc2_Struc[Zn2,*]))+
-#   AF_ZoneFrac[Zn3]*(ARRAYSUM(Mc2_Metab[Zn3,*])+ARRAYSUM(Mc2_Struc[Zn3,*]))+
-#   AF_ZoneFrac[Zn4]*(ARRAYSUM(Mc2_Metab[Zn4,*])+ARRAYSUM(Mc2_Struc[Zn4,*]))
-Cent_MetStrCTot <-  sum(zone_df$AF_ZoneFrac * (zone_df$Mc_Metab + zone_df$Mc_Struc)) +
-  sum(zone_df$AF_ZoneFrac * (
-    aggregate(
-      zonelayer_df$Mc2_Metab + zonelayer_df$Mc2_Struc,
-      zonelayer_df["zone"],
-      sum
-    )[[2]]
-  ))
-
-# BC_SOM = (Cent_MetStrCTot+Cent_SOMCTot)
-BC_SOM <- (Cent_MetStrCTot + Cent_SOMCTot)
-
-# E_CoverSum[Zone] = Cq_CovEffCurr[Zone]*C_LAI[Zone]+E_CovEffT[Sp1]*T_LAIEff[Zone,Sp1]+E_CovEffT[Sp2]*T_LAIEff[Zone,Sp2]+E_CovEffT[Sp3]*T_LAIEff[Zone,Sp3]+E_CovEffLitter*Mc_Struc[Zone]
-zone_df$E_CoverSum <- zone_df$Cq_CovEffCurr * zone_df$C_LAI +
-  aggregate(rep(tree_df$E_CovEffT, each = nzone) * zonetree_df$T_LAIEff,
-            zonetree_df["zone"],
-            sum)[[2]] +
-  pars$E_par$E_CovEffLitter * zone_df$Mc_Struc
-
-# MC2_OrgC_Leaching[Zone] = Mc2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+Mc2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+Mc2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+Mc2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+Mc2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
-zl4c <- zonelayercpools_df[zonelayercpools_df$layer == 4, ]
-zone_df$Mc2_OrgC_Leaching <- aggregate(zl4c$Mc2_cpools * zl4c$Mc2_LayerTrans, zl4c["zone"], sum)[[2]]
 
 # Mc_Act[Zone](t) = Mc_Act[Zone](t - dt) + (Mc_MetabActF[Zone] + Mc_StrucActF[Zone] - Mc_ActCO2In[Zone] - Mc_ActSlwF[Zone] - Mc_ActPassF[Zone] - Mc_Act_LitSomTrans[Zone]) * dt
 zone_df$Mc_Act <- zone_df$Mc_Act + (
@@ -14797,45 +16645,8 @@ zonelayer_df$Mc2_Struc <- zonelayer_df$Mc2_Struc + (
     zonelayer_df$Mc2_StrucActF - zonelayer_df$Mc2_StrucSlwF - zonelayer_df$Mc_StrucSlwCO2In_SOM - zonelayer_df$Mc2_StrucActCO2In
 )
 
-
-
-
-
-#### independent dynamic vars #####
-
-
-
-# C_Respiration[Zn1,DW] = Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]+C_ApplyMaintResp?*C_MaintResp[Zn1]
-# C_Respiration[Zn1,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn1,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn2,DW] = Cq_NFixDWUnitCostCurr[Zn2]*C_NFIX[Zn2,N]+C_ApplyMaintResp?*C_MaintResp[Zn2]
-# C_Respiration[Zn2,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn2,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn3,DW] = Cq_NFixDWUnitCostCurr[Zn3]*C_NFIX[Zn3,N]+C_ApplyMaintResp?*C_MaintResp[Zn3]
-# C_Respiration[Zn3,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn3,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn4,DW] = Cq_NFixDWUnitCostCurr[Zn4]*C_NFIX[Zn4,N]+C_ApplyMaintResp?*C_MaintResp[Zn4]
-# C_Respiration[Zn4,N] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-# C_Respiration[Zn4,P] = 0*(Cq_NFixDWUnitCostCurr[Zn1]*C_NFIX[Zn1,N]*C_ApplyMaintResp?*C_MaintResp[Zn4])
-zonepcomp_df$C_Respiration <- 0
-zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Respiration <- zone_df$Cq_NFixDWUnitCostCurr *  zonenut_df[zonenut_df$SlNut == "N", ]$C_NFIX +
-  pars$C_par$C_ApplyMaintResp_is * zone_df$C_MaintResp
-
-# BC_CdailyRespforFix = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_Respiration[Zn1,DW]+AF_ZoneFrac[Zn2]*C_Respiration[Zn2,DW]+AF_ZoneFrac[Zn3]*C_Respiration[Zn3,DW]+AF_ZoneFrac[Zn4]*C_Respiration[Zn4,DW])
-zone_df$C_Respiration_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Respiration
-BC_CdailyRespforFix = 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$C_Respiration_zone)
-
 # BC_C_RespforFix(t) = BC_C_RespforFix(t - dt) + (BC_CdailyRespforFix) * dt
 BC_C_RespforFix <- BC_C_RespforFix + (BC_CdailyRespforFix)
-
-# BC_SeedInc = Mc_Carbon*1000*(AF_ZoneFrac[Zn1]*C_Init[Zn1,DW]+AF_ZoneFrac[Zn2]*C_Init[Zn2,DW]+AF_ZoneFrac[Zn3]*C_Init[Zn3,DW]+AF_ZoneFrac[Zn4]*C_Init[Zn4,DW])
-zone_df$C_Init_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Init
-BC_SeedInc <- pars$Mc_par$Mc_Carbon * 1000 * sum(zone_df$C_Init_zone)
-
-# BC_CPhotoInc = 1000*Mc_Carbon*(AF_ZoneFrac[Zn1]*C_BiomInc[Zn1,DW]+AF_ZoneFrac[Zn2]*C_BiomInc[Zn2,DW]+AF_ZoneFrac[Zn3]*C_BiomInc[Zn3,DW]+AF_ZoneFrac[Zn4]*C_BiomInc[Zn4,DW])-BC_SeedInc
-zone_df$C_BiomInc_zone <- zone_df$AF_ZoneFrac * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomInc
-BC_CPhotoInc = 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$C_BiomInc_zone) -
-  BC_SeedInc
 
 # BC_CPhotosynth(t) = BC_CPhotosynth(t - dt) + (BC_CPhotoInc) * dt
 BC_CPhotosynth <- BC_CPhotosynth + (BC_CPhotoInc)
@@ -14843,351 +16654,68 @@ BC_CPhotosynth <- BC_CPhotosynth + (BC_CPhotoInc)
 # BC_CropInit(t) = BC_CropInit(t - dt) + (BC_SeedInc) * dt
 BC_CropInit <- BC_CropInit + (BC_SeedInc)
 
-# Ca_ExtOrg[ExtOrgInputs] = if Ca_FertApp = 1 then AF_ZoneFrac[Zn1]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn1]+ AF_ZoneFrac[Zn2]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn2]+ AF_ZoneFrac[Zn3]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn3]+ AF_ZoneFrac[Zn4]*Ca_ExtOrgAppZn[ExtOrgInputs,Zn4] else 0
-inp_df$Ca_FertApp <- Ca_FertApp
-zoneinp_df$Ca_ExtOrgAppZn_zone <- rep(zone_df$AF_ZoneFrac, nrow(inp_df)) * zoneinp_df$Ca_ExtOrgAppZn
-inp_df$Ca_ExtOrg <- ifelse(
-  inp_df$Ca_FertApp == 1,
-  aggregate(zoneinp_df["Ca_ExtOrgAppZn_zone"], zoneinp_df["ExtOrgInputs"], sum)$Ca_ExtOrgAppZn_zone,
-  0
-)
-
-# BC_ExtOrgAcc = Mc_CExtOrg[1]*Ca_ExtOrg[1]+Mc_CExtOrg[2]*Ca_ExtOrg[2]
-BC_ExtOrgAcc <- sum(inp_df$Mc_CExtOrg * inp_df$Ca_ExtOrg)
-
 # BC_ExtOrgInput(t) = BC_ExtOrgInput(t - dt) + (BC_ExtOrgAcc) * dt
 BC_ExtOrgInput <- BC_ExtOrgInput + (BC_ExtOrgAcc)
-
-
-
-
-# BC_Tree = Mc_Carbon*1000*(ARRAYSUM(T_LfTwig[DW,*])+ARRAYSUM(T_GroRes[DW,*])+ARRAYSUM(T_SapWood[DW,*])+ARRAYSUM(T_Fruit[DW,*])+ARRAYSUM(T_HeartWood[DW,*])+ARRAYSUM(T_LatexStock[DW,*])+ARRAYSUM(T_Root_DWtot[*]))
-tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
-BC_Tree <- pars$Mc_par$Mc_Carbon * 1000 * sum(
-  tp_DW$T_LfTwig + tp_DW$T_GroRes + tp_DW$T_SapWood + tp_DW$T_Fruit + tp_DW$T_HeartWood +
-    tp_DW$T_LatexStock + tree_df$T_Root_DWtot
-)
-
-
-
-
-
-
-
-
-# BC_DWDeadWood[PlantComp] = AF_ZoneFrac[Zn1]* (S&B_DeadWood[Zn1,PlantComp])+AF_ZoneFrac[Zn2]* (S&B_DeadWood[Zn2,PlantComp])+AF_ZoneFrac[Zn3]* (S&B_DeadWood[Zn3,PlantComp])+AF_ZoneFrac[Zn4]* (S&B_DeadWood[Zn4,PlantComp] )
-pcomp_df$BC_DWDeadWood <- aggregate(rep(zone_df$AF_ZoneFrac, nrow(pcomp_df)) * zonepcomp_df$SB_DeadWood,
-                                    zonepcomp_df["PlantComp"],
-                                    sum)[[2]]
-
-# BC_NecromasC = Mc_Carbon*1000*(BC_DWFineNecroM[DW]+BC_DWDeadWood[DW])
-p_DW <- pcomp_df[pcomp_df$PlantComp == "DW", ]
-BC_NecromasC <- pars$Mc_par$Mc_Carbon * 1000 * (p_DW$BC_DWFineNecroM + p_DW$BC_DWDeadWood)
-
-# BC_CurrentCStock = BC_Crop+BC_Tree+BC_Weed+BC_WeedSeeds+BC_SOM+BC_NecromasC
-BC_CurrentCStock <- BC_Crop + BC_Tree + BC_Weed + BC_WeedSeeds + BC_SOM +
-  BC_NecromasC
-
-# BC_CstockChange =  (BC_CurrentCStock-BC_TimeAvg_CStock)*dt/(TIME+DT)
-BC_CstockChange <-  (BC_CurrentCStock - BC_TimeAvg_CStock) / time
 
 # BC_TimeAvg_CStock(t) = BC_TimeAvg_CStock(t - dt) + (BC_CstockChange) * dt
 BC_TimeAvg_CStock <- BC_TimeAvg_CStock + (BC_CstockChange)
 
-# BC_TPhotoInc = 1000*Mc_Carbon*(ARRAYSUM(T_GroResInc[DW,*])-ARRAYSUM(T_GroInit[DW,*]))
-BC_TPhotoInc = 1000 * pars$Mc_par$Mc_Carbon * (sum(tp_DW$T_GroResInc) -
-                                                 sum(tp_DW$T_GroInit))
-
 # BC_TPhotosynth(t) = BC_TPhotosynth(t - dt) + (BC_TPhotoInc) * dt
 BC_TPhotosynth <- BC_TPhotosynth + (BC_TPhotoInc)
-
-# T_RootInit[PlantComp,Tree] = (if Rt_ATType[Tree] < 2 then 0 else T_GroResInit[Tree])*T_RtAllocInit[Tree]*T_RtConc[PlantComp,Tree]*T_UnitConv[PlantComp]
-treepcomp_df$T_RootInit <- ifelse(treepcomp_df$Rt_ATType < 2, 0, treepcomp_df$T_GroResInit) *
-  treepcomp_df$T_RtAllocInit * treepcomp_df$T_RtConc * treepcomp_df$T_UnitConv
-
-# BC_TSeedInc = If ARRAYSUM(T_GroInit[DW,*]) = 0 then 0 else 1000*Mc_Carbon*(ARRAYSUM(T_GroInit[DW,*])+ARRAYSUM(T_CanBiomIni[DW,*])+ARRAYSUM(T_WoodIni[DW,*])+ARRAYSUM(T_RootInit[DW,*]))
-tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
-BC_TSeedInc <- ifelse(sum(tp_DW$T_GroInit) == 0,
-                      0,
-                      1000 * pars$Mc_par$Mc_Carbon * (
-                        sum(tp_DW$T_GroInit) + sum(tp_DW$T_CanBiomIni) + sum(tp_DW$T_WoodIni) +
-                          sum(tp_DW$T_RootInit)
-                      ))
 
 # BC_TPlantMatTot(t) = BC_TPlantMatTot(t - dt) + (BC_TSeedInc) * dt
 BC_TPlantMatTot <- BC_TPlantMatTot + (BC_TSeedInc)
 
-# T_RespforFixF = ARRAYSUM(T_Respiration[DW,*])*Mc_Carbon*1000
-T_RespforFixF = sum(tp_DW$T_Respiration) * pars$Mc_par$Mc_Carbon * 1000
-
 # BC_TRespforFix(t) = BC_TRespforFix(t - dt) + (T_RespforFixF) * dt
 BC_TRespforFix <- BC_TRespforFix + (T_RespforFixF)
-
-# BC_WeedCInflux = 1000*Mc_Carbon*(
-#   AF_ZoneFrac[Zn1]*C_WeedSeedInflux[Zn1,DW]+
-#     AF_ZoneFrac[Zn2]*C_WeedSeedInflux[Zn2,DW]+
-#     AF_ZoneFrac[Zn3]*C_WeedSeedInflux[Zn3,DW]+
-#     AF_ZoneFrac[Zn4]*C_WeedSeedInflux[Zn4,DW])
-BC_WeedCInflux <- 1000 * pars$Mc_par$Mc_Carbon * sum(zone_df$AF_ZoneFrac *
-                                                       zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_WeedSeedInflux)
 
 # BC_WeedSeedIn(t) = BC_WeedSeedIn(t - dt) + (BC_WeedCInflux) * dt
 BC_WeedSeedIn <- BC_WeedSeedIn + (BC_WeedCInflux)
 
-# C_NInit[Zn1,N] = C_Init[Zn1,N]+C_WeedSeedInflux[Zn1,N]
-# C_NInit[Zn1,P] = C_Init[Zn1,P]+C_WeedSeedInflux[Zn1,P]
-# C_NInit[Zn2,N] = C_Init[Zn2,N]+C_WeedSeedInflux[Zn2,N]
-# C_NInit[Zn2,P] = C_Init[Zn2,P]+C_WeedSeedInflux[Zn2,P]
-# C_NInit[Zn3,N] = C_Init[Zn3,N]+C_WeedSeedInflux[Zn3,N]
-# C_NInit[Zn3,P] = C_Init[Zn3,P]+C_WeedSeedInflux[Zn3,P]
-# C_NInit[Zn4,N] = C_Init[Zn4,N]+C_WeedSeedInflux[Zn4,N]
-# C_NInit[Zn4,P] = C_Init[Zn4,P]+C_WeedSeedInflux[Zn4,P]
-zp_NP <- zonepcomp_df[zonepcomp_df$PlantComp %in% c("N", "P"), ]
-zonenut_df$C_NInit <- zp_NP$C_Init + zp_NP$C_WeedSeedInflux
-
-# BN_CBiomInc[SlNut] = (AF_ZoneFrac[Zn1]*C_NInit[Zn1,SlNut]+AF_ZoneFrac[Zn2]*C_NInit[Zn2,SlNut]+AF_ZoneFrac[Zn3]*C_NInit[Zn3,SlNut]+AF_ZoneFrac[Zn4]*C_NInit[Zn4,SlNut])
-nut_df$BN_CBiomInc[SlNut] = aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$C_NInit, zonenut_df["SlNut"], sum)[[2]]
-
-# BN_CBiomInit[SlNut](t) = BN_CBiomInit[SlNut](t - dt) + (BN_CBiomInc[SlNut]) * dt
-nut_df$BN_CBiomInit <- nut_df$BN_CBiomInit + (nut_df$BN_CBiomInc)
-
-# BN_CUptTot[SlNut] = AF_ZoneFrac[Zn1]*C_NUptTot[Zn1,SlNut]+AF_ZoneFrac[Zn2]*C_NUptTot[Zn2,SlNut]+AF_ZoneFrac[Zn3]*C_NUptTot[Zn3,SlNut]+AF_ZoneFrac[Zn4]*C_NUptTot[Zn4,SlNut]
-nut_df$BN_CUptTot <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$C_NUptTot,
-                               zonenut_df["SlNut"],
-                               sum)[[2]]
-
-# BN_CUptInc[SlNut] = BN_CUptTot[SlNut]
-nut_df$BN_CUptInc <- nut_df$BN_CUptTot
-
 # BN_CUptCum[SlNut](t) = BN_CUptCum[SlNut](t - dt) + (BN_CUptInc[SlNut]) * dt
 nut_df$BN_CUptCum <- nut_df$BN_CUptCum + (nut_df$BN_CUptInc)
-
-# BN_ExtOrgAcc[SlNut] = Ca_ExtOrg[1]*Mn_ExtOrgN[1,SlNut]+Ca_ExtOrg[2]*Mn_ExtOrgN[2,SlNut]
-nutinp_df$Ca_ExtOrg <- rep(inp_df$Ca_ExtOrg, each = nrow(inp_df))
-nut_df$BN_ExtOrgAcc <- aggregate(nutinp_df$Ca_ExtOrg * nutinp_df$Mn_ExtOrgN, nutinp_df["SlNut"], sum)[[2]]
 
 # BN_ExtOrgInputs[SlNut](t) = BN_ExtOrgInputs[SlNut](t - dt) + (BN_ExtOrgAcc[SlNut]) * dt
 nut_df$BN_ExtOrgInputs <- nut_df$BN_ExtOrgInputs + (nut_df$BN_ExtOrgAcc)
 
-
-
-# Ca_FertNZn[Zone,SlNut] = if Ca_FertApp= 1 and P_PrevCropOK? = 1 then Ca_FertApply?[SlNut]*Ca_FertAmount[Zone] else 0
-zonenut_df$Ca_FertApp <- Ca_FertApp
-zonenut_df$P_PrevCropOK_is <- P_PrevCropOK_is
-zonenut_df$Ca_FertApply_is <- rep(nut_df$Ca_FertApply_is, each = nzone)
-zonenut_df$Ca_FertAmount <- rep(zone_df$Ca_FertAmount, nrow(nut_df))
-zonenut_df$Ca_FertNZn <- ifelse(
-  zonenut_df$Ca_FertApp == 1 &
-    zonenut_df$P_PrevCropOK_is == 1,
-  zonenut_df$Ca_FertApply_is * zonenut_df$Ca_FertAmount,
-  0
-)
-
-# Ca_FertN[SlNut] = if Ca_FertApp= 1 and P_PrevCropOK? = 1 then AF_ZoneFrac[Zn1]*Ca_FertNZn[Zn1,SlNut] +  AF_ZoneFrac[Zn2]*Ca_FertNZn[Zn2,SlNut]+  AF_ZoneFrac[Zn3]*Ca_FertNZn[Zn3,SlNut] +  AF_ZoneFrac[Zn4]*Ca_FertNZn[Zn4,SlNut] else 0
-nut_df$P_PrevCropOK_is <- P_PrevCropOK_is
-nut_df$Ca_FertN <- ifelse(
-  nut_df$Ca_FertApply_is == 1 & nut_df$P_PrevCropOK_is == 1,
-  aggregate(
-    zonenut_df$AF_ZoneFrac * zonenut_df$Ca_FertNZn,
-    zonenut_df["SlNut"],
-    sum
-  )[[2]],
-  0
-)
-
-# BN_Fert[SlNut] = Ca_FertN[SlNut]
-nut_df$BN_Fert <- nut_df$Ca_FertN
-
 # BN_FertCum[SlNut](t) = BN_FertCum[SlNut](t - dt) + (BN_Fert[SlNut]) * dt
 nut_df$BN_FertCum <- nut_df$BN_FertCum + (nut_df$BN_Fert)
-
-# BN_ImmInput[SlNut] = AF_ZoneFrac[Zn1]*Ca_ImmInput[SlNut,Zn1]+AF_ZoneFrac[Zn2]*Ca_ImmInput[SlNut,Zn2]+AF_ZoneFrac[Zn3]*Ca_ImmInput[SlNut,Zn3]+AF_ZoneFrac[Zn4]*Ca_ImmInput[SlNut,Zn4]
-nut_df$BN_ImmInput <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Ca_ImmInput,
-                                zonenut_df["SlNut"],
-                                sum)[[2]]
-
-# BN_ImmInputF[SlNut] = BN_ImmInput[SlNut]
-nut_df$BN_ImmInputF <- nut_df$BN_ImmInput
 
 # BN_ImmPool[SlNut](t) = BN_ImmPool[SlNut](t - dt) + (BN_ImmInputF[SlNut]) * dt
 nut_df$BN_ImmPool <- nut_df$BN_ImmPool + (nut_df$BN_ImmInputF[SlNut])
 
-# Rain_RunOffZn[Zn1] = Rain_Runoff10+0*(Rain_Runoff21+Rain_Runoff32+Rain_Runoff43)
-# Rain_RunOffZn[Zn2] = Rain_Runoff21+0*(Rain_Runoff10+Rain_Runoff32+Rain_Runoff43)
-# Rain_RunOffZn[Zn3] = Rain_Runoff32+0*(Rain_Runoff10+Rain_Runoff21+Rain_Runoff43)
-# Rain_RunOffZn[Zn4] = 0*(Rain_Runoff10+Rain_Runoff21+Rain_Runoff32)+Rain_Runoff43
-zone_df$Rain_RunOffZn <- c(Rain_Runoff10, Rain_Runoff21, Rain_Runoff32, Rain_Runoff43)
-
-# Mn_RunOffFert[Zone,SlNut] = if Mn_LatFlowFertKm > 0 then (1-Mn_FertDissFrac[SlNut])*Mn_FertOnSoil[Zone,SlNut]*Rain_RunOffZn[Zone]/(Rain_RunOffZn[Zone]+Mn_LatFlowFertKm) else 0
-zonenut_df$Mn_LatFlowFertKm <- pars$Mn_par$Mn_LatFlowFertKm
-zonenut_df$Rain_RunOffZn <- rep(zone_df$Rain_RunOffZn)
-zonenut_df$Mn_RunOffFert <- ifelse(
-  zonenut_df$Mn_LatFlowFertKm > 0,
-  (1 - zonenut_df$Mn_FertDissFrac) * zonenut_df$Mn_FertOnSoil * zonenut_df$Rain_RunOffZn /
-    (zonenut_df$Rain_RunOffZn + zonenut_df$Mn_LatFlowFertKm),
-  0
-)
-
-# BN_RunOff[SlNut] = Mn_RunOffFert[Zn1,SlNut]
-nut_df$BN_RunOff <- zonenut_df[zonenut_df$zone == 1, ]$Mn_RunOffFert
-
 # BN_RunOffLoss[SlNut](t) = BN_RunOffLoss[SlNut](t - dt) + (BN_RunOff[SlNut]) * dt
 nut_df$BN_RunOffLoss <- nut_df$BN_RunOffLoss + (nut_df$BN_RunOff)
-
-# BN_StocksTotInit[SlNut] = BN_SOMInit[SlNut]+BN_LitInit[SlNut]+BN_StockInit[SlNut]+BN_ImmInit[SlNut]
-nut_df$BN_StocksTotInit <- nut_df$BN_SOMInit + nut_df$BN_LitInit + nut_df$BN_StockInit +
-  nut_df$BN_ImmInit
 
 # BN_TNFixAmountCum[SlNut,Tree](t) = BN_TNFixAmountCum[SlNut,Tree](t - dt) + (T_NFix[SlNut,Tree]) * dt
 treenut_df$BN_TNFixAmountCum <- treenut_df$BN_TNFixAmountCum + (treenut_df$T_NFix)
 
-# BN_TreeInc[N] = T_CanInit[N,Sp1]+T_GroInit[N,Sp1]+T_WoodIni[N,Sp1]+T_RootInit[N,Sp1]+T_CanInit[N,Sp2]+T_GroInit[N,Sp2]+T_WoodIni[N,Sp2]+T_RootInit[N,Sp2]+T_CanInit[N,Sp3]+T_GroInit[N,Sp3]+T_WoodIni[N,Sp3]+T_RootInit[N,Sp3]
-# BN_TreeInc[P] = T_CanInit[P,Sp1]+T_GroInit[P,Sp1]+T_WoodIni[P,Sp1]+T_RootInit[P,Sp1]+T_CanInit[P,Sp2]+T_GroInit[P,Sp2]+T_WoodIni[P,Sp2]+T_RootInit[P,Sp2]+T_CanInit[P,Sp3]+T_GroInit[P,Sp3]+T_WoodIni[P,Sp3]+T_RootInit[P,Sp3]
-tp_NP <- treepcomp_df[treepcomp_df$PlantComp %in% c("N", "P"), ]
-nut_df$BN_TreeInc <- aggregate(tp_NP$T_CanInit + tp_NP$T_GroInit + tp_NP$T_WoodIni +
-                                 tp_NP$T_RootInit,
-                               tp_NP["PlantComp"],
-                               sum)[[2]]
-
 # BN_TreeInit[SlNut](t) = BN_TreeInit[SlNut](t - dt) + (BN_TreeInc[SlNut]) * dt
 nut_df$BN_TreeInit <- nut_df$BN_TreeInit + (nut_df$BN_TreeInc)
-
-# BN_TUptInc[SlNut,Tree] = T_NUptTot[SlNut,Tree]
-treenut_df$BN_TUptInc <- treenut_df$T_NUptTot
 
 # BN_TUptCum[SlNut,Tree](t) = BN_TUptCum[SlNut,Tree](t - dt) + (BN_TUptInc[SlNut,Tree]) * dt
 treenut_df$BN_TUptCum <- treenut_df$BN_TUptCum + (treenut_df$BN_TUptInc)
 
-# E_Erosiveness = GRAPH(E_SoilType)
-E_Erosiveness <- get_y_df(pars$E_par$E_SoilType, "E_Erosiveness")
-
-# E_Rain05[Zone] = Rain_In[Zone]*E_RainFac
-zone_df$E_Rain05 <- zone_df$Rain_In * pars$E_par$E_RainFac
-
-
-
-# E_SlopeFac[Zone] = GRAPH(AF_SlopeCurr[Zone])
-zone_df$E_SlopeFac <- get_y_df(zone_df$AF_SlopeCurr, "E_SlopeFac")
-
-# E_ErosUSLE[Zone] = (E_Erosiveness*E_Rain05[Zone]*(1- min(1,E_CoverSum[Zone]))*E_SlopeFac[Zone])/365*10
-zone_df$E_ErosUSLE <- (E_Erosiveness * zone_df$E_Rain05 * (1 - pmin(1, zone_df$E_CoverSum)) *
-                         zone_df$E_SlopeFac) / 365 * 10
-
-# E_SoilMovPlou[Zone] = if E_PloughTime?[Zone]=1  then E_TillZone?[Zone]*E_SoilMovperPlou else 0
-zone_df$E_SoilMovPlou <- ifelse(zone_df$E_PloughTime_is == 1,
-                                zone_df$E_TillZone_is * pars$E_par$E_SoilMovperPlou,
-                                0)
-
-# Rain_EventRunoff[Zone] = Rain_RunOffZn[Zone]
-zone_df$Rain_EventRunoff <- zone_df$Rain_RunOffZn
-
-# E_CoverFac[Zone] = min(1,E_CoverSum[Zone])
-zone_df$E_CoverFac <- pmin(1, zone_df$E_CoverSum)
-
-# E_SedConcinRunOff[Zone] = 2700*SIN(arctan(AF_SlopeCurr[Zone]/100))*(1.0-(E_CoverFac[Zone]))*E_EntrailmentCoeffBarePlot*(EXP(-15*E_CoverFac[Zone]))/100
-zone_df$E_SedConcinRunOff <- 2700 * sin(atan(zone_df$AF_SlopeCurr / 100)) *
-  (1.0 - (zone_df$E_CoverFac)) * pars$E_par$E_EntrailmentCoeffBarePlot * (exp(-15 *
-                                                                                zone_df$E_CoverFac)) / 100
-
-# E_ErosRose[Zone] = (Rain_EventRunoff[Zone]*E_SedConcinRunOff[Zone])/10
-zone_df$E_ErosRose <- (zone_df$Rain_EventRunoff * zone_df$E_SedConcinRunOff) /
-  10
-
-# E_SoilMoveCurr[Zone] = if E_ErosiType = 1 then  MIN(BS_SoilCurrZn[Zone],E_ErosUSLE[Zone]+E_SoilMovPlou[Zone]) else MIN(BS_SoilCurrZn[Zone],E_ErosRose[Zone]+E_SoilMovPlou[Zone])
-zone_df$E_ErosiType <- pars$E_par$E_ErosiType
-zone_df$E_SoilMoveCurr <- ifelse(
-  pars$E_par$E_ErosiType == 1,
-  pmin(
-    zone_df$BS_SoilCurrZn,
-    zone_df$E_ErosUSLE + zone_df$E_SoilMovPlou
-  ),
-  pmin(
-    zone_df$BS_SoilCurrZn,
-    zone_df$E_ErosRose + zone_df$E_SoilMovPlou
-  )
-)
-
-# E_SedConAvg = AF_ZoneFrac[Zn1]*E_SedConcinRunOff[Zn1]+AF_ZoneFrac[Zn2]*E_SedConcinRunOff[Zn2]+AF_ZoneFrac[Zn3]*E_SedConcinRunOff[Zn3]+AF_ZoneFrac[Zn4]*E_SedConcinRunOff[Zn4]
-E_SedConAvg <- sum(zone_df$AF_ZoneFrac * zone_df$E_SedConcinRunOff)
-
-# E_SoilInflow[Zn1] = E_SoilMoveCurr[Zn2]*AF_LatInFlowRatio[Zn1]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
-# E_SoilInflow[Zn2] = E_SoilMoveCurr[Zn3]*AF_LatInFlowRatio[Zn2]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
-# E_SoilInflow[Zn3] = E_SoilMoveCurr[Zn4]*AF_LatInFlowRatio[Zn3]+0*(E_RelSedConcRunOn+E_SedConAvg+LF_RunOn)
-# E_SoilInflow[Zn4] = LF_RunOn*E_SedConAvg*E_RelSedConcRunOn*AF_LatInFlowRatio[Zn4]+0*E_SoilMoveCurr[Zn4]
-zone_df$E_SoilInflow <- c(zone_df[zone_df$zone %in% c(2:4), ]$E_SoilMoveCurr,
-                          LF_RunOn * E_SedConAvg * pars$E_par$E_RelSedConcRunOn) *
-  zone_df$AF_LatInFlowRatio
-
-# E_SoilLoss[Zone] = E_SoilMoveCurr[Zone]
-zone_df$E_SoilLoss <- zone_df$E_SoilMoveCurr
-
-# BS_SoilIncr[Zone] = E_SoilInflow[Zone]-E_SoilLoss[Zone]
-zone_df$BS_SoilIncr <- zone_df$E_SoilInflow - zone_df$E_SoilLoss
-
 # BS_SoilCurrZn[Zone](t) = BS_SoilCurrZn[Zone](t - dt) + (BS_SoilIncr[Zone]) * dt
 zone_df$BS_SoilCurrZn <- zone_df$BS_SoilCurrZn + (zone_df$BS_SoilIncr)
-
-# BW_Evap = AF_ZoneFrac[Zn1]*Evap_Surf[Zn1]+AF_ZoneFrac[Zn2]*Evap_Surf[Zn2]+AF_ZoneFrac[Zn3]*Evap_Surf[Zn3]+AF_ZoneFrac[Zn4]*Evap_Surf[Zn4]
-BW_Evap <- sum(zone_df$AF_ZoneFrac * zone_df$Evap_Surf)
 
 # BW_EvapCum(t) = BW_EvapCum(t - dt) + (BW_Evap) * dt
 BW_EvapCum <- BW_EvapCum + (BW_Evap)
 
-# BW_RunOff = Rain_RunOff
-BW_RunOff <- Rain_RunOff
-
 # BW_RunOffCum(t) = BW_RunOffCum(t - dt) + (BW_RunOff) * dt
 BW_RunOffCum <- BW_RunOffCum + (BW_RunOff)
-
-# BW_RunOn = LF_RunOn/AF_ZoneTot
-BW_RunOn <- LF_RunOn / AF_ZoneTot
 
 # BW_RunOnCum(t) = BW_RunOnCum(t - dt) + (BW_RunOn) * dt
 BW_RunOnCum <- BW_RunOnCum + (BW_RunOn)
 
-# BW_UptC = (1-Cq_WeedZn?[Zn1])*CW_UptTot[Zn1]*AF_ZoneFrac[Zn1]+(1-Cq_WeedZn?[Zn2])*CW_UptTot[Zn2]*AF_ZoneFrac[Zn2]+(1-Cq_WeedZn?[Zn3])*CW_UptTot[Zn3]*AF_ZoneFrac[Zn3]+(1-Cq_WeedZn?[Zn4])*AF_ZoneFrac[Zn4]*CW_UptTot[Zn4]
-BW_UptC <- sum((1 - zone_df$Cq_WeedZn_is) * zone_df$CW_UptTot * zone_df$AF_ZoneFrac)
-
 # BW_UptCCum(t) = BW_UptCCum(t - dt) + (BW_UptC) * dt
 BW_UptCCum <- BW_UptCCum + (BW_UptC)
-
-# BW_UptT[Tree] = TW_UptTot[Tree]'
-tree_df$BW_UptT <- tree_df$TW_UptTot
 
 # BW_UptTCum[Tree](t) = BW_UptTCum[Tree](t - dt) + (BW_UptT[Tree]) * dt
 tree_df$BW_UptTCum <- tree_df$BW_UptTCum + (tree_df$BW_UptT)
 
-# BW_WeedEvap = Cq_WeedZn?[Zn1]*CW_UptTot[Zn1]*AF_ZoneFrac[Zn1]+Cq_WeedZn?[Zn2]*CW_UptTot[Zn2]*AF_ZoneFrac[Zn2]+Cq_WeedZn?[Zn3]*CW_UptTot[Zn3]*AF_ZoneFrac[Zn3]+Cq_WeedZn?[Zn4]*CW_UptTot[Zn4]*AF_ZoneFrac[Zn4]
-BW_WeedEvap <- sum(zone_df$Cq_WeedZn_is * zone_df$CW_UptTot * zone_df$AF_ZoneFrac)
-
 # BW_UptWCum(t) = BW_UptWCum(t - dt) + (BW_WeedEvap) * dt
 BW_UptWCum <- BW_UptWCum + (BW_WeedEvap)
-
-
-# C_AgYieldAcc[Zn1,Type1] = if Cq_CType[Zn1] = 1 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
-# C_AgYieldAcc[Zn1,Type2] = if Cq_CType[Zn1] = 2 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
-# C_AgYieldAcc[Zn1,Type3] = if Cq_CType[Zn1] = 3 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
-# C_AgYieldAcc[Zn1,Type4] = if Cq_CType[Zn1] = 4 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
-# C_AgYieldAcc[Zn1,Type5] = if Cq_CType[Zn1] = 5 then C_Yield[Zn1,DW]/(1-Cq_AgronYieldMoistFrac[Zn1]) else 0
-# C_AgYieldAcc[Zn2,Type1] = if Cq_CType[Zn2] = 1 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
-# C_AgYieldAcc[Zn2,Type2] = if Cq_CType[Zn2] = 2 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
-# C_AgYieldAcc[Zn2,Type3] = if Cq_CType[Zn2] = 3 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
-# C_AgYieldAcc[Zn2,Type4] = if Cq_CType[Zn2] = 4 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
-# C_AgYieldAcc[Zn2,Type5] = if Cq_CType[Zn2] = 5 then C_Yield[Zn2,DW]/(1-Cq_AgronYieldMoistFrac[Zn2]) else 0
-# C_AgYieldAcc[Zn3,Type1] = if Cq_CType[Zn3] = 1 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
-# C_AgYieldAcc[Zn3,Type2] = if Cq_CType[Zn3] = 2 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
-# C_AgYieldAcc[Zn3,Type3] = if Cq_CType[Zn3] = 3 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
-# C_AgYieldAcc[Zn3,Type4] = if Cq_CType[Zn3] = 4 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
-# C_AgYieldAcc[Zn3,Type5] = if Cq_CType[Zn3] = 5 then C_Yield[Zn3,DW]/(1-Cq_AgronYieldMoistFrac[Zn3]) else 0
-# C_AgYieldAcc[Zn4,Type1] = if Cq_CType[Zn4] = 1 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
-# C_AgYieldAcc[Zn4,Type2] = if Cq_CType[Zn4] = 2 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
-# C_AgYieldAcc[Zn4,Type3] = if Cq_CType[Zn4] = 3 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
-# C_AgYieldAcc[Zn4,Type4] = if Cq_CType[Zn4] = 4 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
-# C_AgYieldAcc[Zn4,Type5] = if Cq_CType[Zn4] = 5 then C_Yield[Zn4,DW]/(1-Cq_AgronYieldMoistFrac[Zn4]) else 0
-zone_df$C_AgYieldAcc <- ifelse(zone_df$Cq_CType == 1,
-                               zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Yield / (1 - zone_df$Cq_AgronYieldMoistFrac),
-                               0)
-zonecrop_df$C_AgYieldAcc <- rep(zone_df$C_AgYieldAcc, ncrop)
 
 # C_AgronYPerType[Zone,Cr](t) = C_AgronYPerType[Zone,Cr](t - dt) + (C_AgYieldAcc[Zone,Cr]) * dt
 zonecrop_df$C_AgronYPerType <- zonecrop_df$C_AgronYPerType + (zonecrop_df$C_AgYieldAcc)
@@ -15195,22 +16723,11 @@ zonecrop_df$C_AgronYPerType <- zonecrop_df$C_AgronYPerType + (zonecrop_df$C_AgYi
 # C_BiomHarvestCum[Zone,PlantComp](t) = C_BiomHarvestCum[Zone,PlantComp](t - dt) + (C_BiomHarvest[Zone,PlantComp]) * dt
 zonepcomp_df$C_BiomHarvestCum <- zonepcomp_df$C_BiomHarvestCum + (zonepcomp_df$C_BiomHarvest)
 
-
-
 # C_CropDays[Zone](t) = C_CropDays[Zone](t - dt) + (C_CropDayAc[Zone]) * dt
 zone_df$C_CropDays <- zone_df$C_CropDays + (zone_df$C_CropDayAc)
 
-
-
 # C_CumLim[Zone,Limiting_Factors](t) = C_CumLim[Zone,Limiting_Factors](t - dt) + (C_CurLimFac[Zone,Limiting_Factors]) * dt
 zonelimit_df$C_CumLim <- zonelimit_df$C_CumLim + (zonelimit_df$C_CurLimFac)
-
-# C_YieldInc[Zone,PlantComp] = IF(C_PlantDiesToday?[Zone]=0)THEN( C_GroResMobFrac*Cq_CHarvAllocCurr[Zone]*C_GroRes[Zone,PlantComp])ELSE(0)
-zonepcomp_df$C_YieldInc <- ifelse(
-  zonepcomp_df$C_PlantDiesToday_is == 0,
-  pars$C_par$C_GroResMobFrac * zonepcomp_df$Cq_CHarvAllocCurr * zonepcomp_df$C_GroRes,
-  0
-)
 
 # C_YieldCurr[Zone,PlantComp](t) = C_YieldCurr[Zone,PlantComp](t - dt) + (C_YieldInc[Zone,PlantComp] - C_Yield[Zone,PlantComp] - C_FruitLoss[Zone,PlantComp] - C_WeedSeedFall[Zone,PlantComp]) * dt
 zonepcomp_df$C_YieldCurr <- zonepcomp_df$C_YieldCurr + (
@@ -15226,9 +16743,6 @@ zonepcomp_df$C_GroRes <- zonepcomp_df$C_GroRes +
 # C_HarvestCum[Zone,PlantComp](t) = C_HarvestCum[Zone,PlantComp](t - dt) + (C_Yield[Zone,PlantComp]) * dt
 zonepcomp_df$C_HarvestCum <- zonepcomp_df$C_HarvestCum + (zonepcomp_df$C_Yield)
 
-# CW_HydFluxPosTot[Zone] = CW_PotFluxSum[Zone]*CW_ScalingFacPos[Zone]
-zone_df$CW_HydFluxPosTot <- zone_df$CW_PotFluxSum * zone_df$CW_ScalingFacPos
-
 # C_HydEqFluxes[Zone](t) = C_HydEqFluxes[Zone](t - dt) + (CW_HydFluxPosTot[Zone]) * dt
 zone_df$C_HydEqFluxes <- zone_df$C_HydEqFluxes + (zone_df$CW_HydFluxPosTot)
 
@@ -15241,82 +16755,23 @@ zonepcomp_df$C_ResidRecycle <- zonepcomp_df$C_ResidRecycle + (zonepcomp_df$C_Res
 # C_ResidRemoved[Zone,PlantComp](t) = C_ResidRemoved[Zone,PlantComp](t - dt) + (C_Resid[Zone,PlantComp]) * dt
 zonepcomp_df$C_ResidRemoved <- zonepcomp_df$C_ResidRemoved + (zonepcomp_df$C_Resid)
 
-# Cent_ExtInpNInc[SlNut] = AF_ZoneFrac[Zn1]*(Mn_ExtOrgInpN[Zn1,SlNut])+AF_ZoneFrac[Zn2]*(Mn_ExtOrgInpN[Zn2,SlNut])+AF_ZoneFrac[Zn3]*(Mn_ExtOrgInpN[Zn3,SlNut])+AF_ZoneFrac[Zn4]*(Mn_ExtOrgInpN[Zn4,SlNut])
-nut_df$Cent_ExtInpNInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_ExtOrgInpN,
-                                    zonenut_df["SlNut"],
-                                    sum)[[2]]
-
 # Cent_ExtOrgInputs[SlNut](t) = Cent_ExtOrgInputs[SlNut](t - dt) + (Cent_ExtInpNInc[SlNut]) * dt
 nut_df$Cent_ExtOrgInputs <- nut_df$Cent_ExtOrgInputs + (nut_df$Cent_ExtInpNInc)
-
-# Cent_LitterNInc[SlNut] = AF_ZoneFrac[Zn1]*(Mn_LitInpN[Zn1,SlNut])+AF_ZoneFrac[Zn2]*(Mn_LitInpN[Zn2,SlNut])+AF_ZoneFrac[Zn3]*(Mn_LitInpN[Zn3,SlNut])+AF_ZoneFrac[Zn4]*(Mn_LitInpN[Zn4,SlNut])
-nut_df$Cent_LitterNInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_LitInpN,
-                                    zonenut_df["SlNut"],
-                                    sum)[[2]]
 
 # Cent_LitterNInflow[SlNut](t) = Cent_LitterNInflow[SlNut](t - dt) + (Cent_LitterNInc[SlNut]) * dt
 nut_df$Cent_LitterNInflow <- nut_df$Cent_LitterNInflow + (nut_df$Cent_LitterNInc)
 
-# Cent_NInc[SlNut] = AF_ZoneFrac[Zn1]*Mn_Mineralization[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn_Mineralization[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn_Mineralization[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn_Mineralization[Zn4,SlNut]
-nut_df$Cent_NInc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_Mineralization,
-                              zonenut_df["SlNut"],
-                              sum)[[2]]
-
 # Cent_NOut[SlNut](t) = Cent_NOut[SlNut](t - dt) + (Cent_NInc[SlNut]) * dt
 nut_df$Cent_NOut <- nut_df$Cent_NOut + (nut_df$Cent_NInc)
-
-# Mn_TotLitSomTrans[Zone,SlNut] = Mn_Act_LitSomTrans[Zone,SlNut]+Mn_Met_LitSomTrans[Zone,SlNut]+Mn_Pas_LitSomTrans[Zone,SlNut]+Mn_Slw_LitSomTrans[Zone,SlNut]+Mn_Str_LitSomTrans[Zone,SlNut]
-zonenut_df$Mn_TotLitSomTrans <- zonenut_df$Mn_Act_LitSomTrans + zonenut_df$Mn_Met_LitSomTrans + zonenut_df$Mn_Pas_LitSomTrans +
-  zonenut_df$Mn_Slw_LitSomTrans + zonenut_df$Mn_Str_LitSomTrans
-
-# Cent2LitSomAcc[SlNut] = AF_ZoneFrac[Zn1]*Mn_TotLitSomTrans[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn_TotLitSomTrans[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn_TotLitSomTrans[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn_TotLitSomTrans[Zn4,SlNut]
-nut_df$Cent2LitSomAcc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn_TotLitSomTrans,
-                                   zonenut_df["SlNut"],
-                                   sum)[[2]]
 
 # Cent2_LitSomTransfAcc[SlNut](t) = Cent2_LitSomTransfAcc[SlNut](t - dt) + (Cent2LitSomAcc[SlNut]) * dt
 nut_df$Cent2_LitSomTransfAcc <- nut_df$Cent2_LitSomTransfAcc + (nut_df$Cent2LitSomAcc)
 
-# Mn2_CentMinFlows[Zn1,N] = arraysum(Mn2_SomMinExch[Zn1,*]) + 0*arraysum(MP2_SomMinExch[Zn1,*])
-# Mn2_CentMinFlows[Zn1,P] = 0*arraysum(Mn2_SomMinExch[Zn1,*]) + arraysum(MP2_SomMinExch[Zn1,*])
-# Mn2_CentMinFlows[Zn2,N] = arraysum(Mn2_SomMinExch[Zn2,*]) +0* arraysum(MP2_SomMinExch[Zn2,*])
-# Mn2_CentMinFlows[Zn2,P] = 0*arraysum(Mn2_SomMinExch[Zn2,*]) + arraysum(MP2_SomMinExch[Zn2,*])
-# Mn2_CentMinFlows[Zn3,N] = arraysum(Mn2_SomMinExch[Zn3,*]) + 0*arraysum(MP2_SomMinExch[Zn3,*])
-# Mn2_CentMinFlows[Zn3,P] = 0*arraysum(Mn2_SomMinExch[Zn3,*]) + arraysum(MP2_SomMinExch[Zn3,*])
-# Mn2_CentMinFlows[Zn4,N] = arraysum(Mn2_SomMinExch[Zn4,*]) + 0*arraysum(MP2_SomMinExch[Zn4,*])
-# Mn2_CentMinFlows[Zn4,P] = 0*arraysum(Mn2_SomMinExch[Zn4,*]) + arraysum(MP2_SomMinExch[Zn4,*])
-zonenut_df$Mn2_CentMinFlows <- NA
-zonenut_df[zonenut_df$SlNut == "N", ]$Mn2_CentMinFlows <- aggregate(zonelayer_df["Mn2_SomMinExch"], zonelayer_df["zone"], sum)$Mn2_SomMinExch
-zonenut_df[zonenut_df$SlNut == "P", ]$Mn2_CentMinFlows <- aggregate(zonelayer_df["Mp2_SomMinExch"], zonelayer_df["zone"], sum)$Mp2_SomMinExch
-
-# Cent2_Ninc[SlNut] = AF_ZoneFrac[Zn1]*Mn2_CentMinFlows[Zn1,SlNut]+AF_ZoneFrac[Zn2]*Mn2_CentMinFlows[Zn2,SlNut]+AF_ZoneFrac[Zn3]*Mn2_CentMinFlows[Zn3,SlNut]+AF_ZoneFrac[Zn4]*Mn2_CentMinFlows[Zn4,SlNut]
-nut_df$Cent2_Ninc <- aggregate(zonenut_df$AF_ZoneFrac * zonenut_df$Mn2_CentMinFlows,
-                               zonenut_df["SlNut"],
-                               sum)[[2]]
-
 # Cent2_NOut[SlNut](t) = Cent2_NOut[SlNut](t - dt) + (Cent2_Ninc[SlNut]) * dt
 nut_df$Cent2_NOut <- nut_df$Cent2_NOut + (nut_df$Cent2_Ninc)
 
-# MP2_OrgInpRtP[Zone,SoilLayer] = C_RtDecay_P[Zone,SoilLayer]+T_RtDec_P[Zone,SoilLayer]
-zonelayer_df$Mp2_OrgInpRtP <- zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "P", ]$C_RtDecay + zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "P", ]$T_RtDec
-
-# Cent2_SOMNInc[N] = AF_ZoneFrac[Zn1]*(ARRAYSUM(Mn2_OrgInpRtN[Zn1,*]))+AF_ZoneFrac[Zn2]*(ARRAYSUM(Mn2_OrgInpRtN[Zn2,*]))+AF_ZoneFrac[Zn3]*(ARRAYSUM(Mn2_OrgInpRtN[Zn3,*]))+AF_ZoneFrac[Zn4]*(ARRAYSUM(Mn2_OrgInpRtN[Zn4,*]))+0*MP2_OrgInpRtP[Zn1,1]
-# Cent2_SOMNInc[P] = AF_ZoneFrac[Zn1]* ARRAYSUM(MP2_OrgInpRtP[Zn1,*])+ AF_ZoneFrac[Zn2]* ARRAYSUM(MP2_OrgInpRtP[Zn2,*]) +AF_ZoneFrac[Zn3]* ARRAYSUM(MP2_OrgInpRtP[Zn3,*])+ AF_ZoneFrac[Zn4]* ARRAYSUM(MP2_OrgInpRtP[Zn4,*])+0*Mn2_OrgInpRtN[Zn1,1]
-nut_df$Cent2_SOMNInc <- NA
-nut_df[nut_df$SlNut == "N", ]$Cent2_SOMNInc <- sum(zone_df$AF_ZoneFrac *
-                                                     aggregate(zonelayer_df$Mn2_OrgInpRtN, zonelayer_df["zone"], sum)[[2]])
-nut_df[nut_df$SlNut == "P", ]$Cent2_SOMNInc <- sum(zone_df$AF_ZoneFrac *
-                                                     aggregate(zonelayer_df$Mp2_OrgInpRtP, zonelayer_df["zone"], sum)[[2]])
-
 # Cent2_SOMNinflow[SlNut](t) = Cent2_SOMNinflow[SlNut](t - dt) + (Cent2_SOMNInc[SlNut]) * dt
 nut_df$Cent2_SOMNinflow <- nut_df$Cent2_SOMNinflow + (nut_df$Cent2_SOMNInc)
-
-# CW_YDayWUotChange[Zone] = if Rt_CAmount[Zone]<>0 then -CW_DemandPerRoot[Zone]+CW_DemandPot[Zone]/Rt_CAmount[Zone] else 0
-zone_df$CW_YDayWUotChange <- ifelse(
-  zone_df$Rt_CAmount != 0,
-  -zone_df$CW_DemandPerRoot + zone_df$CW_DemandPot / zone_df$Rt_CAmount,
-  0
-)
 
 # CW_DemandPerRoot[Zone](t) = CW_DemandPerRoot[Zone](t - dt) + (CW_YDayWUotChange[Zone]) * dt
 zone_df$CW_DemandPerRoot <- zone_df$CW_DemandPerRoot + (zone_df$CW_YDayWUotChange)
@@ -15324,19 +16779,11 @@ zone_df$CW_DemandPerRoot <- zone_df$CW_DemandPerRoot + (zone_df$CW_YDayWUotChang
 # E_CumSoilInflowZn[Zone](t) = E_CumSoilInflowZn[Zone](t - dt) + (E_SoilInflow[Zone]) * dt
 zone_df$E_CumSoilInflowZn <- zone_df$E_CumSoilInflowZn + (zone_df$E_SoilInflow)
 
-# E_PloughEvent = if time = int(E_PloughTimeCal) then +1 else if time > E_PloughTimeCal +1 then +1 else 0
-E_PloughEvent <- ifelse(time == floor(E_PloughTimeCal),
-                        1,
-                        ifelse(time > E_PloughTimeCal + 1, 1, 0))
-
 # E_PloughPast(t) = E_PloughPast(t - dt) + (E_PloughEvent) * dt
 E_PloughPast <- E_PloughPast + (E_PloughEvent)
 
 # E_SoilLossCumZn[Zone](t) = E_SoilLossCumZn[Zone](t - dt) + (E_SoilLoss[Zone]) * dt
 zone_df$E_SoilLossCumZn <- zone_df$E_SoilLossCumZn + (zone_df$E_SoilLoss)
-
-# Evap_SlashInit[Zone] = Evap_InitSlashM*S&B_SlashVegetation[Zone,DW]-S&B_DailyNecromLitTransfer*Evap_SlashWater[Zone]
-zone_df$Evap_SlashInit <- pars$Evap_par$Evap_InitSlashM * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$SB_SlashVegetation - pars$SB_par$SB_DailyNecromLitTransfer * zone_df$Evap_SlashWater
 
 # Evap_SlashWater[Zone](t) = Evap_SlashWater[Zone](t - dt) + (Evap_SlashInit[Zone] - Evap_SlashEvap[Zone]) * dt
 zone_df$Evap_SlashWater <- zone_df$Evap_SlashWater + (zone_df$Evap_SlashInit - zone_df$Evap_SlashEvap)
@@ -15344,162 +16791,32 @@ zone_df$Evap_SlashWater <- zone_df$Evap_SlashWater + (zone_df$Evap_SlashInit - z
 # Evap_SurfCum[Zone](t) = Evap_SurfCum[Zone](t - dt) + (Evap_Surf[Zone]) * dt
 zone_df$Evap_SurfCum <- zone_df$Evap_SurfCum + (zone_df$Evap_Surf)
 
-# S&B_DeadWoodIncr[Zone,PlantComp] = ARRAYSUM(T_WoodSlashed[PlantComp,*])
-zonepcomp_df$SB_DeadWoodIncr <- rep(aggregate(treepcomp_df$T_WoodSlashed, treepcomp_df["PlantComp"], sum)[[2]],
-                                    each = nzone)
-
-# Evap_InitWoodMoist[Zone] = Evap_InitWoodM*S&B_DeadWoodIncr[Zone,DW]-S&B_DailyDeadWoodLitTransfer*Evap_WoodMoist[Zone]
-zone_df$Evap_InitWoodMoist <- pars$Evap_par$Evap_InitWoodM * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$SB_DeadWoodIncr - pars$SB_par$SB_DailyDeadWoodLitTransfer *
-  zone_df$Evap_WoodMoist
-
-# Evap_FromDeadWood[Zone] = Evap_WoodDryFact*(S&B_FirEvapS&W[Zone])*Evap_WoodMoist[Zone]+min(max(0,Evap_Pot-Rain_InterceptEvapAvg-Evap_SlashEvap[Zone]-Evap_Surf[Zone]),Evap_WoodMoist[Zone])
-zone_df$Evap_FromDeadWood <- pars$Evap_par$Evap_WoodDryFact * zone_df$SB_FirEvapSW * zone_df$Evap_WoodMoist +
-  pmin(
-    pmax(
-      0,
-      Evap_Pot - Rain_InterceptEvapAvg - zone_df$Evap_SlashEvap - zone_df$Evap_Surf
-    ),
-    zone_df$Evap_WoodMoist
-  )
-
 # Evap_WoodMoist[Zone](t) = Evap_WoodMoist[Zone](t - dt) + (Evap_InitWoodMoist[Zone] - Evap_FromDeadWood[Zone]) * dt
 zone_df$Evap_WoodMoist <- zone_df$Evap_WoodMoist + (zone_df$Evap_InitWoodMoist - zone_df$Evap_FromDeadWood)
-
-# TW_UptTotAll = ARRAYSUM(TW_UptTot[*])
-TW_UptTotAll <- sum(tree_df$TW_UptTot)
-
-# Evap_TTranspHist = -Evap_YesterdayTTransp+TW_UptTotAll
-Evap_TTranspHist <- -Evap_YesterdayTTransp + TW_UptTotAll
 
 # Evap_YesterdayTTransp(t) = Evap_YesterdayTTransp(t - dt) + (Evap_TTranspHist) * dt
 Evap_YesterdayTTransp <- Evap_YesterdayTTransp + (Evap_TTranspHist)
 
-# G_GrazeAccess[Zone] = if G_Graze_Zn_?[Zone] = 1 then 1 else if Cq_Stage[Zone]<>0 then 0 else if G_Graze_Offseason? = 1 then 1 else 0
-zone_df$G_Graze_Offseason_is <- pars$G_par$G_Graze_Offseason_is
-zone_df$G_GrazeAccess <- ifelse(zone_df$G_Graze_Zn_is == 1,
-                                1,
-                                ifelse(
-                                  zone_df$Cq_Stage != 0,
-                                  0,
-                                  ifelse(zone_df$G_Graze_Offseason_is == 1, 1, 0)
-                                ))
-
-# G_BiomDep[Zone] = GRAPH(C_BiomStLv[Zone,DW])
-zone_df$G_BiomDep <- get_y_df(zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv, "G_BiomDep")
-
-# G_Ndep[Zone] = GRAPH(C_BiomStLv[Zone,N]/(C_BiomStLv[Zone,DW]+0.0001))
-zone_df$G_Ndep <- get_y_df(zonepcomp_df[zonepcomp_df$PlantComp == "N", ]$C_BiomStLv /
-                             (zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv + 0.0001),
-                           "G_Ndep")
-
-# G_StageDep[Zone] = GRAPH(Cq_Stage[Zone])
-zone_df$G_StageDep <- get_y_df(zone_df$Cq_Stage, "G_StageDep")
-
-# G_AttrractGrasStL[Zone] = G_GrazeAccess[Zone]*C_BiomStLv[Zone,DW]*AF_ZoneFrac[Zone]*G_BiomDep[Zone]*G_Ndep[Zone]*G_StageDep[Zone]
-zone_df$G_AttrractGrasStL <- zone_df$G_GrazeAccess * zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_BiomStLv * zone_df$AF_ZoneFrac * zone_df$G_BiomDep * zone_df$G_Ndep * zone_df$G_StageDep
-
-# G_Pasture_Available = ARRAYSUM(G_AttrractGrasStL[*])
-G_Pasture_Available <- sum(zone_df$G_AttrractGrasStL)
-
-# G_GrazeToday? = if G_Grazing_Cycle<>0 then  if mod(time,G_Grazing_Cycle)=0 then G_Grazing_Cycle else 0 else 0
-G_GrazeToday_is <- ifelse(pars$G_par$G_Grazing_Cycle != 0,
-                          ifelse((time %% pars$G_par$G_Grazing_Cycle) == 0,
-                                 pars$G_par$G_Grazing_Cycle,
-                                 0
-                          ),
-                          0)
-
-# G_GrazingPressure = if G_Pasture_Available> 0 then G_GrazeToday? * G_StockingRate_per_ha*0.0001*G_StockingRate_per_ha* G_DayDempKgDay[DW]*G_SLU/G_Pasture_Available else 0
-G_GrazingPressure <- ifelse(
-  G_Pasture_Available > 0,
-  G_GrazeToday_is * pars$G_par$G_StockingRate_per_ha * 0.0001 * pars$G_par$G_StockingRate_per_ha * pcomp_df[pcomp_df$PlantComp == "DW", ]$G_DayDempKgDay *
-    pars$G_par$G_SLU / G_Pasture_Available,
-  0
-)
-
-# G_ZoneGrazeFrac[Zone] = if G_Pasture_Available> 0 then G_GrazingPressure*G_AttrractGrasStL[Zone]/G_Pasture_Available else 0
-zone_df$G_ZoneGrazeFrac <- ifelse(
-  G_Pasture_Available > 0,
-  G_GrazingPressure * zone_df$G_AttrractGrasStL / G_Pasture_Available,
-  0
-)
-
-# G_GrazedPerZone[Zone,PlantComp] = C_BiomStLv[Zone,PlantComp]*G_ZoneGrazeFrac[Zone]
-zonepcomp_df$G_ZoneGrazeFrac <- rep(zone_df$G_ZoneGrazeFrac, nrow(pcomp_df))
-zonepcomp_df$G_GrazedPerZone <- zonepcomp_df$C_BiomStLv * zonepcomp_df$G_ZoneGrazeFrac
-
-# G_BiomassGrazed[PlantComp] = AF_ZoneFrac[Zn1]*G_GrazedPerZone[Zn1,PlantComp]+AF_ZoneFrac[Zn2]*G_GrazedPerZone[Zn2,PlantComp]+AF_ZoneFrac[Zn3]*G_GrazedPerZone[Zn3,PlantComp]+AF_ZoneFrac[Zn4]*G_GrazedPerZone[Zn4,PlantComp]
-zonepcomp_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(pcomp_df))
-pcomp_df$G_BiomassGrazed <- aggregate(zonepcomp_df$AF_ZoneFrac * zonepcomp_df$G_GrazedPerZone,
-                                      zonepcomp_df["PlantComp"],
-                                      sum)[[2]]
-
-# G_Feed_Sufficiency[PlantComp] = if (G_StockingRate_per_ha*G_DayDempKgDay[PlantComp])>0 then G_BiomassGrazed[PlantComp]/(G_StockingRate_per_ha*G_DayDempKgDay[PlantComp]) else 0
-pcomp_df$G_Feed_Sufficiency <- ifelse (
-  pars$G_par$G_StockingRate_per_ha * pcomp_df$G_DayDempKgDay > 0,
-  pcomp_df$G_BiomassGrazed / (pars$G_par$G_StockingRate_per_ha *
-                                pcomp_df$G_DayDempKgDay),
-  0
-)
-
 # G_CumFeedSufficiency[PlantComp](t) = G_CumFeedSufficiency[PlantComp](t - dt) + (G_Feed_Sufficiency[PlantComp]) * dt
 pcomp_df$G_CumFeedSufficiency <- pcomp_df$G_CumFeedSufficiency + (pcomp_df$G_Feed_Sufficiency)
-
-# G_ManureProd[DW] = G_BiomassGrazed[DW]*(1-G_AnimRespFrac[DW]-G_AnmWGfrac[DW])
-# G_ManureProd[N] = G_BiomassGrazed[N]*(1-G_AnimRespFrac[N]-G_AnmWGfrac[N])
-# G_ManureProd[P] = G_BiomassGrazed[P]*(1-G_AnimRespFrac[P]-G_AnmWGfrac[P])
-pcomp_df$G_ManureProd <- pcomp_df$G_BiomassGrazed * (1 - pcomp_df$G_AnimRespFrac -
-                                                       pcomp_df$G_AnmWGfrac)
 
 # G_Grazed_Manure_Output[PlantComp](t) = G_Grazed_Manure_Output[PlantComp](t - dt) + (G_ManureProd[PlantComp]) * dt
 pcomp_df$G_Grazed_Manure_Output <- pcomp_df$G_Grazed_Manure_Output + (pcomp_df$G_ManureProd)
 
-# G_GrazeResp[DW] = G_BiomassGrazed[DW]*G_AnimRespFrac[DW]
-# G_GrazeResp[N] = G_BiomassGrazed[N]*G_AnimRespFrac[N]
-# G_GrazeResp[P] = G_BiomassGrazed[P]*G_AnimRespFrac[P]
-pcomp_df$G_GrazeResp <- pcomp_df$G_BiomassGrazed * pcomp_df$G_AnimRespFrac
-
 # G_Grazed_Respired[PlantComp](t) = G_Grazed_Respired[PlantComp](t - dt) + (G_GrazeResp[PlantComp]) * dt
 pcomp_df$G_Grazed_Respired <- pcomp_df$G_Grazed_Respired + (pcomp_df$G_GrazeResp)
-
 
 # G_GrazedBiomCum[PlantComp](t) = G_GrazedBiomCum[PlantComp](t - dt) + (G_BiomassGrazed[PlantComp]) * dt
 pcomp_df$G_GrazedBiomCum <- pcomp_df$G_GrazedBiomCum + (pcomp_df$G_BiomassGrazed)
 
-# G_Animal_Weight_Gain[DW] = G_BiomassGrazed[DW]*G_AnmWGfrac[DW]
-# G_Animal_Weight_Gain[N] = G_BiomassGrazed[N]*G_AnmWGfrac[N]
-# G_Animal_Weight_Gain[P] = G_BiomassGrazed[P]*G_AnmWGfrac[P]
-pcomp_df$G_Animal_Weight_Gain <- pcomp_df$G_BiomassGrazed * pcomp_df$G_AnmWGfrac
-
 # G_LivestWeightGain[PlantComp](t) = G_LivestWeightGain[PlantComp](t - dt) + (G_Animal_Weight_Gain[PlantComp]) * dt
 pcomp_df$G_LivestWeightGain <- pcomp_df$G_LivestWeightGain + (pcomp_df$G_Animal_Weight_Gain)
-
-# GHG_AnaerobIndicCh[Zone] = GHG_AnaerobMem*GHG_AnaerobIndic[Zone]-(1-GHG_AnaerobMem)*(
-#   GHG_AnaerobLayerW[1]*MAX(0,W_WaterfilledPoreF1[Zone]-GHG_AnaeroThresh)+
-#     GHG_AnaerobLayerW[2]*MAX(0,W_WaterfilledPoreF2[Zone]-GHG_AnaeroThresh)+
-#     GHG_AnaerobLayerW[3]*MAX(0,W_WaterfilledPoreF3[Zone]-GHG_AnaeroThresh)+
-#     GHG_AnaerobLayerW[4]*MAX(0,W_WaterfilledPoreF4[Zone]-GHG_AnaeroThresh))
-zonelayer_df$GHG_AnaerobLayerW <- rep(layer_df$GHG_AnaerobLayerW, each = nzone)
-zone_df$GHG_AnaerobIndicCh <- pars$GHG_par$GHG_AnaerobMem * zone_df$GHG_AnaerobIndic -
-  (1 - pars$GHG_par$GHG_AnaerobMem) *
-  aggregate(
-    zonelayer_df$GHG_AnaerobLayerW * pmax(
-      0,
-      zonelayer_df$W_WaterfilledPoreF - pars$GHG_par$GHG_AnaeroThresh
-    ),
-    zonelayer_df["zone"],
-    sum
-  )[[2]]
 
 # GHG_AnaerobIndic[Zone](t) = GHG_AnaerobIndic[Zone](t - dt) + (- GHG_AnaerobIndicCh[Zone]) * dt
 zone_df$GHG_AnaerobIndic <- zone_df$GHG_AnaerobIndic + (-zone_df$GHG_AnaerobIndicCh)
 
 # GHG_N2_EmZn[Zone](t) = GHG_N2_EmZn[Zone](t - dt) + (GHG_N2_Em[Zone]) * dt
 zone_df$GHG_N2_EmZn <- zone_df$GHG_N2_EmZn + (zone_df$GHG_N2_Em)
-
-# GHG_CH4FluxZn[Zone] = -GHG_PotCH4oxid+(GHG_PotCH4oxid-GHG_PotCH4Em)*(1-GHG_EffWaterfPoreF[Zone])/(1-GHG_EffWaterfPoreF[Zone]+GHG_CH4_Km)
-zone_df$GHG_CH4FluxZn <- -pars$GHG_par$GHG_PotCH4oxid + (pars$GHG_par$GHG_PotCH4oxid - pars$GHG_par$GHG_PotCH4Em) *
-  (1 - zone_df$GHG_EffWaterfPoreF) / (1 - zone_df$GHG_EffWaterfPoreF + pars$GHG_par$GHG_CH4_Km)
 
 # GHG_Net_CH4_Em[Zone](t) = GHG_Net_CH4_Em[Zone](t - dt) + (GHG_CH4FluxZn[Zone]) * dt
 zone_df$GHG_Net_CH4_Em <- zone_df$GHG_Net_CH4_Em + (zone_df$GHG_CH4FluxZn)
@@ -15510,45 +16827,17 @@ zone_df$GHG_Nitric_Oxide_EmZn <- zone_df$GHG_Nitric_Oxide_EmZn + (zone_df$GHG_NO
 # GHG_Nitrous_Oxide_EmZn[Zone](t) = GHG_Nitrous_Oxide_EmZn[Zone](t - dt) + (GHG_N2O_Em[Zone]) * dt
 zone_df$GHG_Nitrous_Oxide_EmZn <- zone_df$GHG_Nitrous_Oxide_EmZn + (zone_df$GHG_N2O_Em)
 
-# W_H1DrainF = W_H1Drain[Zn1]
-# W_H2DrainF = W_H2Drain[Zn1]
-# W_H3DrainF = W_H3Drain[Zn1]
-# W_H4DrainF = W_H4Drain[Zn1]
-layer_df$W_HDrainF <- zonelayer_df[zonelayer_df$zone == 1, ]$W_HDrain
-
 # LF_H1Drain1Cum(t) = LF_H1Drain1Cum(t - dt) + (W_H1DrainF) * dt
 # LF_H2Drain1Cum(t) = LF_H2Drain1Cum(t - dt) + (W_H2DrainF) * dt
 # LF_H3Drain1Cum(t) = LF_H3Drain1Cum(t - dt) + (W_H3DrainF) * dt
 # LF_H4Drain1Cum(t) = LF_H4Drain1Cum(t - dt) + (W_H4DrainF) * dt
 layer_df$LF_HDrain1Cum <- layer_df$LF_HDrain1Cum + (layer_df$W_HDrainF)
 
-# LF_LatAc1 = LF_Lat4Inflow1
-# LF_LatAc2 = LF_Lat4Inflow2
-# LF_LatAc3 = LF_Lat4Inflow3
-# LF_LatAc4 = LF_Lat4Inflow4
-layer_df$LF_LatAc <- layer_df$LF_Lat4Inflow
-
 # LF_LatIn1Cum(t) = LF_LatIn1Cum(t - dt) + (LF_LatAc1) * dt
 # LF_LatIn2Cum(t) = LF_LatIn2Cum(t - dt) + (LF_LatAc2) * dt
 # LF_LatIn3Cum(t) = LF_LatIn3Cum(t - dt) + (LF_LatAc3) * dt
 # LF_LatIn4Cum(t) = LF_LatIn4Cum(t - dt) + (LF_LatAc4) * dt
 layer_df$LF_LatInCum <- layer_df$LF_LatInCum + (layer_df$LF_LatAc)
-
-# Light_CRefRelCap[Zone] = 1-EXP(-Cq_kLightCurr[Zone]*C_LAI[Zone])
-zone_df$Light_CRefRelCap <- 1 - exp(-zone_df$Cq_kLightCurr * zone_df$C_LAI)
-
-# Light_CCapRelInc[Zone] = if Cq_WeedZn?[Zone] = 1 then 0 else if Light_CRefRelCap[Zone] = 0 then 0 else if Light_CRelCap[Zone] > Cq_RelLightMaxCurr[Zone] then 1 else min(Light_CRelCap[Zone],Cq_RelLightMaxCurr[Zone])/min(Light_CRefRelCap[Zone],Cq_RelLightMaxCurr[Zone])
-zone_df$Light_CCapRelInc <- ifelse(zone_df$Cq_WeedZn_is == 1,
-                                   0,
-                                   ifelse(
-                                     zone_df$Light_CRefRelCap == 0,
-                                     0,
-                                     ifelse(
-                                       zone_df$Light_CRelCap > zone_df$Cq_RelLightMaxCurr,
-                                       1,
-                                       pmin(zone_df$Light_CRelCap, zone_df$Cq_RelLightMaxCurr) / pmin(zone_df$Light_CRefRelCap, zone_df$Cq_RelLightMaxCurr)
-                                     )
-                                   ))
 
 # Light_CRefRelCapCum[Zone](t) = Light_CRefRelCapCum[Zone](t - dt) + (Light_CCapRelInc[Zone]) * dt
 zone_df$Light_CRefRelCapCum <- zone_df$Light_CRefRelCapCum + (zone_df$Light_CCapRelInc)
@@ -15571,50 +16860,29 @@ zone_df$Mc_StrucActCO2 <- zone_df$Mc_StrucActCO2 + (zone_df$Mc_StrucActCO2In)
 # Mc_StrucSlwCO2[Zone](t) = Mc_StrucSlwCO2[Zone](t - dt) + (Mc_StrucSlwCO2In[Zone]) * dt
 zone_df$Mc_StrucSlwCO2 <- zone_df$Mc_StrucSlwCO2 + (zone_df$Mc_StrucSlwCO2In)
 
-
-
 # MC2_OrgC_Leached[Zone](t) = MC2_OrgC_Leached[Zone](t - dt) + (MC2_OrgC_Leaching[Zone]) * dt
 zone_df$Mc2_OrgC_Leached <- zone_df$Mc2_OrgC_Leached + (zone_df$Mc2_OrgC_Leaching)
-
 
 #TODO:Script below is error. Unbalanced array dimension. to be confirmed
 # sum by zone (whole layers)
 
 # Mc2_ActCO2[Zone](t) = Mc2_ActCO2[Zone](t - dt) + (Mc2_ActCO2In[Zone,SoilLayer]) * dt
-# zone_df$Mc2_ActCO2 <- zone_df$Mc2_ActCO2 + (zone_df$Mc2_ActCO2In[Zone,SoilLayer]) * dt
+zone_df$Mc2_ActCO2 <- zone_df$Mc2_ActCO2 + aggregate(zonelayer_df$Mc2_ActCO2In, zonelayer_df["zone"], sum)$x
 
 # Mc2_MetabCO2[Zone](t) = Mc2_MetabCO2[Zone](t - dt) + (Mc2_MetabCO2In[Zone,SoilLayer]) * dt
-# Mc2_MetabCO2[Zone](t) = Mc2_MetabCO2[Zone](t - dt) + (Mc2_MetabCO2In[Zone,SoilLayer]) * dt
+zone_df$Mc2_MetabCO2 <- zone_df$Mc2_MetabCO2 + aggregate(zonelayer_df$Mc2_MetabCO2In, zonelayer_df["zone"], sum)$x
 
 # Mc2_PassCO2[Zone](t) = Mc2_PassCO2[Zone](t - dt) + (Mc2_PassCO2In[Zone,SoilLayer]) * dt
-# Mc2_PassCO2[Zone](t) = Mc2_PassCO2[Zone](t - dt) + (Mc2_PassCO2In[Zone,SoilLayer]) * dt
+zone_df$Mc2_PassCO2 <- zone_df$Mc2_PassCO2 + aggregate(zonelayer_df$Mc2_PassCO2In, zonelayer_df["zone"], sum)$x
 
 # Mc2_SlwCO2[Zone](t) = Mc2_SlwCO2[Zone](t - dt) + (Mc2_SlwCO2In[Zone,SoilLayer]) * dt
-# Mc2_SlwCO2[Zone](t) = Mc2_SlwCO2[Zone](t - dt) + (Mc2_SlwCO2In[Zone,SoilLayer]) * dt
+zone_df$Mc2_SlwCO2 <- zone_df$Mc2_SlwCO2 + aggregate(zonelayer_df$Mc2_SlwCO2In, zonelayer_df["zone"], sum)$x
 
 # Mc2_StrucActCO2[Zone](t) = Mc2_StrucActCO2[Zone](t - dt) + (Mc2_StrucActCO2In[Zone,SoilLayer]) * dt
-# Mc2_StrucActCO2[Zone](t) = Mc2_StrucActCO2[Zone](t - dt) + (Mc2_StrucActCO2In[Zone,SoilLayer]) * dt
+zone_df$Mc2_StrucActCO2 <- zone_df$Mc2_StrucActCO2 + aggregate(zonelayer_df$Mc2_StrucActCO2In, zonelayer_df["zone"], sum)$x
 
 # Mc2_StrucSlwCO2[Zone](t) = Mc2_StrucSlwCO2[Zone](t - dt) + (Mc_StrucSlwCO2In_SOM[Zone,SoilLayer]) * dt
-# Mc2_StrucSlwCO2[Zone](t) = Mc2_StrucSlwCO2[Zone](t - dt) + (Mc_StrucSlwCO2In_SOM[Zone,SoilLayer]) * d
-
-# Mn_FertNZn[Zone,SlNut] = Ca_FertNZn[Zone,SlNut]
-zonenut_df$Mn_FertNZn <- zonenut_df$Ca_FertNZn
-
-# Mn_LatFlowFert[Zn1,N] = -Mn_RunOffFert[Zn2,N]*AF_LatInFlowRatio[Zn1]+Mn_RunOffFert[Zn1,N]
-# Mn_LatFlowFert[Zn1,P] = -Mn_RunOffFert[Zn2,P]*AF_LatInFlowRatio[Zn1]+Mn_RunOffFert[Zn1,P]
-# Mn_LatFlowFert[Zn2,N] = -Mn_RunOffFert[Zn3,N]*AF_LatInFlowRatio[Zn2]+Mn_RunOffFert[Zn2,N]
-# Mn_LatFlowFert[Zn2,P] = -Mn_RunOffFert[Zn3,P]*AF_LatInFlowRatio[Zn2]+Mn_RunOffFert[Zn2,P]
-# Mn_LatFlowFert[Zn3,N] = -Mn_RunOffFert[Zn4,N]*AF_LatInFlowRatio[Zn3]+Mn_RunOffFert[Zn3,N]
-# Mn_LatFlowFert[Zn3,P] = -Mn_RunOffFert[Zn4,P]*AF_LatInFlowRatio[Zn3]+Mn_RunOffFert[Zn3,P]
-# Mn_LatFlowFert[Zn4,N] = Mn_RunOffFert[Zn4,N]+0*AF_LatInFlowRatio[Zn4]
-# Mn_LatFlowFert[Zn4,P] = Mn_RunOffFert[Zn4,P]+0*AF_LatInFlowRatio[Zn4]
-zonenut_df$Mn_RunOffFert_right <- NA
-zonenut_df[zonenut_df$zone %in% c(1, 2, 3), ]$Mn_RunOffFert_right <- zonenut_df[zonenut_df$zone %in% c(2, 3, 4), ]$Mn_RunOffFert
-zonenut_df$AF_LatInFlowRatio <- rep(zone_df$AF_LatInFlowRatio, nrow(nut_df))
-zonenut_df$Mn_LatFlowFert <- -zonenut_df$Mn_RunOffFert_right * zonenut_df$AF_LatInFlowRatio +
-  zonenut_df$Mn_RunOffFert
-zonenut_df[zonenut_df$zone == 4, ]$Mn_LatFlowFert <- zonenut_df[zonenut_df$zone == 4, ]$Mn_RunOffFert
+zone_df$Mc2_StrucSlwCO2 <- zone_df$Mc2_StrucSlwCO2 + aggregate(zonelayer_df$Mc_StrucSlwCO2In_SOM, zonelayer_df["zone"], sum)$x
 
 # Mn_FertOnSoil[Zone,SlNut](t) = Mn_FertOnSoil[Zone,SlNut](t - dt) + (Mn_FertNZn[Zone,SlNut] - Mn_FertDissF[Zone,SlNut] - Mn_LatFlowFert[Zone,SlNut]) * dt
 zonenut_df$Mn_FertOnSoil <- zonenut_df$Mn_FertOnSoil + (zonenut_df$Mn_FertNZn - zonenut_df$Mn_FertDissF - zonenut_df$Mn_LatFlowFert)
@@ -15634,360 +16902,21 @@ zonelayer_df$Mn2_MinNutpool <- zonelayer_df$Mn2_MinNutpool +
 # MN2_OrgNLeached[Zone](t) = MN2_OrgNLeached[Zone](t - dt) + (MN2_OrgN_leaching[Zone]) * dt
 zone_df$Mn2_OrgNLeached <- zone_df$Mn2_OrgNLeached + (zone_df$Mn2_OrgN_leaching)
 
-# MP2_CNMetab[Zone,SoilLayer] = IF(MP2_Metab[Zone,SoilLayer]>0)THEN(Mc2_Metab[Zone,SoilLayer]/MP2_Metab[Zone,SoilLayer])ELSE(0)
-zonelayer_df$Mp2_CNMetab <- ifelse(zonelayer_df$Mp2_Metab > 0,
-                                   zonelayer_df$Mc2_Metab / zonelayer_df$Mp2_Metab,
-                                   0)
-
-# MP2_DecActMet[Zone,SoilLayer] = IF(MP2_CNMetab[Zone,SoilLayer]>0)THEN(Mc2_MetabActF[Zone,SoilLayer]/(Mc_EffMetab*MP2_CNMetab[Zone,SoilLayer]))ELSE(0)
-zonelayer_df$Mp2_DecActMet <- ifelse(
-  zonelayer_df$Mp2_CNMetab > 0,
-  zonelayer_df$Mc2_MetabActF / (pars$Mc_par$Mc_EffMetab * zonelayer_df$Mp2_CNMetab),
-  0
-)
-
-# MP2_DemActMet_P[Zone,SoilLayer] = Mc2_MetabActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
-zonelayer_df$Mp2_DemActMet_P <- zonelayer_df$Mc2_MetabActF / (pars$Mn_par$Mn_CNAct *
-                                                                nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
-
-# MP2_MetabActF[Zone,SoilLayer] = MIN(MP2_DecActMet[Zone,SoilLayer],MP2_DemActMet_P[Zone,SoilLayer])
-zonelayer_df$Mp2_MetabActF <- pmin(zonelayer_df$Mp2_DecActMet, zonelayer_df$Mp2_DemActMet_P)
-
-# MP2_DecActStP[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mc_EffStrucAct*Mn_CNStruc*Mn_NutRatStruc[P])
-zonelayer_df$Mp2_DecActStP <- zonelayer_df$Mc2_StrucActF / (pars$Mc_par$Mc_EffStrucAct * pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc)
-
-# MP2_DemActSt[Zone,SoilLayer] = Mc2_StrucActF[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
-zonelayer_df$Mp2_DemActSt <- zonelayer_df$Mc2_StrucActF / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
-
-# MP2_StrucActF[Zone,SoilLayer] = MIN(MP2_DecActStP[Zone,SoilLayer],MP2_DemActSt[Zone,SoilLayer])
-zonelayer_df$Mp2_StrucActF <- pmin(zonelayer_df$Mp2_DecActStP, zonelayer_df$Mp2_DemActSt)
-
-# MP2_Act_SomTrans[Zn1,1] = (Mn_Act_LitSomTrans[Zn1,P]-MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1])
-# MP2_Act_SomTrans[Zn1,2] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]-MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2])
-# MP2_Act_SomTrans[Zn1,3] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]-MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3])
-# MP2_Act_SomTrans[Zn1,4] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]-MP2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4])
-# MP2_Act_SomTrans[Zn2,1] = (Mn_Act_LitSomTrans[Zn2,P]-MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1])
-# MP2_Act_SomTrans[Zn2,2] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]-MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2])
-# MP2_Act_SomTrans[Zn2,3] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]-MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3])
-# MP2_Act_SomTrans[Zn2,4] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]-MP2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4])
-# MP2_Act_SomTrans[Zn3,1] = (Mn_Act_LitSomTrans[Zn3,P]-MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1])
-# MP2_Act_SomTrans[Zn3,2] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]-MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2])
-# MP2_Act_SomTrans[Zn3,3] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]-MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3])
-# MP2_Act_SomTrans[Zn3,4] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]-MP2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4])
-# MP2_Act_SomTrans[Zn4,1] = (Mn_Act_LitSomTrans[Zn4,P]-MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1])
-# MP2_Act_SomTrans[Zn4,2] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]-MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2])
-# MP2_Act_SomTrans[Zn4,3] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]-MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3])
-# MP2_Act_SomTrans[Zn4,4] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]-MP2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4])
-zonelayer_df$Mp2_Act_SomTrans <- NA
-zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_Act_SomTrans <- zonenut_df[zonenut_df$SlNut == "P", ]$Mn_Act_LitSomTrans - zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_Act *
-  zonelayercpools_df[zonelayercpools_df$layer == 1 &
-                       zonelayercpools_df$Cent_Pools == "Actv", ]$Mc2_LayerTrans
-zonelayer_df$Mp2_Act_trans <- zonelayer_df$Mp2_Act * zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Actv", ]$Mc2_LayerTrans
-zonelayer_df[zonelayer_df$layer %in% c(2:4), ]$Mp2_Act_SomTrans <- zonelayer_df[zonelayer_df$layer %in% c(1:3), ]$Mp2_Act_trans - zonelayer_df[zonelayer_df$layer %in% c(2:4), ]$Mp2_Act_trans
-
-# MP2_CNActAct[Zone,SoilLayer] = IF(TIME>1)THEN (if MP2_Act[Zone,SoilLayer]>0 then (Mc2_Act[Zone,SoilLayer]/MP2_Act[Zone,SoilLayer])  else 100)  ELSE(Mn_CNAct*Mn_NutRatAct[P])
-zonelayer_df$Mp2_CNActAct <- ifelse(
-  time > 1,
-  ifelse(
-    zonelayer_df$Mp2_Act > 0,
-    zonelayer_df$Mc2_Act / zonelayer_df$Mp2_Act,
-    100
-  ),
-  pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct
-)
-
-# MP2_DecAct[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mc2_EffActSlw*MP2_CNActAct[Zone,SoilLayer])
-zonelayer_df$Mp2_DecAct <- zonelayer_df$Mc2_ActSlw / (Mc2_EffActSlw * zonelayer_df$Mp2_CNActAct)
-
-# MP2_ActSlw[Zone,SoilLayer] = Mc2_ActSlw[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[P])
-zonelayer_df$Mp2_ActSlw <- zonelayer_df$Mc2_ActSlw / (pars$Mn_par$Mn_CNSlw *
-                                                        nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw)
-
-# MP2_ActPass[Zone,SoilLayer] = Mc2_ActPass[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[P])
-zonelayer_df$Mp2_ActPass <- zonelayer_df$Mc2_ActPass / (pars$Mn_par$Mn_CNPass *
-                                                          nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
-
-# MP2_ActMin[Zone,SoilLayer] = MIN(MAX(0,MP2_DecAct[Zone,SoilLayer]-MP2_ActSlw[Zone,SoilLayer]-MP2_ActPass[Zone,SoilLayer]),MP2_Act[Zone,SoilLayer])
-zonelayer_df$Mp2_ActMin <- pmin(
-  pmax(
-    0,
-    zonelayer_df$Mp2_DecAct - zonelayer_df$Mp2_ActSlw - zonelayer_df$Mp2_ActPass
-  ),
-  zonelayer_df$Mp2_Act
-)
-
-# MP2_ImmobAct[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,P],MAX(0,MP2_DemActMet_P[Zone,SoilLayer]-MP2_DecActMet[Zone,SoilLayer])+MAX(0,MP2_DemActSt[Zone,SoilLayer]-MP2_DecActStP[Zone,SoilLayer])+MAX(0,MP2_Act[Zone,SoilLayer]*MP2_CNActAct[Zone,SoilLayer]*(1/(Mn_CNAct*Mn_NutRatAct[P]) - 1/MP2_CNActAct[Zone,SoilLayer]) ))
-zonelayer_df$Mp2_ImmobAct <- pmin(
-  zonenut_df[zonenut_df$SlNut == "P", ]$Mn_MinNutpool,
-  pmax(0, zonelayer_df$Mp2_DemActMet_P - zonelayer_df$Mp2_DecActMet)
-  + pmax(0, zonelayer_df$Mp2_DemActSt - zonelayer_df$Mp2_DecActStP) +
-    pmax(
-      0,
-      zonelayer_df$Mp2_Act * zonelayer_df$Mp2_CNActAct * (
-        1 / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct) - 1 /
-          zonelayer_df$Mp2_CNActAct
-      )
-    )
-)
-
-# MP2_MinDueToS&B[Zn1,1] = S&B_SOMBurnFrac[Zn1]
-# MP2_MinDueToS&B[Zn1,2] = 0*S&B_SOMBurnFrac[Zn1]
-# MP2_MinDueToS&B[Zn1,3] = 0*S&B_SOMBurnFrac[Zn1]
-# MP2_MinDueToS&B[Zn1,4] = 0*S&B_SOMBurnFrac[Zn1]
-# MP2_MinDueToS&B[Zn2,1] = S&B_SOMBurnFrac[Zn2]
-# MP2_MinDueToS&B[Zn2,2] = 0*S&B_SOMBurnFrac[Zn2]
-# MP2_MinDueToS&B[Zn2,3] = 0*S&B_SOMBurnFrac[Zn2]
-# MP2_MinDueToS&B[Zn2,4] = 0*S&B_SOMBurnFrac[Zn2]
-# MP2_MinDueToS&B[Zn3,1] = S&B_SOMBurnFrac[Zn3]
-# MP2_MinDueToS&B[Zn3,2] = 0*S&B_SOMBurnFrac[Zn3]
-# MP2_MinDueToS&B[Zn3,3] = 0*S&B_SOMBurnFrac[Zn3]
-# MP2_MinDueToS&B[Zn3,4] = 0*S&B_SOMBurnFrac[Zn3]
-# MP2_MinDueToS&B[Zn4,1] = S&B_SOMBurnFrac[Zn4]
-# MP2_MinDueToS&B[Zn4,2] = 0*S&B_SOMBurnFrac[Zn4]
-# MP2_MinDueToS&B[Zn4,3] = 0*S&B_SOMBurnFrac[Zn4]
-# MP2_MinDueToS&B[Zn4,4] = 0*S&B_SOMBurnFrac[Zn4]
-zonelayer_df$Mp2_MinDueToSB <- 0
-zonelayer_df[zonelayer_df$layer == 1, ]$Mp2_MinDueToSB <- zone_df$SB_SOMBurnFrac
-
-# MP2_ActMinF[Zone,SoilLayer] = IF (MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer])>0 THEN MIN((MP2_ActMin[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]),MP2_Act[Zone,SoilLayer]) ELSE IF (MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer])=0 THEN 0 ELSE -MIN(ABS(MP2_ActMin[Zone,SoilLayer]-MP2_ImmobAct[Zone,SoilLayer] +MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Act[Zone,SoilLayer]),MP2_MinNutpool[Zone,SoilLayer])
-zonelayer_df$Mp2_ActMinF_a <- zonelayer_df$Mp2_ActMin - zonelayer_df$Mp2_ImmobAct + zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Act
-zonelayer_df$Mp2_ActMinF <- ifelse (
-  zonelayer_df$Mp2_ActMinF_a > 0,
-  pmin((
-    zonelayer_df$Mp2_ActMin + zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Act -
-      zonelayer_df$Mp2_ImmobAct
-  ),
-  zonelayer_df$Mp2_Act
-  ),
-  ifelse (
-    zonelayer_df$Mp2_ActMinF_a == 0,
-    0,
-    -pmin(
-      abs(zonelayer_df$Mp2_ActMinF_a),
-      zonelayer_df$Mp2_MinNutpool
-    )
-  )
-)
-
-# MP2_PassAct[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
-zonelayer_df$Mp2_PassAct <- zonelayer_df$Mc2_PassAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
-
-# MP2_ActPassF[Zone,SoilLayer] = MAX(0,MP2_ActPass[Zone,SoilLayer])-MAX(0,MP2_PassAct[Zone,SoilLayer])
-zonelayer_df$Mp2_ActPassF <- pmax(0, zonelayer_df$Mp2_ActPass) - pmax(0, zonelayer_df$Mp2_PassAct)
-
-# MP2_SlwAct[Zone,SoilLayer] = Mc2_SlwAct[Zone,SoilLayer]/(Mn_CNAct*Mn_NutRatAct[P])
-zonelayer_df$Mp2_SlwAct <- zonelayer_df$Mc2_SlwAct / (pars$Mn_par$Mn_CNAct * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatAct)
-
-# MP2_ActSlwF[Zone,SoilLayer] = MAX(0,MP2_ActSlw[Zone,SoilLayer])-MAX(0,MP2_SlwAct[Zone,SoilLayer])
-zonelayer_df$Mp2_ActSlwF <- pmax(0, zonelayer_df$Mp2_ActSlw) - pmax(0, zonelayer_df$Mp2_SlwAct)
-
 # MP2_Act[Zone,SoilLayer](t) = MP2_Act[Zone,SoilLayer](t - dt) + (MP2_MetabActF[Zone,SoilLayer] + MP2_StrucActF[Zone,SoilLayer] + MP2_Act_SomTrans[Zone,SoilLayer] - MP2_ActMinF[Zone,SoilLayer] - MP2_ActSlwF[Zone,SoilLayer] - MP2_ActPassF[Zone,SoilLayer]) * dt
 zonelayer_df$Mp2_Act <- zonelayer_df$Mp2_Act +
   (
     zonelayer_df$Mp2_MetabActF + zonelayer_df$Mp2_StrucActF + zonelayer_df$Mp2_Act_SomTrans - zonelayer_df$Mp2_ActMinF - zonelayer_df$Mp2_ActSlwF - zonelayer_df$Mp2_ActPassF
   )
 
-# MP2_StrucIn[Zone,SoilLayer] = IF(MP2_OrgInpRtP[Zone,SoilLayer]>10^-7)THEN(Mc2_StrucIn[Zone,SoilLayer]/(Mn_CNStruc*Mn_NutRatStruc[P]))ELSE(0)
-zonelayer_df$Mp2_StrucIn <- ifelse(
-  zonelayer_df$Mp2_OrgInpRtP > 10^-7,
-  zonelayer_df$Mc2_StrucIn / (pars$Mn_par$Mn_CNStruc * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc),
-  0
-)
-
-# MP2_MetabIn[Zone,SoilLayer] = MP2_OrgInpRtP[Zone,SoilLayer]-MP2_StrucIn[Zone,SoilLayer]
-zonelayer_df$Mp2_MetabIn <- zonelayer_df$Mp2_OrgInpRtP - zonelayer_df$Mp2_StrucIn
-
-# MP2_Met_SomTrans[Zn1,1] = (Mn_Met_LitSomTrans[Zn1,P]-MP2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1])
-# MP2_Met_SomTrans[Zn1,2] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,1]*MC2_Met_LayerTrans[Zn1,1]-MP2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2])
-# MP2_Met_SomTrans[Zn1,3] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,2]*MC2_Met_LayerTrans[Zn1,2]-MP2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3])
-# MP2_Met_SomTrans[Zn1,4] = (0*Mn_Met_LitSomTrans[Zn1,N]+MP2_Metab[Zn1,3]*MC2_Met_LayerTrans[Zn1,3]-MP2_Metab[Zn1,4]*MC2_Met_LayerTrans[Zn1,4])
-# MP2_Met_SomTrans[Zn2,1] = (Mn_Met_LitSomTrans[Zn2,P]-MP2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1])
-# MP2_Met_SomTrans[Zn2,2] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,1]*MC2_Met_LayerTrans[Zn2,1]-MP2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2])
-# MP2_Met_SomTrans[Zn2,3] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,2]*MC2_Met_LayerTrans[Zn2,2]-MP2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3])
-# MP2_Met_SomTrans[Zn2,4] = (0*Mn_Met_LitSomTrans[Zn2,N]+MP2_Metab[Zn2,3]*MC2_Met_LayerTrans[Zn2,3]-MP2_Metab[Zn2,4]*MC2_Met_LayerTrans[Zn2,4])
-# MP2_Met_SomTrans[Zn3,1] = (Mn_Met_LitSomTrans[Zn3,P]-MP2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1])
-# MP2_Met_SomTrans[Zn3,2] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,1]*MC2_Met_LayerTrans[Zn3,1]-MP2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2])
-# MP2_Met_SomTrans[Zn3,3] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,2]*MC2_Met_LayerTrans[Zn3,2]-MP2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3])
-# MP2_Met_SomTrans[Zn3,4] = (0*Mn_Met_LitSomTrans[Zn3,N]+MP2_Metab[Zn3,3]*MC2_Met_LayerTrans[Zn3,3]-MP2_Metab[Zn3,4]*MC2_Met_LayerTrans[Zn3,4])
-# MP2_Met_SomTrans[Zn4,1] = (Mn_Met_LitSomTrans[Zn4,P]-MP2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1])
-# MP2_Met_SomTrans[Zn4,2] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,1]*MC2_Met_LayerTrans[Zn4,1]-MP2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2])
-# MP2_Met_SomTrans[Zn4,3] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,2]*MC2_Met_LayerTrans[Zn4,2]-MP2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3])
-# MP2_Met_SomTrans[Zn4,4] = (0*Mn_Met_LitSomTrans[Zn4,N]+MP2_Metab[Zn4,3]*MC2_Met_LayerTrans[Zn4,3]-MP2_Metab[Zn4,4]*MC2_Met_LayerTrans[Zn4,4])
-
-# MP2_Str_SomTrans[Zn1,1] = (Mn_Str_LitSomTrans[Zn1,P]-MP2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1])
-# MP2_Str_SomTrans[Zn1,2] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,1]*MC2_Struc_LayerTrans[Zn1,1]-MP2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2])
-# MP2_Str_SomTrans[Zn1,3] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,2]*MC2_Struc_LayerTrans[Zn1,2]-MP2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3])
-# MP2_Str_SomTrans[Zn1,4] = (0*Mn_Str_LitSomTrans[Zn1,N]+MP2_Struc[Zn1,3]*MC2_Struc_LayerTrans[Zn1,3]-MP2_Struc[Zn1,4]*MC2_Struc_LayerTrans[Zn1,4])
-# MP2_Str_SomTrans[Zn2,1] = (Mn_Str_LitSomTrans[Zn2,P]-MP2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1])
-# MP2_Str_SomTrans[Zn2,2] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,1]*MC2_Struc_LayerTrans[Zn2,1]-MP2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2])
-# MP2_Str_SomTrans[Zn2,3] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,2]*MC2_Struc_LayerTrans[Zn2,2]-MP2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3])
-# MP2_Str_SomTrans[Zn2,4] = (0*Mn_Str_LitSomTrans[Zn2,N]+MP2_Struc[Zn2,3]*MC2_Struc_LayerTrans[Zn2,3]-MP2_Struc[Zn2,4]*MC2_Struc_LayerTrans[Zn2,4])
-# MP2_Str_SomTrans[Zn3,1] = (Mn_Str_LitSomTrans[Zn3,P]-MP2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1])
-# MP2_Str_SomTrans[Zn3,2] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,1]*MC2_Struc_LayerTrans[Zn3,1]-MP2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2])
-# MP2_Str_SomTrans[Zn3,3] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,2]*MC2_Struc_LayerTrans[Zn3,2]-MP2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3])
-# MP2_Str_SomTrans[Zn3,4] = (0*Mn_Str_LitSomTrans[Zn3,N]+MP2_Struc[Zn3,3]*MC2_Struc_LayerTrans[Zn3,3]-MP2_Struc[Zn3,4]*MC2_Struc_LayerTrans[Zn3,4])
-# MP2_Str_SomTrans[Zn4,1] = (Mn_Str_LitSomTrans[Zn4,P]-MP2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1])
-# MP2_Str_SomTrans[Zn4,2] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,1]*MC2_Struc_LayerTrans[Zn4,1]-MP2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2])
-# MP2_Str_SomTrans[Zn4,3] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,2]*MC2_Struc_LayerTrans[Zn4,2]-MP2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3])
-# MP2_Str_SomTrans[Zn4,4] = (0*Mn_Str_LitSomTrans[Zn4,N]+MP2_Struc[Zn4,3]*MC2_Struc_LayerTrans[Zn4,3]-MP2_Struc[Zn4,4]*MC2_Struc_LayerTrans[Zn4,4])
-
-# MP2_Act_SomTrans[Zn1,1] = (Mn_Act_LitSomTrans[Zn1,P]-MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1])
-# MP2_Act_SomTrans[Zn1,2] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,1]*MC2_Act_LayerTrans[Zn1,1]-MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2])
-# MP2_Act_SomTrans[Zn1,3] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,2]*MC2_Act_LayerTrans[Zn1,2]-MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3])
-# MP2_Act_SomTrans[Zn1,4] = (0*Mn_Act_LitSomTrans[Zn1,N]+MP2_Act[Zn1,3]*MC2_Act_LayerTrans[Zn1,3]-MP2_Act[Zn1,4]*MC2_Act_LayerTrans[Zn1,4])
-# MP2_Act_SomTrans[Zn2,1] = (Mn_Act_LitSomTrans[Zn2,P]-MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1])
-# MP2_Act_SomTrans[Zn2,2] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,1]*MC2_Act_LayerTrans[Zn2,1]-MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2])
-# MP2_Act_SomTrans[Zn2,3] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,2]*MC2_Act_LayerTrans[Zn2,2]-MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3])
-# MP2_Act_SomTrans[Zn2,4] = (0*Mn_Act_LitSomTrans[Zn2,N]+MP2_Act[Zn2,3]*MC2_Act_LayerTrans[Zn2,3]-MP2_Act[Zn2,4]*MC2_Act_LayerTrans[Zn2,4])
-# MP2_Act_SomTrans[Zn3,1] = (Mn_Act_LitSomTrans[Zn3,P]-MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1])
-# MP2_Act_SomTrans[Zn3,2] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,1]*MC2_Act_LayerTrans[Zn3,1]-MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2])
-# MP2_Act_SomTrans[Zn3,3] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,2]*MC2_Act_LayerTrans[Zn3,2]-MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3])
-# MP2_Act_SomTrans[Zn3,4] = (0*Mn_Act_LitSomTrans[Zn3,N]+MP2_Act[Zn3,3]*MC2_Act_LayerTrans[Zn3,3]-MP2_Act[Zn3,4]*MC2_Act_LayerTrans[Zn3,4])
-# MP2_Act_SomTrans[Zn4,1] = (Mn_Act_LitSomTrans[Zn4,P]-MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1])
-# MP2_Act_SomTrans[Zn4,2] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,1]*MC2_Act_LayerTrans[Zn4,1]-MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2])
-# MP2_Act_SomTrans[Zn4,3] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,2]*MC2_Act_LayerTrans[Zn4,2]-MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3])
-# MP2_Act_SomTrans[Zn4,4] = (0*Mn_Act_LitSomTrans[Zn4,N]+MP2_Act[Zn4,3]*MC2_Act_LayerTrans[Zn4,3]-MP2_Act[Zn4,4]*MC2_Act_LayerTrans[Zn4,4])
-
-# MP2_Slw_SomTrans[Zn1,1] = (Mn_Slw_LitSomTrans[Zn1,P]-MP2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1])
-# MP2_Slw_SomTrans[Zn1,2] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,1]*MC2_Slow_LayerTrans[Zn1,1]-MP2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2])
-# MP2_Slw_SomTrans[Zn1,3] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,2]*MC2_Slow_LayerTrans[Zn1,2]-MP2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3])
-# MP2_Slw_SomTrans[Zn1,4] = (0*Mn_Slw_LitSomTrans[Zn1,N]+MP2_Slw[Zn1,3]*MC2_Slow_LayerTrans[Zn1,3]-MP2_Slw[Zn1,4]*MC2_Slow_LayerTrans[Zn1,4])
-# MP2_Slw_SomTrans[Zn2,1] = (Mn_Slw_LitSomTrans[Zn2,P]-MP2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1])
-# MP2_Slw_SomTrans[Zn2,2] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,1]*MC2_Slow_LayerTrans[Zn2,1]-MP2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2])
-# MP2_Slw_SomTrans[Zn2,3] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,2]*MC2_Slow_LayerTrans[Zn2,2]-MP2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3])
-# MP2_Slw_SomTrans[Zn2,4] = (0*Mn_Slw_LitSomTrans[Zn2,N]+MP2_Slw[Zn2,3]*MC2_Slow_LayerTrans[Zn2,3]-MP2_Slw[Zn2,4]*MC2_Slow_LayerTrans[Zn2,4])
-# MP2_Slw_SomTrans[Zn3,1] = (Mn_Slw_LitSomTrans[Zn3,P]-MP2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1])
-# MP2_Slw_SomTrans[Zn3,2] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,1]*MC2_Slow_LayerTrans[Zn3,1]-MP2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2])
-# MP2_Slw_SomTrans[Zn3,3] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,2]*MC2_Slow_LayerTrans[Zn3,2]-MP2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3])
-# MP2_Slw_SomTrans[Zn3,4] = (0*Mn_Slw_LitSomTrans[Zn3,N]+MP2_Slw[Zn3,3]*MC2_Slow_LayerTrans[Zn3,3]-MP2_Slw[Zn3,4]*MC2_Slow_LayerTrans[Zn3,4])
-# MP2_Slw_SomTrans[Zn4,1] = (Mn_Slw_LitSomTrans[Zn4,P]-MP2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1])
-# MP2_Slw_SomTrans[Zn4,2] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,1]*MC2_Slow_LayerTrans[Zn4,1]-MP2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2])
-# MP2_Slw_SomTrans[Zn4,3] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,2]*MC2_Slow_LayerTrans[Zn4,2]-MP2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3])
-# MP2_Slw_SomTrans[Zn4,4] = (0*Mn_Slw_LitSomTrans[Zn4,N]+MP2_Slw[Zn4,3]*MC2_Slow_LayerTrans[Zn4,3]-MP2_Slw[Zn4,4]*MC2_Slow_LayerTrans[Zn4,4])
-
-# MP2_Pas_SomTrans[Zn1,1] = (Mn_Pas_LitSomTrans[Zn1,P]-MP2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1])
-# MP2_Pas_SomTrans[Zn1,2] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,1]*MC2_Pass_LayerTrans[Zn1,1]-MP2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2])
-# MP2_Pas_SomTrans[Zn1,3] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,2]*MC2_Pass_LayerTrans[Zn1,2]-MP2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3])
-# MP2_Pas_SomTrans[Zn1,4] = (0*Mn_Pas_LitSomTrans[Zn1,P]+MP2_Pass[Zn1,3]*MC2_Pass_LayerTrans[Zn1,3]-MP2_Pass[Zn1,4]*MC2_Pass_LayerTrans[Zn1,4])
-# MP2_Pas_SomTrans[Zn2,1] = (Mn_Pas_LitSomTrans[Zn2,P]-MP2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1])
-# MP2_Pas_SomTrans[Zn2,2] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,1]*MC2_Pass_LayerTrans[Zn2,1]-MP2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2])
-# MP2_Pas_SomTrans[Zn2,3] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,2]*MC2_Pass_LayerTrans[Zn2,2]-MP2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3])
-# MP2_Pas_SomTrans[Zn2,4] = (0*Mn_Pas_LitSomTrans[Zn2,P]+MP2_Pass[Zn2,3]*MC2_Pass_LayerTrans[Zn2,3]-MP2_Pass[Zn2,4]*MC2_Pass_LayerTrans[Zn2,4])
-# MP2_Pas_SomTrans[Zn3,1] = (Mn_Pas_LitSomTrans[Zn3,P]-MP2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1])
-# MP2_Pas_SomTrans[Zn3,2] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,1]*MC2_Pass_LayerTrans[Zn3,1]-MP2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2])
-# MP2_Pas_SomTrans[Zn3,3] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,2]*MC2_Pass_LayerTrans[Zn3,2]-MP2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3])
-# MP2_Pas_SomTrans[Zn3,4] = (0*Mn_Pas_LitSomTrans[Zn3,P]+MP2_Pass[Zn3,3]*MC2_Pass_LayerTrans[Zn3,3]-MP2_Pass[Zn3,4]*MC2_Pass_LayerTrans[Zn3,4])
-# MP2_Pas_SomTrans[Zn4,1] = (Mn_Pas_LitSomTrans[Zn4,P]-MP2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1])
-# MP2_Pas_SomTrans[Zn4,2] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,1]*MC2_Pass_LayerTrans[Zn4,1]-MP2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2])
-# MP2_Pas_SomTrans[Zn4,3] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,2]*MC2_Pass_LayerTrans[Zn4,2]-MP2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3])
-# MP2_Pas_SomTrans[Zn4,4] = (0*Mn_Pas_LitSomTrans[Zn4,P]+MP2_Pass[Zn4,3]*MC2_Pass_LayerTrans[Zn4,3]-MP2_Pass[Zn4,4]*MC2_Pass_LayerTrans[Zn4,4])
-zonelayercpools_df$Mp2_cpools <- c(
-  zonelayer_df$Mp2_Metab,
-  zonelayer_df$Mp2_Struc,
-  zonelayer_df$Mp2_Act,
-  zonelayer_df$Mp2_Slw,
-  zonelayer_df$Mp2_Pass
-)
-zonelayercpools_df$Mp2_cpools_Layer <- zonelayercpools_df$Mp2_cpools * zonelayercpools_df$Mc2_LayerTrans
-zn_P <- zonenut_df[zonenut_df$SlNut == "P", ]
-zonecpools_df$Mn_LitSomTrans_P <- c(
-  zn_P$Mn_Met_LitSomTrans,
-  zn_P$Mn_Str_LitSomTrans,
-  zn_P$Mn_Act_LitSomTrans,
-  zn_P$Mn_Slw_LitSomTrans,
-  zn_P$Mn_Pas_LitSomTrans
-)
-
-zonelayercpools_df$Mp2_SomTrans <- NA
-zonelayercpools_df[zonelayercpools_df$layer == 1, ]$Mp2_SomTrans <- zonecpools_df$Mn_LitSomTrans_P - zonelayercpools_df[zonelayer_df$layer == 1, ]$Mp2_cpools_Layer
-zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mp2_SomTrans <- zonelayercpools_df[zonelayercpools_df$layer %in% c(1:3), ]$Mp2_cpools_Layer - zonelayercpools_df[zonelayercpools_df$layer %in% c(2:4), ]$Mp2_cpools_Layer
-
-# MP_MetabMinF[Zone,SoilLayer] = MP2_DecActMet[Zone,SoilLayer]-MP2_MetabActF[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Metab[Zone,SoilLayer]
-zonelayer_df$Mp_MetabMinF <- zonelayer_df$Mp2_DecActMet - zonelayer_df$Mp2_MetabActF +
-  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Metab
-
 # MP2_Metab[Zone,SoilLayer](t) = MP2_Metab[Zone,SoilLayer](t - dt) + (MP2_MetabIn[Zone,SoilLayer] + MP2_Met_SomTrans[Zone,SoilLayer] - MP2_MetabActF[Zone,SoilLayer] - MP_MetabMinF[Zone,SoilLayer]) * dt
 zonelayer_df$Mp2_Metab <- zonelayer_df$Mp2_Metab + (
   zonelayer_df$Mp2_MetabIn + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Met", ]$Mp2_SomTrans - zonelayer_df$Mp2_MetabActF - zonelayer_df$Mp_MetabMinF
 )
 
-# MP2_CPSlwAct[Zone,SoilLayer] = IF(TIME>1)THEN(Mc2_Slw[Zone,SoilLayer]/MP2_Slw[Zone,SoilLayer])ELSE(Mn_CNSlw*Mn_NutRatSlw[P])
-zonelayer_df$Mp2_CPSlwAct <- ifelse(
-  time > 1,
-  zonelayer_df$Mc2_Slw / zonelayer_df$Mp2_Slw,
-  pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw
-)
-
-# MP2_DecSlw[Zone,SoilLayer] = IF (Mc_EffSlwPass*MP2_CPSlwAct[Zone,SoilLayer])>0 THEN Mc2_SlwPassF[Zone,SoilLayer]/(Mc_EffSlwPass*MP2_CPSlwAct[Zone,SoilLayer]) ELSE 0
-zonelayer_df$Mp2_DecSlw <- ifelse(
-  pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mp2_CPSlwAct > 0,
-  zonelayer_df$Mc2_SlwPassF / (pars$Mc_par$Mc_EffSlwPass * zonelayer_df$Mp2_CPSlwAct),
-  0
-)
-
-# MP2_SlwPassF[Zone,SoilLayer] = Mc2_SlwPassF[Zone,SoilLayer]/(Mn_CNPass*Mn_NutRatPas[P])
-zonelayer_df$Mp2_SlwPassF <- zonelayer_df$Mc2_SlwPassF / (pars$Mn_par$Mn_CNPass *
-                                                            nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
-
-# MP2_SlwMin[Zone,SoilLayer] = MAX(0,MP2_DecSlw[Zone,SoilLayer]-MP2_SlwAct[Zone,SoilLayer]-MP2_SlwPassF[Zone,SoilLayer])
-zonelayer_df$Mp2_SlwMin <- pmax(0,
-                                zonelayer_df$Mp2_DecSlw - zonelayer_df$Mp2_SlwAct - zonelayer_df$Mp2_SlwPassF)
-
-# MP2_DemStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mn_CNSlw*Mn_NutRatSlw[P])
-zonelayer_df$Mp2_DemStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw)
-
-# MP2_DecStrucSlw[Zone,SoilLayer] = Mc2_StrucSlwF[Zone,SoilLayer]/(Mc_EffStrucSlw*Mn_CNStruc*Mn_NutRatStruc[P])
-zonelayer_df$Mp2_DecStrucSlw <- zonelayer_df$Mc2_StrucSlwF / (pars$Mc_par$Mc_EffStrucSlw * pars$Mn_par$Mn_CNStruc *
-                                                                nut_df[nut_df$SlNut == "P", ]$Mn_NutRatStruc)
-
-# MP2_ImmobStrucSlw[Zone,SoilLayer] = MIN(Mn_MinNutpool[Zone,P]-MP2_ImmobAct[Zone,SoilLayer],MAX(0,MP2_DemStrucSlw[Zone,SoilLayer]-MP2_DecStrucSlw[Zone,SoilLayer])+MAX(0, MP2_Slw[Zone,SoilLayer]*MP2_CPSlwAct[Zone,SoilLayer]*(1/(Mn_CNSlw*Mn_NutRatSlw[P]) - 1/MP2_CPSlwAct[Zone,SoilLayer]) ))
-zonelayer_df$Mn_MinNutpool <- rep(zonenut_df[zonenut_df$SlNut == "P", ]$Mn_MinNutpool, nlayer)
-zonelayer_df$Mp2_ImmobStrucSlw <-
-  pmin(
-    zonelayer_df$Mn_MinNutpool - zonelayer_df$Mp2_ImmobAct,
-    pmax(
-      0,
-      zonelayer_df$Mp2_DemStrucSlw - zonelayer_df$Mp2_DecStrucSlw
-    ) +
-      pmax(
-        0,
-        zonelayer_df$Mp2_Slw * zonelayer_df$Mp2_CPSlwAct * (
-          1 / (pars$Mn_par$Mn_CNSlw * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatSlw) - 1 /
-            zonelayer_df$Mp2_CPSlwAct
-        )
-      )
-  )
-
-# MP2_SlwMinF[Zone,SoilLayer] = (MP2_SlwMin[Zone,SoilLayer]-MP2_ImmobStrucSlw[Zone,SoilLayer])+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Slw[Zone,SoilLayer]
-zonelayer_df$Mp2_SlwMinF <- (zonelayer_df$Mp2_SlwMin - zonelayer_df$Mp2_ImmobStrucSlw) +
-  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Slw
-
-# MP2_DecPass[Zone,SoilLayer] = Mc2_PassAct[Zone,SoilLayer]*(Mc_EffPass*Mn_CNPass*Mn_NutRatPas[P])
-zonelayer_df$Mp2_DecPass <- zonelayer_df$Mc2_PassAct * (pars$Mc_par$Mc_EffPass * pars$Mn_par$Mn_CNPass * nut_df[nut_df$SlNut == "P", ]$Mn_NutRatPas)
-
-# MP2_PassMinF[Zone,SoilLayer] = MP2_DecPass[Zone,SoilLayer]-MP2_PassAct[Zone,SoilLayer]+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Pass[Zone,SoilLayer]
-zonelayer_df$Mp2_PassMinF <- zonelayer_df$Mp2_DecPass - zonelayer_df$Mp2_PassAct +
-  zonelayer_df$Mp2_MinDueToSB * zonelayer_df$Mp2_Pass
-
-# MP2_StrucSlwF[Zone,SoilLayer] = MIN(MP2_DecStrucSlw[Zone,SoilLayer],MP2_DemStrucSlw[Zone,SoilLayer])
-zonelayer_df$Mp2_StrucSlwF <- pmin(zonelayer_df$Mp2_DecStrucSlw, zonelayer_df$Mp2_DemStrucSlw)
-
-# MP2_StrucMinF[Zone,SoilLayer] = (MP2_DecStrucSlw[Zone,SoilLayer]-MP2_StrucSlwF[Zone,SoilLayer])+(MP2_DecActStP[Zone,SoilLayer]-MP2_StrucActF[Zone,SoilLayer])+MP2_MinDueToS&B[Zone,SoilLayer]*MP2_Struc[Zone,SoilLayer]
-zonelayer_df$Mp2_StrucMinF <- (zonelayer_df$Mp2_DecStrucSlw - zonelayer_df$Mp2_StrucSlwF) +
-  (zonelayer_df$Mp2_DecActStP - zonelayer_df$Mp2_StrucActF) + zonelayer_df$Mp2_MinDueToSB *
-  zonelayer_df$Mp2_Struc
-
 # MP2_MinNutpool[Zone,SoilLayer](t) = MP2_MinNutpool[Zone,SoilLayer](t - dt) + (MP2_ActMinF[Zone,SoilLayer] + MP2_SlwMinF[Zone,SoilLayer] + MP2_PassMinF[Zone,SoilLayer] + MP_MetabMinF[Zone,SoilLayer] + MP2_StrucMinF[Zone,SoilLayer] - MP2_SomMinExch[Zone,SoilLayer]) * dt
 zonelayer_df$Mp2_MinNutpool <- zonelayer_df$Mp2_MinNutpool + (
   zonelayer_df$Mp2_ActMinF + zonelayer_df$Mp2_SlwMinF + zonelayer_df$Mp2_PassMinF + zonelayer_df$Mp_MetabMinF + zonelayer_df$Mp2_StrucMinF - zonelayer_df$Mp2_SomMinExch
 )
-
-# MP2_OrgP_Leaching[Zone] = MP2_Metab[Zone,4]*MC2_Met_LayerTrans[Zone,4]+MP2_Struc[Zone,4]*MC2_Struc_LayerTrans[Zone,4]+MP2_Act[Zone,4]*MC2_Act_LayerTrans[Zone,4]+MP2_Slw[Zone,4]*MC2_Slow_LayerTrans[Zone,4]+MP2_Pass[Zone,4]*MC2_Pass_LayerTrans[Zone,4]
-zone_df$Mp2_OrgP_Leaching <- aggregate(
-  zonelayercpools_df[zonelayercpools_df$layer == 4, ]$Mp2_cpools * zonelayercpools_df[zonelayercpools_df$layer == 4, ]$Mc2_LayerTrans,
-  zonecpools_df["zone"],
-  sum
-)[[2]]
 
 # MP2_OrgP_Leached[Zone](t) = MP2_OrgP_Leached[Zone](t - dt) + (MP2_OrgP_Leaching[Zone]) * dt
 zone_df$Mp2_OrgP_Leached <- zone_df$Mp2_OrgP_Leached + (zone_df$Mp2_OrgP_Leaching)
@@ -16007,17 +16936,8 @@ zonelayer_df$Mp2_Struc <- zonelayer_df$Mp2_Struc + (
   zonelayer_df$Mp2_StrucIn + zonelayercpools_df[zonelayercpools_df$Cent_Pools == "Str", ]$Mp2_SomTrans - zonelayer_df$Mp2_StrucActF - zonelayer_df$Mp2_StrucSlwF - zonelayer_df$Mp2_StrucMinF
 )
 
-# N_AtmInp[SlNut] = N_AtmosphDepos[SlNut]
-nut_df$N_AtmInp <- nut_df$N_AtmosphDepos
-
 # N_CumAtmInput[SlNut](t) = N_CumAtmInput[SlNut](t - dt) + (N_AtmInp[SlNut]) * dt
 nut_df$N_CumAtmInput <- nut_df$N_CumAtmInput + (nut_df$N_AtmInp)
-
-# N_LatInFlow1[SlNut] = N_Lat4NutInflow1[SlNut]*AF_LatInFlowRatio[Zn4]
-# N_LatInFlow2[SlNut] = N_Lat4NutInflow2[SlNut]*AF_LatInFlowRatio[Zn4]
-# N_LatInFlow3[SlNut] = N_Lat4NutInflow3[SlNut]*AF_LatInFlowRatio[Zn4]
-# N_LatInFlow4[SlNut] = N_Lat4NutInflow4[SlNut]*AF_LatInFlowRatio[Zn4]
-layernut_df$N_LatInFlow <- layernut_df$N_Lat4NutInflow * zone_df[zone_df$zone == 4, ]$AF_LatInFlowRatio
 
 # N_LatInflowCum1[SlNut](t) = N_LatInflowCum1[SlNut](t - dt) + (N_LatInFlow1[SlNut]) * dt
 # N_LatInflowCum2[SlNut](t) = N_LatInflowCum2[SlNut](t - dt) + (N_LatInFlow2[SlNut]) * dt
@@ -16060,115 +16980,24 @@ zonelayernut_df$N_UptCCum <- zonelayernut_df$N_UptCCum + (zonelayernut_df$N_CUpt
 # N_UptT3Cum4[Zone,SlNut](t) = N_UptT3Cum4[Zone,SlNut](t - dt) + (N_T3Upt4[Zone,SlNut]) * dt
 zonelayertreenut_df$N_UptTCum <- zonelayertreenut_df$N_UptTCum + (zonelayertreenut_df$N_Upt)
 
-#TODO: the if part doesn't haave logic statement
-# N15_Cupt1[Zone] = If N_Stock1[Zone,N]> 0 then N_CUpt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
-# N15_Cupt2[Zone] = if N_Stock2[Zone,N] then N_CUpt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
-# N15_Cupt3[Zone] = if N_Stock3[Zone,N] then N_CUpt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
-# N15_Cupt4[Zone] = if N_Stock4[Zone,N] then N_CUpt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
-zln_N <- zonelayernut_df[zonelayernut_df$SlNut == "N", ]
-zonelayer_df$N15_Cupt <- ifelse(zln_N$N_Stock > 0,
-                                zln_N$N_CUpt * zonelayer_df$N15_Stock / zln_N$N_Stock,
-                                0)
-
-# N15_C_Incr[Zone] = N15_Cupt1[Zone]+N15_Cupt2[Zone]+N15_Cupt3[Zone]+N15_Cupt4[Zone]
-zone_df$N15_C_Incr <- aggregate(zonelayer_df$N15_Cupt, zonelayer_df["zone"], sum)[[2]]
-
-# N15_C_StLvIncr[Zone] = if C_GroRes[Zone,N]>0 then C_StLeafInc[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
-zp_N <- zonepcomp_df[zonepcomp_df$PlantComp == "N", ]
-zone_df$N15_C_StLvIncr <- ifelse(zp_N$C_GroRes > 0,
-                                 zp_N$C_StLeafInc * zone_df$N15_C_GroRes / zp_N$C_GroRes,
-                                 0)
-
-# N15_C_RtIncr[Zone] = if C_GroRes[Zone,N]>0 then C_RootGrowth[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
-zone_df$N15_C_RtIncr <- ifelse(zp_N$C_GroRes > 0,
-                               zp_N$C_RootGrowth * zone_df$N15_C_GroRes / zp_N$C_GroRes,
-                               0)
-
-# N15_C_FrtInc[Zone] = if C_GroRes[Zone,N]>0 then C_YieldInc[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
-zone_df$N15_C_FrtInc <- ifelse(zp_N$C_GroRes > 0,
-                               zp_N$C_YieldInc * zone_df$N15_C_GroRes / zp_N$C_GroRes,
-                               0)
-
-# N15_C_residlast[Zone] = if C_GroRes[Zone,N]>0 then C_ResidLast[Zone,N]*N15_C_GroRes[Zone]/C_GroRes[Zone,N] else 0
-zone_df$N15_C_residlast <- ifelse(zp_N$C_GroRes > 0,
-                                  zp_N$C_ResidLast * zone_df$N15_C_GroRes / zp_N$C_GroRes,
-                                  0)
-
 # N15_C_GroRes[Zone](t) = N15_C_GroRes[Zone](t - dt) + (N15_C_Incr[Zone] - N15_C_StLvIncr[Zone] - N15_C_RtIncr[Zone] - N15_C_FrtInc[Zone] - N15_C_residlast[Zone]) * dt
 zone_df$N15_C_GroRes <- zone_df$N15_C_GroRes + (
   zone_df$N15_C_Incr - zone_df$N15_C_StLvIncr - zone_df$N15_C_RtIncr - zone_df$N15_C_FrtInc - zone_df$N15_C_residlast
 )
 
-# N15_C_FruitLoss[Zone] = if C_YieldCurr[Zone,N]>0 then C_FruitLoss[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
-zone_df$N15_C_FruitLoss <- ifelse(zp_N$C_YieldCurr > 0,
-                                  zp_N$C_FruitLoss * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
-                                  0)
-
-# N15_C_StLvMulch[Zone] = if C_BiomStLv[Zone,N]>0 then C_StLeaveMulch[Zone,N]*N15_C_StLv[Zone]/C_BiomStLv[Zone,N] else 0
-zone_df$N15_C_StLvMulch <- ifelse(zp_N$C_BiomStLv > 0,
-                                  zp_N$C_StLeaveMulch * zone_df$N15_C_StLv / zp_N$C_BiomStLv,
-                                  0)
-
-# N15_ResidMulch[Zone] = N15_C_FruitLoss[Zone]+N15_C_residlast[Zone]+N15_C_StLvMulch[Zone]
-zone_df$N15_ResidMulch <- zone_df$N15_C_FruitLoss + zone_df$N15_C_residlast + zone_df$N15_C_StLvMulch
-
 # N15_C_ResidCum[Zone](t) = N15_C_ResidCum[Zone](t - dt) + (N15_ResidMulch[Zone]) * dt
 zone_df$N15_C_ResidCum <- zone_df$N15_C_ResidCum + (zone_df$N15_ResidMulch)
 
-# N15_C_RtDec[Zone] = if ARRAYSUM(C_Root_N[Zone,*])>0 then ARRAYSUM(C_RtDecay_N[Zone,*])*N15_C_Root[Zone]/ARRAYSUM(C_Root_N[Zone,*]) else 0
-zone_df$C_Root_N <- aggregate(zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]$C_Root, zonelayer_df["zone"], sum)[[2]]
-zone_df$N15_C_RtDec <- ifelse(
-  zone_df$C_Root_N > 0 ,
-  aggregate(zonelayerpcomp_df[zonelayerpcomp_df$PlantComp == "N", ]$C_RtDecay, zonelayer_df["zone"], sum)[[2]] * zone_df$N15_C_Root /
-    zone_df$C_Root_N,
-  0
-)
 
 # N15_C_Root[Zone](t) = N15_C_Root[Zone](t - dt) + (N15_C_RtIncr[Zone] - N15_C_RtDec[Zone]) * dt
 zone_df$N15_C_Root <- zone_df$N15_C_Root + (zone_df$N15_C_RtIncr - zone_df$N15_C_RtDec)
 
-# N15_C_Resid[Zone] = if C_BiomStLv[Zone,N]>0 then C_Resid[Zone,N]*N15_C_StLv[Zone]/C_BiomStLv[Zone,N] else 0
-zone_df$N15_C_Resid <- ifelse(zp_N$C_BiomStLv > 0,
-                              zp_N$C_Resid * zone_df$N15_C_StLv / zp_N$C_BiomStLv,
-                              0)
-
 # N15_C_StLv[Zone](t) = N15_C_StLv[Zone](t - dt) + (N15_C_StLvIncr[Zone] - N15_C_Resid[Zone] - N15_C_StLvMulch[Zone]) * dt
 zone_df$N15_C_StLv <- zone_df$N15_C_StLv + (zone_df$N15_C_StLvIncr - zone_df$N15_C_Resid - zone_df$N15_C_StLvMulch)
-
-# N15_C_Yield[Zone] = if C_YieldCurr[Zone,N]>0 then C_Yield[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
-zone_df$N15_C_Yield <- ifelse(zp_N$C_YieldCurr > 0,
-                              zp_N$C_Yield * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
-                              0)
-
-# N15_WeedSeedFall[Zone] = if C_YieldCurr[Zone,N]>0 then C_WeedSeedFall[Zone,N]*N15_C_YieldCurr[Zone]/C_YieldCurr[Zone,N] else 0
-zone_df$N15_WeedSeedFall <- ifelse(
-  zp_N$C_YieldCurr > 0,
-  zp_N$C_WeedSeedFall * zone_df$N15_C_YieldCurr / zp_N$C_YieldCurr,
-  0
-)
 
 # N15_C_YieldCurr[Zone](t) = N15_C_YieldCurr[Zone](t - dt) + (N15_C_FrtInc[Zone] - N15_C_Yield[Zone] - N15_C_FruitLoss[Zone] - N15_WeedSeedFall[Zone]) * dt
 zone_df$N15_C_YieldCurr <- zone_df$N15_C_YieldCurr + (
   zone_df$N15_C_FrtInc - zone_df$N15_C_Yield - zone_df$N15_C_FruitLoss - zone_df$N15_WeedSeedFall
-)
-
-# N15_T1Upt1[Zone] = if N_Stock1[Zone,N]>0 then N_T1Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
-# N15_T2Upt1[Zone] = if N_Stock1[Zone,N] then N_T2Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
-# N15_T3Upt1[Zone] = if N_Stock1[Zone,N] then N_T3Upt1[Zone,N]*N15_Stock1[Zone]/N_Stock1[Zone,N] else 0
-# N15_T1Upt2[Zone] = if N_Stock2[Zone,N] then N_T1Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
-# N15_T2Upt2[Zone] = if N_Stock2[Zone,N] then N_T2Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
-# N15_T3Upt2[Zone] = if N_Stock2[Zone,N] then N_T3Upt2[Zone,N]*N15_Stock2[Zone]/N_Stock2[Zone,N] else 0
-# N15_T1Upt3[Zone] = if N_Stock3[Zone,N] then N_T1Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
-# N15_T2Upt3[Zone] = if N_Stock3[Zone,N] then N_T2Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
-# N15_T3Upt3[Zone] = if N_Stock3[Zone,N] then N_T3Upt3[Zone,N]*N15_Stock3[Zone]/N_Stock3[Zone,N] else 0
-# N15_T1Upt4[Zone] = if N_Stock4[Zone,N] then N_T1Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
-# N15_T2Upt4[Zone] = if N_Stock4[Zone,N] then N_T2Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
-# N15_T3Upt4[Zone] = if N_Stock4[Zone,N] then N_T3Upt4[Zone,N]*N15_Stock4[Zone]/N_Stock4[Zone,N] else 0
-zonelayertree_df$N15_Upt <- ifelse(
-  rep(zln_N$N_Stock, ntree) > 0,
-  zonelayertreenut_df[zonelayertreenut_df$SlNut == "N", ]$N_Upt * rep(zonelayer_df$N15_Stock, ntree) /
-    rep(zln_N$N_Stock, ntree),
-  0
 )
 
 # N15_Stock1[Zone](t) = N15_Stock1[Zone](t - dt) + (N15_Add1[Zone] - N15_Cupt1[Zone] - N15_T1Upt1[Zone] - N15_T2Upt1[Zone] - N15_T3Upt1[Zone]) * dt
@@ -16178,238 +17007,28 @@ zonelayertree_df$N15_Upt <- ifelse(
 zonelayer_df$N15_Upt_sum <- aggregate(zonelayertree_df["N15_Upt"], zonelayertree_df[c("zone", "layer")], sum)$N15_Upt
 zonelayer_df$N15_Stock <- zonelayer_df$N15_Stock + (zonelayer_df$N15_Add - zonelayer_df$N15_Cupt - zonelayer_df$N15_Upt_sum)
 
-# N15_T_CanIncr[Tree] = if T_GroRes[N,Tree]>0 then T_CanBiomInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
-tp_N <- treepcomp_df[treepcomp_df$PlantComp == "N", ]
-tree_df$N15_T_CanIncr <- ifelse(tp_N$T_GroRes > 0,
-                                tp_N$T_CanBiomInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
-                                0)
-
-# N15_T_WdInc[Tree] = if T_LfTwig[N,Tree]>0 then T_WoodInc[N,Tree]*N15_T_Can[Tree]/T_LfTwig[N,Tree] else 0
-tree_df$N15_T_WdInc <- ifelse(tp_N$T_LfTwig > 0,
-                              tp_N$T_WoodInc * tree_df$N15_T_Can / tp_N$T_LfTwig,
-                              0)
-
-# N15_T_CanExp[Tree] = if T_LfTwig[N,Tree]>0 then (T_CanBiomSlashed[N,Tree]+T_CanBiomTimHarv[N,Tree]+T_Herbivory[N,Tree]+T_LifallInc[N,Tree]+T_Prun[N,Tree])*N15_T_Can[Tree]/T_LfTwig[N,Tree] else 0
-tree_df$N15_T_CanExp <- ifelse(
-  tp_N$T_LfTwig > 0,
-  (
-    tp_N$T_CanBiomSlashed + tp_N$T_CanBiomTimHarv + tp_N$T_Herbivory + tp_N$T_LifallInc + tp_N$T_Prun
-  ) * tree_df$N15_T_Can / tp_N$T_LfTwig,
-  0
-)
-
 # N15_T_Can[Tree](t) = N15_T_Can[Tree](t - dt) + (N15_T_CanIncr[Tree] - N15_T_WdInc[Tree] - N15_T_CanExp[Tree]) * dt
 tree_df$N15_T_Can <- tree_df$N15_T_Can + (tree_df$N15_T_CanIncr - tree_df$N15_T_WdInc - tree_df$N15_T_CanExp)
 
-# N15_T_FruitIncr[Tree] = if T_GroRes[N,Tree]>0 then T_FruitInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
-tree_df$N15_T_FruitIncr <- ifelse(tp_N$T_GroRes > 0,
-                                  tp_N$T_FruitInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
-                                  0)
-
-# N15_T_FrtExp[Tree] = if T_Fruit[N,Tree]>0 then (T_Frug_and_Littfall[N,Tree]+T_FruitSlashed[N,Tree]+T_PrunFruit[N,Tree]+T_RipeFruitHarvest[N,Tree])*N15_T_Fruit[Tree]/T_Fruit[N,Tree] else 0
-tree_df$N15_T_FrtExp <- ifelse(
-  tp_N$T_Fruit > 0,
-  (
-    tp_N$T_Frug_and_Littfall + tp_N$T_FruitSlashed + tp_N$T_PrunFruit + tp_N$T_RipeFruitHarvest
-  ) * tree_df$N15_T_Fruit / tp_N$T_Fruit,
-  0
-)
-
 # N15_T_Fruit[Tree](t) = N15_T_Fruit[Tree](t - dt) + (N15_T_FruitIncr[Tree] - N15_T_FrtExp[Tree]) * dt
 tree_df$N15_T_Fruit <- tree_df$N15_T_Fruit + (tree_df$N15_T_FruitIncr - tree_df$N15_T_FrtExp)
-
-# N15_T1UptTot = AF_ZoneFrac[Zn1]*(N15_T1Upt1[Zn1]+N15_T1Upt2[Zn1]+N15_T1Upt3[Zn1]+N15_T1Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T1Upt1[Zn2]+N15_T1Upt2[Zn2]+N15_T1Upt3[Zn2]+N15_T1Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T1Upt1[Zn3]+N15_T1Upt2[Zn3]+N15_T1Upt3[Zn3]+N15_T1Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T1Upt1[Zn4]+N15_T1Upt2[Zn4]+N15_T1Upt3[Zn4]+N15_T1Upt4[Zn4])
-# N15_T2UptTot = AF_ZoneFrac[Zn1]*(N15_T2Upt2[Zn1]+N15_T2Upt2[Zn1]+N15_T2Upt3[Zn1]+N15_T2Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T2Upt1[Zn2]+N15_T2Upt2[Zn2]+N15_T2Upt3[Zn2]+N15_T2Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T2Upt1[Zn3]+N15_T2Upt2[Zn3]+N15_T2Upt3[Zn3]+N15_T2Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T2Upt1[Zn4]+N15_T2Upt2[Zn4]+N15_T2Upt3[Zn4]+N15_T2Upt4[Zn4])
-# N15_T3UptTot = AF_ZoneFrac[Zn1]*(N15_T3Upt1[Zn1]+N15_T3Upt2[Zn1]+N15_T3Upt3[Zn1]+N15_T3Upt4[Zn1])+AF_ZoneFrac[Zn2]*(N15_T3Upt1[Zn2]+N15_T3Upt2[Zn2]+N15_T3Upt3[Zn2]+N15_T3Upt4[Zn2])+AF_ZoneFrac[Zn3]*(N15_T3Upt1[Zn3]+N15_T3Upt2[Zn3]+N15_T3Upt3[Zn3]+N15_T3Upt4[Zn3])+AF_ZoneFrac[Zn4]*(N15_T3Upt1[Zn4]+N15_T3Upt2[Zn4]+N15_T3Upt3[Zn4]+N15_T3Upt4[Zn4])
-zonetree_df$N15_Upt_sum <- zonetree_df$AF_ZoneFrac *  aggregate(zonelayertree_df["N15_Upt"], zonelayertree_df[c("zone", "tree_id")], sum)$N15_Upt
-tree_df$N15_UptTot <- aggregate(zonetree_df$N15_Upt_sum, zonetree_df["tree_id"], sum)[[2]]
-
-# N15_T_UptTot[Sp1] = N15_T1UptTot+0*(N15_T2UptTot+N15_T3UptTot)
-# N15_T_UptTot[Sp2] = N15_T2UptTot+0*(N15_T1UptTot+N15_T3UptTot)
-# N15_T_UptTot[Sp3] = N15_T3UptTot+0*(N15_T2UptTot+N15_T1UptTot)
-tree_df$N15_T_UptTot <- tree_df$N15_UptTot
-
-# N15_T_RtInc[Tree] = if T_GroRes[N,Tree] > 0 then T_RootInc[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
-tree_df$N15_T_RtInc <- ifelse(tp_N$T_GroRes > 0,
-                              tp_N$T_RootInc * tree_df$N15_T_GroRes / tp_N$T_GroRes,
-                              0)
-
-# N15_T_GroResLoss[Tree] = if T_GroRes[N,Tree]>0 then T_GroResLoss[N,Tree]*N15_T_GroRes[Tree]/T_GroRes[N,Tree] else 0
-tree_df$N15_T_GroResLoss <- ifelse(tp_N$T_GroRes > 0,
-                                   tp_N$T_GroResLoss * tree_df$N15_T_GroRes / tp_N$T_GroRes,
-                                   0)
 
 # N15_T_GroRes[Tree](t) = N15_T_GroRes[Tree](t - dt) + (N15_T_UptTot[Tree] - N15_T_RtInc[Tree] - N15_T_FruitIncr[Tree] - N15_T_CanIncr[Tree] - N15_T_GroResLoss[Tree]) * dt
 tree_df$N15_T_GroRes <- tree_df$N15_T_GroRes + (
   tree_df$N15_T_UptTot - tree_df$N15_T_RtInc - tree_df$N15_T_FruitIncr - tree_df$N15_T_CanIncr - tree_df$N15_T_GroResLoss
 )
 
-# T_RootNdecay[Sp1] = AF_ZoneFrac[Zn1]*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T1_Ndecay[Zn1,2]+T_Root_T1_Ndecay[Zn1,3]+T_Root_T1_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T1_Ndecay[Zn2,1]+T_Root_T1_Ndecay[Zn2,2]+T_Root_T1_Ndecay[Zn2,3]+T_Root_T1_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T1_Ndecay[Zn3,1]+T_Root_T1_Ndecay[Zn3,2]+T_Root_T1_Ndecay[Zn3,3]+T_Root_T1_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T1_Ndecay[Zn4,1]+T_Root_T1_Ndecay[Zn4,2]+T_Root_T1_Ndecay[Zn4,3]+T_Root_T1_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
-# T_RootNdecay[Sp2] = AF_ZoneFrac[Zn1]*(T_Root_T2_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,2]+T_Root_T2_Ndecay[Zn1,3]+T_Root_T2_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T2_Ndecay[Zn2,1]+T_Root_T2_Ndecay[Zn2,2]+T_Root_T2_Ndecay[Zn2,3]+T_Root_T2_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T2_Ndecay[Zn3,1]+T_Root_T2_Ndecay[Zn3,2]+T_Root_T2_Ndecay[Zn3,3]+T_Root_T2_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T2_Ndecay[Zn4,1]+T_Root_T2_Ndecay[Zn4,2]+T_Root_T2_Ndecay[Zn4,3]+T_Root_T2_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
-# T_RootNdecay[Sp3] = AF_ZoneFrac[Zn1]*(T_Root_T3_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,2]+T_Root_T3_Ndecay[Zn1,3]+T_Root_T3_Ndecay[Zn1,4])+AF_ZoneFrac[Zn2]*(T_Root_T3_Ndecay[Zn2,1]+T_Root_T3_Ndecay[Zn2,2]+T_Root_T3_Ndecay[Zn2,3]+T_Root_T3_Ndecay[Zn2,4])+AF_ZoneFrac[Zn3]*(T_Root_T3_Ndecay[Zn3,1]+T_Root_T3_Ndecay[Zn3,2]+T_Root_T3_Ndecay[Zn3,3]+T_Root_T3_Ndecay[Zn3,4])+AF_ZoneFrac[Zn4]*(T_Root_T3_Ndecay[Zn4,1]+T_Root_T3_Ndecay[Zn4,2]+T_Root_T3_Ndecay[Zn4,3]+T_Root_T3_Ndecay[Zn4,4])+0*(T_Root_T1_Ndecay[Zn1,1]+T_Root_T2_Ndecay[Zn1,1]+T_Root_T3_Ndecay[Zn1,1])
-zonetree_df$T_Root_decay_N_sum <- zonetree_df$AF_ZoneFrac * aggregate(zonelayertreepcomp_df[zonelayertreepcomp_df$PlantComp == "N", ]$T_Root_decay, zonelayertree_df[c("zone", "tree_id")], sum)[[3]]
-tree_df$T_RootNdecay <- aggregate(zonetree_df$T_Root_decay_N_sum, zonetree_df["tree_id"], sum)[[2]]
-
-# N15_T_RtDec[Tree] = if T_RootNtot[Tree]>0 then T_RootNdecay[Tree]*N15_T_Rt[Tree]/T_RootNtot[Tree] else 0
-tree_df$N15_T_RtDec <- ifelse(tp_N$T_RootTot > 0,
-                              tree_df$T_RootNdecay * tree_df$N15_T_Rt / tp_N$T_RootTot,
-                              0)
-
 # N15_T_Rt[Tree](t) = N15_T_Rt[Tree](t - dt) + (N15_T_RtInc[Tree] - N15_T_RtDec[Tree]) * dt
 tree_df$N15_T_Rt <- tree_df$N15_T_Rt + (tree_df$N15_T_RtInc - tree_df$N15_T_RtDec)
-
-# N15_T_WdExp[Tree] = if T_SapWood[N,Tree]>0 then (T_Lignovory[N,Tree]+T_WoodHarvest[N,Tree]+T_WoodSlashed[N,Tree])*N15_T_Wd[Tree]/T_SapWood[N,Tree] else 0
-tree_df$N15_T_WdExp <- ifelse(
-  tp_N$T_SapWood > 0,
-  (tp_N$T_Lignovory + tp_N$T_WoodHarvest + tp_N$T_WoodSlashed) * tree_df$N15_T_Wd /
-    tp_N$T_SapWood,
-  0
-)
 
 # N15_T_Wd[Tree](t) = N15_T_Wd[Tree](t - dt) + (N15_T_WdInc[Tree] - N15_T_WdExp[Tree]) * dt
 tree_df$N15_T_Wd <- tree_df$N15_T_Wd + (tree_df$N15_T_WdInc - tree_df$N15_T_WdExp)
 
-# P_CCostExtOrg[PriceType] = 10*Ca_ExtOrg[1]*P_CostExtOrg[1,PriceType]+10*Ca_ExtOrg[2]*P_CostExtOrg[2,PriceType]
-price_df$P_CCostExtOrg <- aggregate(rep(inp_df$Ca_ExtOrg, nrow(price_df)) * inpprice_df$P_CostExtOrg,
-                                    inpprice_df["PriceType"],
-                                    sum)$x
-
-# P_CCostFert[PriceType] = 10*Ca_FertN[N]*P_PriceFert[N,PriceType]+10*Ca_FertN[P]*P_PriceFert[P,PriceType]
-nutprice_df$Ca_FertN <- rep(nut_df$Ca_FertN, nrow(price_df))
-price_df$P_CCostFert <- aggregate(10 * nutprice_df$Ca_FertN * nutprice_df$P_PriceFert,
-                                  nutprice_df["PriceType"],
-                                  sum)$x
-
-# P_Weed&PestTime[Zone] = IF(Cq_Stage[Zone]=1)THEN(1)ELSE(0)
-zone_df$P_Weed_PestTime <- ifelse(zone_df$Cq_Stage == 1, 1, 0)
-
-# P_CCostPestWeedCont[PriceType] = P_CPestContPrice[PriceType]*(AF_ZoneFrac[Zn1]*P_Weed&PestTime[Zn1]+AF_ZoneFrac[Zn2]*P_Weed&PestTime[Zn2]+AF_ZoneFrac[Zn3]*P_Weed&PestTime[Zn3]+AF_ZoneFrac[Zn4]*P_Weed&PestTime[Zn4])
-price_df$P_CCostPestWeedCont <- price_df$P_CPestContPrice * sum(zone_df$AF_ZoneFrac *
-                                                                  zone_df$P_Weed_PestTime)
-
-# P_CCostSeedZn[PriceType,Zone] = IF TIME=(int(Ca_PlantTime[Zone])) and C_GrowsToday? = 1 and  P_PrevCropOK? = 1 then C_Init[Zone,DW]*P_PriceCSeed[PriceType,Zone]*10000 else 0
-zoneprice_df$Ca_PlantTime <- rep(zone_df$Ca_PlantTime, nrow(price_df))
-zoneprice_df$C_GrowsToday_is <- pars$AF_par$AF_Crop_is
-zoneprice_df$P_PrevCropOK_is <- P_PrevCropOK_is
-zoneprice_df$C_Init_DW <- rep(zonepcomp_df[zonepcomp_df$PlantComp == "DW", ]$C_Init, nrow(price_df))
-zoneprice_df$P_CCostSeedZn <- ifelse(
-  time == floor(zoneprice_df$Ca_PlantTime) &
-    zoneprice_df$C_GrowsToday_is == 1 &
-    zoneprice_df$P_PrevCropOK_is == 1 ,
-  zoneprice_df$C_Init_DW * zoneprice_df$P_PriceCSeed *
-    10000,
-  0
-)
-
-# P_CCostSeed[PriceType] = AF_ZoneFrac[Zn1]*P_CCostSeedZn[PriceType,Zn1]+AF_ZoneFrac[Zn2]*P_CCostSeedZn[PriceType,Zn2]+AF_ZoneFrac[Zn3]*P_CCostSeedZn[PriceType,Zn3]+AF_ZoneFrac[Zn4]*P_CCostSeedZn[PriceType,Zn4]
-zoneprice_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, nrow(price_df))
-price_df$P_CCostSeed <- aggregate(zoneprice_df$AF_ZoneFrac * zoneprice_df$P_CCostSeedZn,
-                                  zoneprice_df["PriceType"],
-                                  sum)$x
-
-# P_CCostInp[PriceType] = P_CCostExtOrg[PriceType]+P_CCostFert[PriceType]+P_CCostPestWeedCont[PriceType]+P_CCostSeed[PriceType]
-price_df$P_CCostInp <- price_df$P_CCostExtOrg + price_df$P_CCostFert + price_df$P_CCostPestWeedCont + price_df$P_CCostSeed
-
-# P_CPlantLabourZn[Zone] = IF(TIME=(int(Ca_PlantTime[Zone]))) and  P_PrevCropOK? =  1 THEN P_CPlantLab[Zone] else 0
-zone_df$P_CPlantLabourZn <- ifelse(time == floor(zone_df$Ca_PlantTime) &
-                                     P_PrevCropOK_is ==  1,
-                                   zone_df$P_CPlantLab,
-                                   0)
-
-# P_CPlantLabour = (AF_ZoneFrac[Zn1]*P_CPlantLabourZn[Zn1]+AF_ZoneFrac[Zn2]*P_CPlantLabourZn[Zn2]+AF_ZoneFrac[Zn3]*P_CPlantLabourZn[Zn3]+AF_ZoneFrac[Zn4]*P_CPlantLabourZn[Zn4])
-P_CPlantLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CPlantLabourZn)
-
-# P_CPestConLabZn[Zone] = if P_LabourforPestContrl? = 1 and P_Weed&PestTime[Zone] = 1 and  P_PrevCropOK? =  1 then P_CPestConLab[Zone] else 0
-zone_df$P_CPestConLabZn <- ifelse(
-  pars$P_par$P_LabourforPestContrl_is == 1 &
-    zone_df$P_Weed_PestTime == 1 &
-    P_PrevCropOK_is ==  1,
-  zone_df$P_CPestConLab,
-  0
-)
-
-# P_CPestConLabour = AF_ZoneFrac[Zn1]*P_CPestConLabZn[Zn1]+AF_ZoneFrac[Zn2]*P_CPestConLabZn[Zn2]+AF_ZoneFrac[Zn3]*P_CPestConLabZn[Zn3]+AF_ZoneFrac[Zn4]*P_CPestConLabZn[Zn4]
-P_CPestConLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CPestConLabZn)
-
-# P_CWeedLabZn[Zone] = if P_LabourforWeed? = 1 and P_Weed&PestTime[Zone] =1 and  P_PrevCropOK? =  1 then P_CWeedLab[Zone] ELSE 0
-zone_df$P_CWeedLabZn <- ifelse(
-  pars$P_par$P_LabourforWeed_is == 1 &
-    zone_df$P_Weed_PestTime == 1 &
-    P_PrevCropOK_is ==  1,
-  zone_df$P_CWeedLab,
-  0
-)
-
-# P_CWeedLabour = AF_ZoneFrac[Zn1]*P_CWeedLabZn[Zn1]+AF_ZoneFrac[Zn2]*P_CWeedLabZn[Zn2]+AF_ZoneFrac[Zn3]*P_CWeedLabZn[Zn3]+AF_ZoneFrac[Zn4]*P_CWeedLabZn[Zn4]
-P_CWeedLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CWeedLabZn)
-
-# P_CHarvLabourperType[Cr] = (C_AgYieldAcc[Zn1,Cr]*AF_ZoneFrac[Zn1]*P_CHarvLab[Zn1]+C_AgYieldAcc[Zn2,Cr]*AF_ZoneFrac[Zn2]*P_CHarvLab[Zn2]+C_AgYieldAcc[Zn3,Cr]*AF_ZoneFrac[Zn3]*P_CHarvLab[Zn3]+C_AgYieldAcc[Zn4,Cr]*AF_ZoneFrac[Zn4]*P_CHarvLab[Zn4])*10
-zonecrop_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, each = nrow(crop_df))
-zonecrop_df$P_CHarvLab <- rep(zone_df$P_CHarvLab, each = nrow(crop_df))
-crop_df$P_CHarvLabourperType <- aggregate(
-  zonecrop_df$C_AgYieldAcc * zonecrop_df$AF_ZoneFrac * zonecrop_df$P_CHarvLab,
-  zonecrop_df["crop_id"],
-  sum
-)$x * 10
-
-# P_CHarvLabour = P_CHarvLabourperType[Type1]+P_CHarvLabourperType[Type2]+P_CHarvLabourperType[Type3]+P_CHarvLabourperType[Type4]+P_CHarvLabourperType[Type5]
-P_CHarvLabour <- sum(crop_df$P_CHarvLabourperType)
-
-# P_CFertLabourZn[Zone] = if Ca_FertApp = 1 and  P_PrevCropOK? =  1 and C_GrowsToday? = 1 and C_PlantDiesToday?[Zone]=0 and Ca_FertAmount[Zone] > 0 then P_CNuFertAppperCropSeason*P_CFertLab[Zone] else 0
-zone_df$P_CFertLabourZn <- ifelse(
-  Ca_FertApp == 1 &
-    P_PrevCropOK_is ==  1 &
-    pars$AF_par$AF_Crop_is == 1 &
-    zone_df$C_PlantDiesToday_is == 0 & zone_df$Ca_FertAmount > 0,
-  pars$P_par$P_CNuFertAppperCropSeason * zone_df$P_CFertLab[Zone],
-  0
-)
-
-# P_CFertLabour = AF_ZoneFrac[Zn1]*P_CFertLabourZn[Zn1]+AF_ZoneFrac[Zn2]*P_CFertLabourZn[Zn2]+AF_ZoneFrac[Zn3]*P_CFertLabourZn[Zn3]+AF_ZoneFrac[Zn4]*P_CFertLabourZn[Zn4]
-P_CFertLabour <- sum(zone_df$AF_ZoneFrac * zone_df$P_CFertLabourZn)
-
-# P_CCostLab[PriceType] = P_UnitLabCost[PriceType]*(P_CPlantLabour+P_CPestConLabour+P_CWeedLabour+P_CHarvLabour+P_CFertLabour)*C_GrowsToday?
-price_df$P_CCostLab <- price_df$P_UnitLabCost * (P_CPlantLabour + P_CPestConLabour +
-                                                   P_CWeedLabour + P_CHarvLabour + P_CFertLabour) * pars$AF_par$AF_Crop_is
-
-# P_CCosts[PriceType] = P_CCostInp[PriceType]+P_CCostLab[PriceType]
-price_df$P_CCosts <- price_df$P_CCostInp + price_df$P_CCostLab
-
-# P_CCostsInc[PriceType] = P_CCosts[PriceType]
-price_df$P_CCostsInc <- price_df$P_CCosts
-
 # P_CCostsTot[PriceType](t) = P_CCostsTot[PriceType](t - dt) + (P_CCostsInc[PriceType]) * dt
 price_df$P_CCostsTot <- price_df$P_CCostsTot + (price_df$P_CCostsInc)
 
-# P_CReturnperType[PriceType,Cr] = (C_AgYieldAcc[Zn1,Cr]*AF_ZoneFrac[Zn1]*P_CYieldPrice[PriceType,Zn1]+C_AgYieldAcc[Zn2,Cr]*AF_ZoneFrac[Zn2]*P_CYieldPrice[PriceType,Zn2]+C_AgYieldAcc[Zn3,Cr]*AF_ZoneFrac[Zn3]*P_CYieldPrice[PriceType,Zn3]+C_AgYieldAcc[Zn4,Cr]*AF_ZoneFrac[Zn4]*P_CYieldPrice[PriceType,Zn4])*10000
-zonecropprice_df$C_AgYieldAcc <- rep(zonecrop_df$C_AgYieldAcc, nrow(price_df))
-zonecropprice_df$AF_ZoneFrac <- rep(zone_df$AF_ZoneFrac, each = nrow(crop_df) * nrow(price_df))
-zonecropprice_df$P_CYieldPrice <- c(
-  rep(zoneprice_df[zoneprice_df$PriceType == "Private", ]$P_CYieldPrice, each = nrow(crop_df)),
-  rep(zoneprice_df[zoneprice_df$PriceType == "Social", ]$P_CYieldPrice, each = nrow(crop_df))
-)
-cropprice_df$P_CReturnperType <-  aggregate(
-  zonecropprice_df$C_AgYieldAcc * zonecropprice_df$AF_ZoneFrac * zonecropprice_df$P_CYieldPrice,
-  zonecropprice_df[c("crop_id", "PriceType")],
-  sum
-)$x * 10000
-
-# P_CReturn[PriceType] = P_CReturnperType[PriceType,Type1]+P_CReturnperType[PriceType,Type2]+P_CReturnperType[PriceType,Type3]+P_CReturnperType[PriceType,Type4]+P_CReturnperType[PriceType,Type5]
-price_df$P_CReturn <- aggregate(cropprice_df$P_CReturnperType, cropprice_df["PriceType"], sum)$x
-
-# P_CReturnInc[PriceType] = P_CReturn[PriceType]
-price_df$P_CReturnInc <- price_df$P_CReturn
-
 # P_CReturnTot[PriceType](t) = P_CReturnTot[PriceType](t - dt) + (P_CReturnInc[PriceType]) * dt
 price_df$P_CReturnTot <- price_df$P_CReturnTot + (price_df$P_CReturnInc)
-
-# P_CropHarvest = if ARRAYSUM(Ca_CropSequen[*]) >= 1 and ARRAYSUM(Cq_CropWeedSwitch[*]) <> 4*Cq_WeedType then 1 else 0
-P_CropHarvest <- ifelse(
-  sum(zone_df$Ca_CropSequen) >= 1 &
-    sum(zone_df$Cq_CropWeedSwitch) != 4 * pars$C_par$Cq_WeedType,
-  1,
-  0
-)
 
 # P_CropHarvMarker(t) = P_CropHarvMarker(t - dt) + (P_CropHarvest - P_2DayAfterCropharv) * dt
 # INIT P_CropHarvMarker = 0
@@ -16423,262 +17042,38 @@ P_CropHarvest <- ifelse(
 P_CropHarvMarker <- P_CropHarvMarker + (P_CropHarvest - P_2DayAfterCropharv)
 P_2DayAfterCropharv <- delay(P_CropHarvMarker, 2, 0)
 
-# PD_FenceBuildDoY = GRAPH(PD_FencePast)
-PD_FenceBuildDoY <- get_y_df(PD_FencePast, "PD_FenceBuildDoY")
-
-# PD_FenceBuildY = GRAPH(PD_FencePast)
-PD_FenceBuildY <- get_y_df(PD_FencePast, "PD_FenceBuildY")
-
-# PD_FenceTime = PD_FenceBuildDoY+365*(PD_FenceBuildY)-Ca_DOYStart
-PD_FenceTime <- PD_FenceBuildDoY + 365 * (PD_FenceBuildY) - Ca_DOYStart
-
-# PD_FenceBuildLabSeq = GRAPH(PD_FencePast)
-PD_FenceBuildLabSeq <- get_y_df(PD_FencePast, "PD_FenceBuildLabSeq")
-
-# PD_FenceBuildLab = if PD_FenceMaint?= 1 and PD_FenceQ<PD_FenceQThresh and T_CropinField? = 1 then PD_FenceMUnit*PD_HalfFenceTime else if PD_FenceTime = 1 then PD_FenceBuildLabSeq else 0
-PD_FenceBuildLab <- ifelse(
-  pars$PD_par$PD_FenceMaint_is == 1 &
-    PD_FenceQ < pars$PD_par$PD_FenceQThresh & T_CropinField_is == 1,
-  pars$PD_par$PD_FenceMUnit * pars$PD_par$PD_HalfFenceTime,
-  ifelse(PD_FenceTime == 1, PD_FenceBuildLabSeq, 0)
-)
-
-# P_TPlantLabourTree[Tree] = if (INT(T_PlantTime[Tree])=TIME) then P_TPlantLab[Tree]*T_Treesperha[Tree]*T_GrowsToday?[Tree] else 0
-tree_df$P_TPlantLabourTree <- ifelse(
-  floor(tree_df$T_PlantTime) == time,
-  tree_df$P_TPlantLab * tree_df$T_Treesperha * tree_df$T_GrowsToday_is,
-  0
-)
-
-# P_TPlantLabour = P_TPlantLabourTree[Sp1]+P_TPlantLabourTree[Sp2]+P_TPlantLabourTree[Sp3]
-P_TPlantLabour <- sum(tree_df$P_TPlantLabourTree)
-
-# T_FreshPrun[Tree] = (T_Prun[DW,Tree]/(1-T_PrunMoistFrac[Tree]))
-tree_df$T_FreshPrun <- tree_df$T_Prun_DW / (1 - tree_df$T_PrunMoistFrac)
-
-# P_TPrunLabourTree[Tree] = IF T_FreshPrun[Tree]>0 THEN P_TPrunLab[Tree]*T_FreshPrun[Tree]*10000 else 0
-tree_df$P_TPrunLabourTree <- ifelse(tree_df$T_FreshPrun > 0,
-                                    tree_df$P_TPrunLab * tree_df$T_FreshPrun * 10000,
-                                    0)
-
-# P_TPrunLabour = P_TPrunLabourTree[Sp1]+P_TPrunLabourTree[Sp2]+P_TPrunLabourTree[Sp3]
-P_TPrunLabour <- sum(tree_df$P_TPrunLabourTree)
-
-# T_FreshWoodHarv[Tree] = (T_WoodHarvest[DW,Tree]/(1-T_WoodMoistFrac[Tree]))
-tree_df$T_FreshWoodHarv <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_WoodHarvest /
-  (1 - tree_df$T_WoodMoistFrac)
-
-# P_TWoodHarvLabourTree[Tree] = if T_FreshWoodHarv[Tree]>0 then P_TWoodHarvLab[Tree]*T_FreshWoodHarv[Tree]*T_GrowsToday?[Tree]*10000 else 0
-tree_df$P_TWoodHarvLabourTree <- ifelse(
-  tree_df$T_FreshWoodHarv > 0,
-  tree_df$P_TWoodHarvLab * tree_df$T_FreshWoodHarv * tree_df$T_GrowsToday_is *
-    10000,
-  0
-)
-
-# P_TWoodHarvLabour = P_TWoodHarvLabourTree[Sp1]+P_TWoodHarvLabourTree[Sp2]+P_TWoodHarvLabourTree[Sp3]
-P_TWoodHarvLabour <- sum(tree_df$P_TWoodHarvLabourTree)
-
-# T_FreshFruitHarv[Tree] = (T_FruitHarvInc[DW,Tree]/(1-T_FruitMoistFrac[Tree]))
-tree_df$T_FreshFruitHarv <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_FruitHarvInc /
-  (1 - tree_df$T_FruitMoistFrac)
-
-# P_TFreshFruitLabourTree[Tree] = if T_FreshFruitHarv[Tree]>0 then T_FreshFruitHarv[Tree]*P_TFruitHarvLab[Tree]*T_GrowsToday?[Tree]*10000 else 0
-tree_df$P_TFreshFruitLabourTree <- ifelse(
-  tree_df$T_FreshFruitHarv > 0,
-  tree_df$T_FreshFruitHarv * tree_df$P_TFruitHarvLab * tree_df$T_GrowsToday_is *
-    10000,
-  0
-)
-
-# P_TFruitHarvLabour = P_TFreshFruitLabourTree[Sp1]+P_TFreshFruitLabourTree[Sp2]+P_TFreshFruitLabourTree[Sp3]
-P_TFruitHarvLabour <- sum(tree_df$P_TFreshFruitLabourTree)
-
-# T_SlashLabour = GRAPH(T_BiomassSlashed[DW])
-T_SlashLabour <- get_y_df(pcomp_df[pcomp_df$PlantComp == "DW", ]$T_BiomassSlashed, "T_SlashLabour")
-
-# P_TFreshLatex[Tree] = (T_LatexFormation[DW,Tree]/(1-T_LatexMoistFrac[Tree]))
-tree_df$P_TFreshLatex <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_LatexFormation /
-  (1 - tree_df$T_LatexMoistFrac)
-
-#TODO: check T_GrowsToday?[Sp1] is it supposed to be T_GrowsToday?[Tree]?
-# P_TLatexHarvLabourTree[Tree] = if P_TFreshLatex[Tree]>0 then P_TFreshLatex[Tree]*P_TLatexHarvLab[Tree]*T_GrowsToday?[Sp1]*10000 else 0
-tree_df$P_TLatexHarvLabourTree <- ifelse(
-  tree_df$P_TFreshLatex > 0,
-  tree_df$P_TFreshLatex * tree_df$P_TLatexHarvLab * tree_df$T_GrowsToday_is *
-    10000,
-  0
-)
-
-# P_TLatexHarvLabour = P_TLatexHarvLabourTree[Sp1]+P_TLatexHarvLabourTree[Sp2]+P_TLatexHarvLabourTree[Sp3]
-P_TLatexHarvLabour <- sum(tree_df$P_TLatexHarvLabourTree)
-
-# P_TFertLabourperTree[Tree] = if Ca_FertApp = 1 then P_TNuFertAppperTreeAge[Tree]*P_TFertLab[Tree]*T_GrowsToday?[Tree] else 0
-tree_df$Ca_FertApp <- Ca_FertApp
-tree_df$P_TFertLabourperTree <- ifelse(
-  tree_df$Ca_FertApp == 1,
-  tree_df$P_TNuFertAppperTreeAge * tree_df$P_TFertLab * tree_df$T_GrowsToday_is,
-  0
-)
-
-# P_TFertLabour = P_TFertLabourperTree[Sp1]+P_TFertLabourperTree[Sp2]+P_TFertLabourperTree[Sp3]
-P_TFertLabour <- sum(tree_df$P_TFertLabourperTree)
-
-# P_DayLabUse = PD_FenceBuildLab+P_CPlantLabour+P_CPestConLabour+P_CWeedLabour+P_CHarvLabour+P_TPlantLabour+P_TPrunLabour+P_TWoodHarvLabour+P_TFruitHarvLabour+P_BurnLab*S&B_FireTime?+T_SlashLabour+P_TLatexHarvLabour+P_TFertLabour+P_CFertLabour
-P_DayLabUse <- PD_FenceBuildLab + P_CPlantLabour + P_CPestConLabour + P_CWeedLabour +
-  P_CHarvLabour + P_TPlantLabour + P_TPrunLabour + P_TWoodHarvLabour + P_TFruitHarvLabour +
-  P_BurnLab * SB_FireTime_is + T_SlashLabour + P_TLatexHarvLabour + P_TFertLabour + P_CFertLabour
-
 # P_CumLabUse(t) = P_CumLabUse(t - dt) + (P_DayLabUse) * dt
 P_CumLabUse <- P_CumLabUse + (P_DayLabUse)
-
-# P_CurrCropBenefitFlow = (-P_CCosts[Private]+P_CReturn[Private])/(1+P_DiscountRate/36500)^TIME
-pp <- price_df[price_df$PriceType == "Private", ]
-P_CurrCropBenefitFlow <- (-pp$P_CCosts + pp$P_CReturn) / (1 + P_DiscountRate /
-                                                            36500)^time
-
-# P_ProfitRecCrop = if P_2DayAfterCropharv = 1 then P_CurrentCropCB/dt else 0
-P_ProfitRecCrop <- ifelse(P_2DayAfterCropharv == 1, P_CurrentCropCB, 0)
 
 # P_CurrentCropCB(t) = P_CurrentCropCB(t - dt) + (P_CurrCropBenefitFlow - P_ProfitRecCrop) * dt
 P_CurrentCropCB <- P_CurrentCropCB + (P_CurrCropBenefitFlow - P_ProfitRecCrop)
 
-# P_FlagCSet = if P_ProfitRecCrop  <> 0 then (if  P_ProfitRecCrop >P_CropProfThreshold then 0 else -1) else 0
-P_FlagCSet <- ifelse(
-  P_ProfitRecCrop  != 0,
-  ifelse(P_ProfitRecCrop > pars$P_par$P_CropProfThreshold, 0, -1),
-  0
-)
-
 # P_FlagPrevCropOK?(t) = P_FlagPrevCropOK?(t - dt) + (P_FlagCSet) * dt
 P_FlagPrevCropOK_is <- P_FlagPrevCropOK_is + (P_FlagCSet)
-
-# PD_FenceMatUsed[PriceType] = IF PD_HalfFenceTime>0 THEN PD_FenceBuildLab*P_FenceMatCost[PriceType]/PD_HalfFenceTime ELSE 0
-price_df$PD_FenceMatUsed <- ifelse(
-  pars$PD_par$PD_HalfFenceTime > 0,
-  PD_FenceBuildLab * price_df$P_FenceMatCost / pars$PD_par$PD_HalfFenceTime,
-  0
-)
-
-# P_GenCosts[PriceType] = P_UnitLabCost[PriceType]*(PD_FenceBuildLab+S&B_FireTime?*P_BurnLab+T_SlashLabour)+PD_FenceMatUsed[PriceType]
-price_df$P_GenCosts <- price_df$P_UnitLabCost * (PD_FenceBuildLab + SB_FireTime_is * P_BurnLab +
-                                                   T_SlashLabour) + price_df$PD_FenceMatUsed
-
-# P_GenCostsInc[PriceType] = P_GenCosts[PriceType]
-price_df$P_GenCostsInc <- price_df$P_GenCosts
 
 # P_GeneralCosts[PriceType](t) = P_GeneralCosts[PriceType](t - dt) + (P_GenCostsInc[PriceType]) * dt
 price_df$P_GeneralCosts <- price_df$P_GeneralCosts + (price_df$P_GenCostsInc)
 
-# P_TReturnFruit[PriceType] = P_TFruitPrice[PriceType,Sp1]*(T_FreshFruitHarv[Sp1])+P_TFruitPrice[PriceType,Sp2]*(T_FreshFruitHarv[Sp2])+P_TFruitPrice[PriceType,Sp3]*(T_FreshFruitHarv[Sp3])
-price_df$P_TReturnFruit <- aggregate(
-  treeprice_df$P_TFruitPrice * rep(tree_df$T_FreshFruitHarv, nrow(price_df)),
-  treeprice_df["PriceType"],
-  sum
-)$x
-
-# P_TReturnLatex[PriceType] = P_TFreshLatex[Sp1]*P_TLatexPrice[PriceType,Sp1]+P_TFreshLatex[Sp2]*P_TLatexPrice[PriceType,Sp2]+P_TFreshLatex[Sp3]*P_TLatexPrice[PriceType,Sp3]
-price_df$P_TReturnLatex <- aggregate(treeprice_df$P_TLatexPrice * rep(tree_df$P_TFreshLatex, nrow(price_df)),
-                                     treeprice_df["PriceType"],
-                                     sum)$x
-
-# T_FreshPrunHarvInc[Tree] = (T_PrunHarvInc[DW,Tree]/(1-T_PrunMoistFrac[Tree]))
-tree_df$T_FreshPrunHarvInc <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_PrunHarvInc /
-  (1 - tree_df$T_PrunMoistFrac)
-
-# P_TReturnPrun[PriceType] = P_TPrunPrice[PriceType,Sp1]*T_FreshPrunHarvInc[Sp1]+P_TPrunPrice[PriceType,Sp2]*T_FreshPrunHarvInc[Sp2]+P_TPrunPrice[PriceType,Sp3]*T_FreshPrunHarvInc[Sp3]
-price_df$P_TReturnPrun <- aggregate(
-  treeprice_df$P_TPrunPrice * rep(tree_df$T_FreshPrunHarvInc, nrow(price_df)),
-  treeprice_df["PriceType"],
-  sum
-)$x
-
-# P_TReturnWood[PriceType] = P_TWoodPrice[PriceType,Sp1]*T_FreshWoodHarv[Sp1]+P_TWoodPrice[PriceType,Sp2]*T_FreshWoodHarv[Sp2]+P_TWoodPrice[PriceType,Sp3]*T_FreshWoodHarv[Sp3]
-price_df$P_TReturnWood <- aggregate(treeprice_df$P_TWoodPrice * rep(tree_df$T_FreshWoodHarv, nrow(price_df)),
-                                    treeprice_df["PriceType"],
-                                    sum)$x
-
-# P_TReturn[PriceType] = (P_TReturnFruit[PriceType]+P_TReturnLatex[PriceType]+P_TReturnPrun[PriceType]+P_TReturnWood[PriceType])*10000
-price_df$P_TReturn <- (
-  price_df$P_TReturnFruit + price_df$P_TReturnLatex + price_df$P_TReturnPrun + price_df$P_TReturnWood
-) * 10000
-
-# P_TSeedPriceInp[PriceType,Tree] = IF(INT(T_PlantTime[Tree]))=TIME then P_TSeedPrice[PriceType,Tree]*T_TreesperHa[Tree]*T_GrowsToday?[Tree] else 0
-treeprice_df$T_PlantTime <- rep(tree_df$T_PlantTime, nrow(price_df))
-treeprice_df$T_Treesperha <- rep(tree_df$T_Treesperha, nrow(price_df))
-treeprice_df$T_GrowsToday_is <- rep(tree_df$T_GrowsToday_is, nrow(price_df))
-treeprice_df$P_TSeedPriceInp <- ifelse(
-  floor(treeprice_df$T_PlantTime) == time,
-  treeprice_df$P_TSeedPrice * treeprice_df$T_Treesperha * treeprice_df$T_GrowsToday_is,
-  0
-)
-
-# P_TCostInp[PriceType] = P_TSeedPriceInp[PriceType,Sp1]+P_TSeedPriceInp[PriceType,Sp2]+P_TSeedPriceInp[PriceType,Sp3]
-price_df$P_TCostInp <- aggregate(treeprice_df$P_TSeedPriceInp, treeprice_df["PriceType"], sum)$x
-
-# P_TCostLab[PriceType] = P_UnitLabCost[PriceType]*(P_TPlantLabour+P_TPrunLabour+P_TWoodHarvLabour+P_TFruitHarvLabour+P_TLatexHarvLabour+P_TFertLabour)
-price_df$P_TCostLab <- price_df$P_UnitLabCost * (
-  P_TPlantLabour + P_TPrunLabour + P_TWoodHarvLabour + P_TFruitHarvLabour + P_TLatexHarvLabour + P_TFertLabour
-)
-
-# P_TCost[PriceType] = P_TCostInp[PriceType]+P_TCostLab[PriceType]
-price_df$P_TCost <- price_df$P_TCostInp + price_df$P_TCostLab
-
-# P_Costs&Benefits[PriceType] = -(P_CReturn[PriceType]+P_TReturn[PriceType]-P_GenCosts[PriceType]-P_TCost[PriceType]-P_CCosts[PriceType])/(1+P_DiscountRate/36500)^TIME
-price_df$P_CostsBenefits <- -(
-  price_df$P_CReturn + price_df$P_TReturn - price_df$P_GenCosts - price_df$P_TCost - price_df$P_CCosts
-) / (1 + P_DiscountRate / 36500)^time
-
 # P_NPV[PriceType](t) = P_NPV[PriceType](t - dt) + (- P_Costs&Benefits[PriceType]) * dt
 price_df$P_NPV <- price_df$P_NPV + (-price_df$P_CostsBenefits)
-
-# P_TCostsInc[PriceType] = P_TCost[PriceType]
-price_df$P_TCostsInc <- price_df$P_TCost
 
 # P_TCostsTot[PriceType](t) = P_TCostsTot[PriceType](t - dt) + (P_TCostsInc[PriceType]) * dt
 price_df$P_TCostsTot <- price_df$P_TCostsTot + (price_df$P_TCostsInc)
 
-# P_TPrunNoInc[PlantComp,Tree] = IF(T_Prun[PlantComp,Tree]>0)THEN(1)ELSE(0)
-treepcomp_df$P_TPrunNoInc <- ifelse(treepcomp_df$T_Prun > 0, 1, 0)
-
 # P_TPrunNo[PlantComp,Tree](t) = P_TPrunNo[PlantComp,Tree](t - dt) + (P_TPrunNoInc[PlantComp,Tree]) * dt
 treepcomp_df$P_TPrunNo <- treepcomp_df$P_TPrunNo + (treepcomp_df$P_TPrunNoInc)
-
-# P_TReturnInc[PriceType] = P_TReturn[PriceType]
-price_df$P_TReturnInc <- price_df$P_TReturn
 
 # P_TReturnTot[PriceType](t) = P_TReturnTot[PriceType](t - dt) + (P_TReturnInc[PriceType]) * dt
 price_df$P_TReturnTot <- price_df$P_TReturnTot + (price_df$P_TReturnInc)
 
-# PD_FenceBuildEvent = if time = int(PD_FenceTime) then +1 else
-PD_FenceBuildEvent <- ifelse(time == floor(PD_FenceTime), 1, 0)
-
 # PD_FencePast(t) = PD_FencePast(t - dt) + (PD_FenceBuildEvent) * dt
 PD_FencePast <- PD_FencePast + (PD_FenceBuildEvent)
-
-# PD_FenceBuilding = PD_FenceBuildLab*(PD_FenceFullQual - PD_FenceQ)^2/(PD_HalfFenceTime*PD_FenceFullQual+PD_FenceBuildLab*(PD_FenceFullQual-PD_FenceQ))
-PD_FenceBuilding <- PD_FenceBuildLab * (pars$PD_par$PD_FenceFullQual - PD_FenceQ)^2 / (
-  pars$PD_par$PD_HalfFenceTime * pars$PD_par$PD_FenceFullQual + PD_FenceBuildLab * (pars$PD_par$PD_FenceFullQual - PD_FenceQ)
-)
-
-# PD_FenceDecay = PD_FenceQ*PD_FenceDecK
-PD_FenceDecay <- PD_FenceQ * pars$PD_par$PD_FenceDecK
 
 # PD_FenceQ(t) = PD_FenceQ(t - dt) + (PD_FenceBuilding - PD_FenceDecay) * dt
 PD_FenceQ <- PD_FenceQ + (PD_FenceBuilding - PD_FenceDecay)
 
 # PD_NastiesinPlot[Animals](t) = PD_NastiesinPlot[Animals](t - dt) + (PD_ChangeAnPop[Animals]) * dt
 animal_df$PD_NastiesinPlot <- animal_df$PD_NastiesinPlot + (animal_df$PD_ChangeAnPop)
-
-# Rain_FracDayWet[Zn1] = Rain_Inf1/S_SurfInfiltrAct[Zn1]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
-# Rain_FracDayWet[Zn2] = Rain_Inf2/S_SurfInfiltrAct[Zn2]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
-# Rain_FracDayWet[Zn3] = Rain_Inf3/S_SurfInfiltrAct[Zn3]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
-# Rain_FracDayWet[Zn4] = Rain_Inf4/S_SurfInfiltrAct[Zn4]+0*(Rain_Inf1+Rain_Inf2+Rain_Inf3+Rain_Inf4)
-zone_df$Rain_FracDayWet <- zone_df$Rain_Infiltr / zone_df$S_SurfInfiltrAct
-
-# Rain_AnaerIndCh[Zone] = (-Rain_AnaerInd[Zone]+Rain_FracDayWet[Zone])/Rain_AnMemory
-zone_df$Rain_AnaerIndCh <- (-zone_df$Rain_AnaerInd + zone_df$Rain_FracDayWet) /
-  pars$Rain_par$Rain_AnMemory
 
 # Rain_AnaerInd[Zone](t) = Rain_AnaerInd[Zone](t - dt) + (Rain_AnaerIndCh[Zone]) * dt
 zone_df$Rain_AnaerInd <- zone_df$Rain_AnaerInd + (zone_df$Rain_AnaerIndCh)
@@ -16698,36 +17093,10 @@ Rain_IntercEvapCum <- Rain_IntercEvapCum + (Rain_InterceptEvapAvg)
 # RT_CDecDepthAct[Zone](t) = RT_CDecDepthAct[Zone](t - dt) + (Rt_CDecDepthInc[Zone] + Rt_CDecDepth_ActInitSeason[Zone]) * dt
 zone_df$RT_CDecDepthAct <- zone_df$RT_CDecDepthAct + (zone_df$Rt_CDecDepthInc + zone_df$Rt_CDecDepth_ActInitSeason)
 
-# S&B_HazeFromWood[Zone,PlantComp] = S&B_DW?[PlantComp]*S&B_DeadWood[Zone,PlantComp]*S&B_DeadWoodBurnFrac[Zone]*(S&B_AerosolFrac[Zone])
-zonepcomp_df$SB_HazeFromWood <- zonepcomp_df$SB_DW_is * zonepcomp_df$SB_DeadWood * zonepcomp_df$SB_DeadWoodBurnFrac * zonepcomp_df$SB_AerosolFrac
-
 # S&B_AerosolProd[Zone](t) = S&B_AerosolProd[Zone](t - dt) + (S&B_HazeFromWood[Zone,PlantComp] + S&B_HazeFromSlash[Zone,PlantComp]) * dt
 zone_df$SB_AerosolProd <- zone_df$SB_AerosolProd + aggregate(zonepcomp_df$SB_HazeFromWood + zonepcomp_df$SB_HazeFromSlash,
                                                              zonepcomp_df["zone"],
                                                              sum)$x
-
-# S&B_WoodFNutVolat[Zone,PlantComp] = (1-S&B_DW?[PlantComp])*S&B_DeadWoodBurnFrac[Zone]*S&B_NutVolatFrac[Zone,PlantComp]*S&B_DeadWood[Zone,PlantComp]
-zonepcomp_df$SB_WoodFNutVolat <- (1 - zonepcomp_df$SB_DW_is) * zonepcomp_df$SB_DeadWoodBurnFrac * zonepcomp_df$SB_NutVolatFrac * zonepcomp_df$SB_DeadWood
-
-# S&B_ScorchWoodRemTime? = DELAY(S&B_Fire?,S&B_TimeToWoodRemoval)
-SB_ScorchWoodRemTime_is <- delay(SB_Fire_is, pars$SB_par$SB_TimeToWoodRemoval, 0)
-
-# S&B_ScorchedWoodRem[Zone,PlantComp] = if S&B_ScorchWoodRemTime?=1 then S&B_ScorchWRemFra*S&B_DeadWood[Zone,PlantComp] else 0
-zonepcomp_df$SB_ScorchedWoodRem <- ifelse(
-  SB_ScorchWoodRemTime_is == 1,
-  pars$SB_par$SB_ScorchWRemFra * zonepcomp_df$SB_DeadWood,
-  0
-)
-
-# S&B_WPileUp[Zone,PlantComp] = if S&B_PileUpT? = 1 then S&B_PileUpFrac*(S&B_DeadWood[Zone,PlantComp]-S&B_RelPileUp[Zone]*BC_DWDeadWood[PlantComp]) else 0
-zonepcomp_df$BC_DWDeadWood <- rep(pcomp_df$BC_DWDeadWood, each = nrow(zone_df))
-zonepcomp_df$SB_WPileUp <- ifelse(
-  SB_PileUpT_is == 1,
-  pars$SB_par$SB_PileUpFrac * (
-    zonepcomp_df$SB_DeadWood - zonepcomp_df$SB_RelPileUp * zonepcomp_df$BC_DWDeadWood
-  ),
-  0
-)
 
 # S&B_DeadWood[Zone,PlantComp](t) = S&B_DeadWood[Zone,PlantComp](t - dt) + (S&B_DeadWoodIncr[Zone,PlantComp] - S&B_DeadWoodLitTransfer[Zone,PlantComp] - S&B_BurntWood[Zone,PlantComp] - S&B_WoodFNutVolat[Zone,PlantComp] - S&B_WoodFNutMin[Zone,PlantComp] - S&B_ScorchedWoodRem[Zone,PlantComp] - S&B_WPileUp[Zone,PlantComp] - S&B_HazeFromWood[Zone,PlantComp]) * dt
 zonepcomp_df$SB_DeadWood <- zonepcomp_df$SB_DeadWood + (
@@ -16742,42 +17111,14 @@ zone_df$SB_DWlossfromBurn <- zone_df$SB_DWlossfromBurn + aggregate(zonepcomp_df$
 # S&B_Nutvolatilized[Zone,PlantComp](t) = S&B_Nutvolatilized[Zone,PlantComp](t - dt) + (S&B_NecroFNutVolat[Zone,PlantComp] + S&B_WoodFNutVolat[Zone,PlantComp]) * dt
 zonepcomp_df$SB_Nutvolatilized <- zonepcomp_df$SB_Nutvolatilized + (zonepcomp_df$SB_NecroFNutVolat + zonepcomp_df$SB_WoodFNutVolat)
 
-# S&B_SlashSequence[Tree] = if time = int(S&B_SlashTime[Tree]+S&B_MaxDryingPer+1) or S&B_Fire? = 1 then 1 else 0
-tree_df$SB_SlashSequence <- ifelse(
-  time == floor(tree_df$SB_SlashTime + pars$SB_par$SB_MaxDryingPer + 1) |
-    SB_Fire_is == 1,
-  1,
-  0
-)
-
 # S&B_PastSlashEvents[Tree](t) = S&B_PastSlashEvents[Tree](t - dt) + (S&B_SlashSequence[Tree]) * dt
 tree_df$SB_PastSlashEvents <- tree_df$SB_PastSlashEvents + tree_df$SB_SlashSequence
-
-# S&B_FirImpPsorption[Zone] = GRAPH(S&B_FireTempIncTopSoil[Zone])
-zone_df$SB_FirImpPsorption <- get_y_df(zone_df$SB_FireTempIncTopSoil, "SB_FirImpPsorption")
-
-# S&B_PSorpCh[Zone] = if S&B_FirImpPsorption[Zone] <>1 then S&B_FirImpPsorption[Zone] - S&B_PsorpModifier[Zone] else -(S&B_PsorpModifier[Zone] - 1)*S&B_PsorpRecFrac
-zone_df$SB_PSorpCh <- ifelse(
-  zone_df$SB_FirImpPsorption != 1,
-  zone_df$SB_FirImpPsorption - zone_df$SB_PsorpModifier,
-  -(zone_df$SB_PsorpModifier - 1) * pars$SB_par$SB_PsorpRecFrac
-)
 
 # S&B_PsorpModifier[Zone](t) = S&B_PsorpModifier[Zone](t - dt) + (S&B_PSorpCh[Zone]) * dt
 zone_df$SB_PsorpModifier <- zone_df$SB_PsorpModifier + zone_df$SB_PSorpCh
 
 # S&B_ScorchWoodRemoved[Zone,PlantComp](t) = S&B_ScorchWoodRemoved[Zone,PlantComp](t - dt) + (S&B_ScorchedWoodRem[Zone,PlantComp]) * dt
 zonepcomp_df$SB_ScorchWoodRemoved <- zonepcomp_df$SB_ScorchWoodRemoved + zonepcomp_df$SB_ScorchedWoodRem
-
-# S&B_FireImpWatRet[Zone] = min(1,0.03*max(0,S&B_FireTempIncTopSoil[Zone] - 300))
-zone_df$SB_FireImpWatRet <- pmin(1, 0.03 * pmax(0, zone_df$SB_FireTempIncTopSoil - 300))
-
-# S&B_FCch[Zone] = if S&B_WatRetentionMod[Zone] <>1 then S&B_FireImpWatRet[Zone] - S&B_WatRetentionMod[Zone] else  -(S&B_WatRetentionMod[Zone] - 1)*S&B_WatRetRecFrac
-zone_df$SB_FCch <- ifelse(
-  zone_df$SB_WatRetentionMod != 1,
-  zone_df$SB_FireImpWatRet - zone_df$SB_WatRetentionMod,
-  -(zone_df$SB_WatRetentionMod - 1) * pars$SB_par$SB_WatRetRecFrac
-)
 
 # S&B_WatRetentionMod[Zone](t) = S&B_WatRetentionMod[Zone](t - dt) + (S&B_FCch[Zone]) * dt
 zone_df$SB_WatRetentionMod <- zone_df$SB_WatRetentionMod + zone_df$SB_FCch
@@ -16788,78 +17129,20 @@ zone_df$SB_WatRetentionMod <- zone_df$SB_WatRetentionMod + zone_df$SB_FCch
 # S_BDActOverBDRefKsatV4[Zone](t) = S_BDActOverBDRefKsatV4[Zone](t - dt) + (S_BDModifierKsatV4[Zone]) * dt
 zonelayer_df$S_BDActOverBDRefKsatV <- zonelayer_df$S_BDActOverBDRefKsatV + (zonelayer_df$S_BDModifierKsatV)
 
-# T_CurLimFac[Sp1,Water] = if T_Stage[Sp1,VegGen]>0 then if TW_Posgro[Sp1] <=MIN(T_NPosgro[N,Sp1],T_NPosgro[P,Sp1]) and TW_Posgro[Sp1]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp1,N]     = if T_Stage[Sp1,VegGen]>0 then if T_NPosgro[N,Sp1] <=MIN(TW_Posgro[Sp1],T_NPosgro[P,Sp1]) and T_NPosgro[N,Sp1]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp1,P]     = if T_Stage[Sp1,VegGen]>0 then if T_NPosgro[P,Sp1] <=MIN(TW_Posgro[Sp1],T_NPosgro[N,Sp1]) and T_NPosgro[P,Sp1]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp2,Water] = if T_Stage[Sp2,VegGen]>0 then if TW_Posgro[Sp2] <=MIN(T_NPosgro[N,Sp2],T_NPosgro[P,Sp2]) and TW_Posgro[Sp2]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp2,N]     = if T_Stage[Sp2,VegGen]>0 then if T_NPosgro[N,Sp2] <=MIN(TW_Posgro[Sp2],T_NPosgro[P,Sp2]) and T_NPosgro[N,Sp2]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp2,P]     = if T_Stage[Sp2,VegGen]>0 then if T_NPosgro[P,Sp2] <=MIN(TW_Posgro[Sp2],T_NPosgro[N,Sp2]) and T_NPosgro[P,Sp2]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp3,Water] = if T_Stage[Sp3,VegGen]>0 then if TW_Posgro[Sp3] <=MIN(T_NPosgro[N,Sp3],T_NPosgro[P,Sp3]) and TW_Posgro[Sp3]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp3,N]     = if T_Stage[Sp3,VegGen]>0 then if T_NPosgro[N,Sp3] <=MIN(TW_Posgro[Sp3],T_NPosgro[P,Sp3]) and T_NPosgro[N,Sp3]<T_StressAccLim then 1 else 0 else 0
-# T_CurLimFac[Sp3,P]     = if T_Stage[Sp3,VegGen]>0 then if T_NPosgro[P,Sp3] <=MIN(TW_Posgro[Sp3],T_NPosgro[N,Sp3]) and T_NPosgro[P,Sp3]<T_StressAccLim then 1 else 0 else 0
-treelimit_df$T_Stage_VG <- rep(treestage_df[treestage_df$Tree_Stage == "VegGen", ]$T_Stage, length(Limiting_Factors))
-treelimit_df$T_Posgro <- c(tree_df$TW_Posgro, tree_df$T_NPosgro_N, tree_df$T_NPosgro_P)
-treelimit_df$T_Posgro_lim <- pmin(
-  c(tree_df$T_NPosgro_N, tree_df$TW_Posgro, tree_df$TW_Posgro),
-  c(
-    tree_df$T_NPosgro_P,
-    tree_df$T_NPosgro_P,
-    tree_df$T_NPosgro_N
-  )
-)
-
-treelimit_df$T_CurLimFac <- ifelse(
-  treelimit_df$T_Stage_VG > 0,
-  ifelse(
-    treelimit_df$T_Posgro <= treelimit_df$T_Posgro_lim &
-      treelimit_df$T_Posgro < pars$T_par$T_StressAccLim,
-    1,
-    0
-  ),
-  0
-)
-
 # T_CumLim[Tree,Limiting_Factors](t) = T_CumLim[Tree,Limiting_Factors](t - dt) + (T_CurLimFac[Tree,Limiting_Factors]) * dt
 treelimit_df$T_CumLim <- treelimit_df$T_CumLim + (treelimit_df$T_CurLimFac)
-
-# T_DelWatStress[Tree] = (1-T_WatStressMem)*(1-TW_Posgro[Tree]-T_CumWatStress[Tree])
-tree_df$T_DelWatStress <- (1 - pars$T_par$T_WatStressMem) * (1 - tree_df$TW_Posgro - tree_df$T_CumWatStress)
 
 # T_CumWatStress[Tree](t) = T_CumWatStress[Tree](t - dt) + (T_DelWatStress[Tree]) * dt
 tree_df$T_CumWatStress <- tree_df$T_CumWatStress + (tree_df$T_DelWatStress)
 
-# T_GrowDayAc[Tree] = if T_Stage[Tree,VegGen] = 0 then 0 else 1
-tree_df$T_GrowDayAc <- ifelse(treestage_df[treestage_df$Tree_Stage == "VegGen", ]$T_Stage == 0, 0, 1)
-
 # T_GrowDays[Tree](t) = T_GrowDays[Tree](t - dt) + (T_GrowDayAc[Tree]) * dt
 tree_df$T_GrowDays <- tree_df$T_GrowDays + (tree_df$T_GrowDayAc)
-
-# TW_HydFluxPosTot[Tree] = TW_PotFluxPos[Tree]*TW_ScalingFacPosFluxes[Tree]
-tree_df$TW_HydFluxPosTot <- tree_df$TW_PotFluxPos * tree_df$TW_ScalingFacPosFluxes
 
 # T_HydEqFluxes[Tree](t) = T_HydEqFluxes[Tree](t - dt) + (TW_HydFluxPosTot[Tree]) * dt
 tree_df$T_HydEqFluxes <- tree_df$T_HydEqFluxes + (tree_df$TW_HydFluxPosTot)
 
-# T_SetPanelInitiateFlag[Tree] = if T_PanelAlreadyInitiated?[Tree] = 0 and T_GirthMax[Tree] > T_GirthMinforTappingcm then 1 else 0
-tree_df$T_SetPanelInitiateFlag <- ifelse(
-  tree_df$T_PanelAlreadyInitiated_is == 0 &
-    tree_df$T_GirthMax > T_GirthMinforTappingcm,
-  1,
-  0
-)
 # T_PanelAlreadyInitiated?[Tree](t) = T_PanelAlreadyInitiated?[Tree](t - dt) + (T_SetPanelInitiateFlag[Tree]) * dt
 tree_df$T_PanelAlreadyInitiated_is <- tree_df$T_PanelAlreadyInitiated_is + (tree_df$T_SetPanelInitiateFlag)
-
-# T_InitiatePanel[Tree] = if T_GirthMax[Tree]>T_GirthMinforTappingcm and T_PanelAlreadyInitiated?[Tree] = 0 then T_TappableHeight*T_GirthMax[Tree] else 0
-tree_df$T_InitiatePanel <- ifelse(
-  tree_df$T_GirthMax > T_GirthMinforTappingcm &
-    tree_df$T_PanelAlreadyInitiated_is == 0,
-  pars$T_par$T_TappableHeight * tree_df$T_GirthMax,
-  0
-)
-
-# T_SecTPanelInc[Tree] = T_TappingDay?[Tree]*T_TappingSlice*T_GirthMinforTappingcm*T_TapGirthFraction
-tree_df$T_SecTPanelInc <- tree_df$T_TappingDay_is * pars$T_par$T_TappingSlice * T_GirthMinforTappingcm * pars$T_par$T_TapGirthFraction
 
 # T_PanelAvailable[Tree](t) = T_PanelAvailable[Tree](t - dt) + (T_InitiatePanel[Tree] - T_SecTPanelInc[Tree]) * dt
 tree_df$T_PanelAvailable <- tree_df$T_PanelAvailable + (tree_df$T_InitiatePanel - tree_df$T_SecTPanelInc)
@@ -16867,41 +17150,11 @@ tree_df$T_PanelAvailable <- tree_df$T_PanelAvailable + (tree_df$T_InitiatePanel 
 # T_PrunHarvCum[PlantComp,Tree](t) = T_PrunHarvCum[PlantComp,Tree](t - dt) + (T_PrunHarvInc[PlantComp,Tree]) * dt
 treepcomp_df$T_PrunHarvCum <- treepcomp_df$T_PrunHarvCum + (treepcomp_df$T_PrunHarvInc)
 
-# TODO: to be check for the term: -dt
-# T_PrunLapseInc[Tree] = IF(T_Prun[DW, Tree]>0) or time = int(S&B_SlashTime[Tree])  or S&B_Fire? =1 THEN(T_PrunLapse[Tree]/DT)ELSE(-dt)
-tree_df$T_PrunLapseInc <- ifelse(
-  treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Prun > 0 |
-    time == floor(tree_df$SB_SlashTime) |
-    SB_Fire_is == 1,
-  tree_df$T_PrunLapse,
-  -1
-)
-
 # T_PrunLapse[Tree](t) = T_PrunLapse[Tree](t - dt) + (- T_PrunLapseInc[Tree]) * dt
 tree_df$T_PrunLapse <- tree_df$T_PrunLapse + (-tree_df$T_PrunLapseInc)
 
 # T_RespCum[PlantComp,Tree](t) = T_RespCum[PlantComp,Tree](t - dt) + (T_Respiration[PlantComp,Tree]) * dt
 treepcomp_df$T_RespCum <- treepcomp_df$T_RespCum + (treepcomp_df$T_Respiration)
-
-# TRtRootDecZone[Zn1,DW] = (T_RtDec_DW[Zn1,1]   +T_RtDec_DW[Zn1,2]+T_RtDec_DW[Zn1,3]+T_RtDec_DW[Zn1,4]  + 0*T_RtDec_N[Zn1,1]+ 0*T_RtDec_P[Zn1,1])*AF_ZoneFrac[Zn1]
-# TRtRootDecZone[Zn1,N]  = (0*T_RtDec_DW[Zn1,1] +T_RtDec_N[Zn1,1]+T_RtDec_N[Zn1,2]+T_RtDec_N[Zn1,3]+T_RtDec_N[Zn1,4] + 0*T_RtDec_P[Zn1,1])*AF_ZoneFrac[Zn1]
-# TRtRootDecZone[Zn1,P]  = (0*T_RtDec_DW[Zn1,1] + 0*T_RtDec_N[Zn1,1]+T_RtDec_P[Zn1,1]+T_RtDec_P[Zn1,2]+T_RtDec_P[Zn1,3]+T_RtDec_P[Zn1,4])*AF_ZoneFrac[Zn1]
-# TRtRootDecZone[Zn2,DW] = (T_RtDec_DW[Zn2,1]+T_RtDec_DW[Zn2,2]+T_RtDec_DW[Zn2,3]+T_RtDec_DW[Zn2,4]  + 0*T_RtDec_N[Zn2,1]+ 0*T_RtDec_P[Zn2,1])*AF_ZoneFrac[Zn2]
-# TRtRootDecZone[Zn2,N]  = (0*T_RtDec_DW[Zn2,1]+T_RtDec_N[Zn2,1]+T_RtDec_N[Zn2,2]+T_RtDec_N[Zn2,3]+T_RtDec_N[Zn2,4] + 0*T_RtDec_P[Zn2,1])*AF_ZoneFrac[Zn2]
-# TRtRootDecZone[Zn2,P]  = (0*T_RtDec_DW[Zn2,1]+ 0*T_RtDec_N[Zn2,1]+T_RtDec_P[Zn2,1]+T_RtDec_P[Zn2,2]+T_RtDec_P[Zn2,3]+T_RtDec_P[Zn2,4])*AF_ZoneFrac[Zn2]
-# TRtRootDecZone[Zn3,DW] = (T_RtDec_DW[Zn3,1]+T_RtDec_DW[Zn3,2]+T_RtDec_DW[Zn3,3]+T_RtDec_DW[Zn3,4]  + 0*T_RtDec_N[Zn3,1]+ 0*T_RtDec_P[Zn3,1])*AF_ZoneFrac[Zn3]
-# TRtRootDecZone[Zn3,N]  = (0*T_RtDec_DW[Zn3,1]+T_RtDec_N[Zn3,1]+T_RtDec_N[Zn3,2]+T_RtDec_N[Zn3,3]+T_RtDec_N[Zn3,4] + 0*T_RtDec_P[Zn3,1])*AF_ZoneFrac[Zn3]
-# TRtRootDecZone[Zn3,P]  = (0*T_RtDec_DW[Zn3,1]+ 0*T_RtDec_N[Zn3,1]+T_RtDec_P[Zn3,1]+T_RtDec_P[Zn3,2]+T_RtDec_P[Zn3,3]+T_RtDec_P[Zn3,4])*AF_ZoneFrac[Zn3]
-# TRtRootDecZone[Zn4,DW] = (T_RtDec_DW[Zn4,1]+T_RtDec_DW[Zn4,2]+T_RtDec_DW[Zn4,3]+T_RtDec_DW[Zn4,4]  + 0*T_RtDec_N[Zn4,1]+ 0*T_RtDec_P[Zn4,1])*AF_ZoneFrac[Zn4]
-# TRtRootDecZone[Zn4,N]  = (0*T_RtDec_DW[Zn4,1]+ T_RtDec_N[Zn4,1]+T_RtDec_N[Zn4,2]+T_RtDec_N[Zn4,3]+T_RtDec_N[Zn4,4]}+ 0*T_RtDec_P[Zn4,1])*AF_ZoneFrac[Zn4]
-# TRtRootDecZone[Zn4,P]  = (0*T_RtDec_DW[Zn4,1]+ 0*T_RtDec_N[Zn4,1]+T_RtDec_P[Zn4,1]+T_RtDec_P[Zn4,2]+T_RtDec_P[Zn4,3]+T_RtDec_P[Zn4,4])*AF_ZoneFrac[Zn4]
-zonepcomp_df$TRtRootDecZone <- aggregate(zonelayerpcomp_df$T_RtDec, zonelayerpcomp_df[c("zone", "PlantComp")], sum)$x * zonepcomp_df$AF_ZoneFrac
-
-# T_RtDecDWAll[PlantComp] = ARRAYSUM(TRtRootDecZone[*,PlantComp])
-pcomp_df$T_RtDecDWAll <- aggregate(zonepcomp_df$TRtRootDecZone, zonepcomp_df["PlantComp"], sum)$x
-
-# T_RootDecAcc[PlantComp] = T_RtDecDWAll[PlantComp]
-pcomp_df$T_RootDecAcc <- pcomp_df$T_RtDecDWAll
 
 # T_RootDecCum[PlantComp](t) = T_RootDecCum[PlantComp](t - dt) + (T_RootDecAcc[PlantComp]) * dt
 pcomp_df$T_RootDecCum <- pcomp_df$T_RootDecCum + (pcomp_df$T_RootDecAcc)
@@ -16918,14 +17171,10 @@ tree_df$T_SecTPanelDec <- NA
 tree_df$T_SecTPanelDec[1] <- delay(tree_df$T_SecTimePanelAvailable[1], tree_df$recover_time[1], 0)
 tree_df$T_SecTPanelDec[2] <- delay(tree_df$T_SecTimePanelAvailable[2], tree_df$recover_time[2], 0)
 tree_df$T_SecTPanelDec[3] <- delay(tree_df$T_SecTimePanelAvailable[3], tree_df$recover_time[3], 0)
-
 tree_df$T_SecTimePanelAvailable <- tree_df$T_SecTimePanelAvailable + (tree_df$T_SecTPanelInc - tree_df$T_SecTPanelDec)
 
 # T_StemBefPruning[Tree](t) = T_StemBefPruning[Tree](t - dt) + (T_StemBefPruningInc[Tree]) * dt
 tree_df$T_StemBefPruning <- tree_df$T_StemBefPruning + (tree_df$T_StemBefPruningInc)
-
-# T_TapDaysInc[Tree] = T_TappingDay?[Tree]
-tree_df$T_TapDaysInc <- tree_df$T_TappingDay_is
 
 # T_TapDaysCum[Tree](t) = T_TapDaysCum[Tree](t - dt) + (T_TapDaysInc[Tree]) * dt
 tree_df$T_TapDaysCum <- tree_df$T_TapDaysCum + (tree_df$T_TapDaysInc)
@@ -16933,181 +17182,11 @@ tree_df$T_TapDaysCum <- tree_df$T_TapDaysCum + (tree_df$T_TapDaysInc)
 # T_TappedLatex[PlantComp,Tree](t) = T_TappedLatex[PlantComp,Tree](t - dt) + (T_Tapping[PlantComp,Tree]) * dt
 treepcomp_df$T_TappedLatex <- treepcomp_df$T_TappedLatex + (treepcomp_df$T_Tapping)
 
-# T_Tapping?[Tree] = if T_Tapping[DW,Tree]> 0 then 1 else 0
-tree_df$T_Tapping_is <- ifelse(treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Tapping > 0, 1, 0)
-
 # T_TotTappingDays[Tree](t) = T_TotTappingDays[Tree](t - dt) + (T_Tapping?[Tree]) * dt
 tree_df$T_TotTappingDays <- tree_df$T_TotTappingDays + (tree_df$T_Tapping_is)
 
-# TF_GenderPassOn[Sp1,Ripe] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe]+TF_BunchGender[Sp1,Ripe_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_1] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_1]+TF_BunchGender[Sp1,Ripe_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_2] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_2]+TF_BunchGender[Sp1,Ripe_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_3] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_3]+TF_BunchGender[Sp1,Ripe_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_4] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_4]+TF_BunchGender[Sp1,Ripe_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_5] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_5]+TF_BunchGender[Sp1,Ripe_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_6] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_6]+TF_BunchGender[Sp1,Ripe_7] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_7] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_7]+TF_BunchGender[Sp1,Ripe_8] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_8] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_8]+TF_BunchGender[Sp1,Ripe_9] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_9] = if TF_NewLeaf?[Sp1] = 1then -TF_BunchGender[Sp1,Ripe_9]+TF_BunchGender[Sp1,Ripe_10] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_10] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_10]+TF_BunchGender[Sp1,Ripe_11] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_11] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_11]+TF_BunchGender[Sp1,Ripe_12] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Ripe_12] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Ripe_12]+TF_BunchGender[Sp1,Early_fruit] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Early_fruit] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Early_fruit] + TF_BunchGender[Sp1,Pollinated] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Pollinated] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Pollinated] + TF_BunchGender[Sp1,Anthesis] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Anthesis] + TF_BunchGender[Sp1,Anthesis_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_1] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_1] + TF_BunchGender[Sp1,Anthesis_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_2] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_2] + TF_BunchGender[Sp1,Anthesis_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_3] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_3] + TF_BunchGender[Sp1,Anthesis_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_4] = if TF_NewLeaf?[Sp1] = 1then  -TF_BunchGender[Sp1,Anthesis_4] + TF_BunchGender[Sp1,Anthesis_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_5] = if TF_NewLeaf?[Sp1] = 1 then  -TF_BunchGender[Sp1,Anthesis_5] + TF_BunchGender[Sp1,Anthesis_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp1,Anthesis_6] = if TF_NewLeaf?[Sp1] = 1 then -TF_BunchGender[Sp1,Anthesis_6]+TF_Nextgender[Sp1] else 0
-
-# TF_GenderPassOn[Sp2,Ripe] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Ripe]+TF_BunchGender[Sp2,Ripe_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_1] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_1]+TF_BunchGender[Sp2,Ripe_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_2] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_2]+TF_BunchGender[Sp2,Ripe_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_3] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_3]+TF_BunchGender[Sp2,Ripe_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_4] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_4]+TF_BunchGender[Sp2,Ripe_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_5] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_5]+TF_BunchGender[Sp2,Ripe_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_6] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_6]+TF_BunchGender[Sp2,Ripe_7] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_7] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_7]+TF_BunchGender[Sp2,Ripe_8] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_8] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_8]+TF_BunchGender[Sp2,Ripe_9] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_9] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_9]+TF_BunchGender[Sp2,Ripe_10] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_10] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_10]+TF_BunchGender[Sp2,Ripe_11] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_11] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_11]+TF_BunchGender[Sp2,Ripe_12] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Ripe_12] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Ripe_12]+TF_BunchGender[Sp2,Early_fruit] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Early_fruit] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Early_fruit] + TF_BunchGender[Sp2,Pollinated] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Pollinated] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Pollinated] + TF_BunchGender[Sp2,Anthesis] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis] = if TF_NewLeaf?[Sp2] = 1 then -TF_BunchGender[Sp2,Anthesis] + TF_BunchGender[Sp2,Anthesis_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_1] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_1] + TF_BunchGender[Sp2,Anthesis_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_2] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_2] + TF_BunchGender[Sp2,Anthesis_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_3] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_3] + TF_BunchGender[Sp2,Anthesis_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_4] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_4] + TF_BunchGender[Sp2,Anthesis_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_5] = if TF_NewLeaf?[Sp2] = 1 then  -TF_BunchGender[Sp2,Anthesis_5] + TF_BunchGender[Sp2,Anthesis_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp2,Anthesis_6] = if TF_NewLeaf?[Sp2] = 1 then-TF_BunchGender[Sp2,Anthesis_6]+TF_Nextgender[Sp2] else 0
-
-# TF_GenderPassOn[Sp3,Ripe] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe]+TF_BunchGender[Sp3,Ripe_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_1] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_1]+TF_BunchGender[Sp3,Ripe_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_2] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_2]+TF_BunchGender[Sp3,Ripe_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_3] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_3]+TF_BunchGender[Sp3,Ripe_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_4] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_4]+TF_BunchGender[Sp3,Ripe_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_5] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_5]+TF_BunchGender[Sp3,Ripe_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_6] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_6]+TF_BunchGender[Sp3,Ripe_7] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_7] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_7]+TF_BunchGender[Sp3,Ripe_8] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_8] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_8]+TF_BunchGender[Sp3,Ripe_9] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_9] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_9]+TF_BunchGender[Sp3,Ripe_10] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_10] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_10]+TF_BunchGender[Sp3,Ripe_11] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_11] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_11]+TF_BunchGender[Sp3,Ripe_12] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Ripe_12] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Ripe_12]+TF_BunchGender[Sp3,Early_fruit] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Early_fruit] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Early_fruit] + TF_BunchGender[Sp3,Pollinated] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Pollinated] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Pollinated] + TF_BunchGender[Sp3,Anthesis] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis] + TF_BunchGender[Sp3,Anthesis_1] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_1] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_1] + TF_BunchGender[Sp3,Anthesis_2] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_2] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis_2] + TF_BunchGender[Sp3,Anthesis_3] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_3] = if TF_NewLeaf?[Sp3] = 1 then -TF_BunchGender[Sp3,Anthesis_3] + TF_BunchGender[Sp3,Anthesis_4] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_4] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_4] + TF_BunchGender[Sp3,Anthesis_5] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_5] = if TF_NewLeaf?[Sp3] = 1 then  -TF_BunchGender[Sp3,Anthesis_5] + TF_BunchGender[Sp3,Anthesis_6] else 0*TF_Nextgender[Sp1]
-# TF_GenderPassOn[Sp3,Anthesis_6] = if TF_NewLeaf?[Sp3] = 1 then-TF_BunchGender[Sp3,Anthesis_6]+TF_Nextgender[Sp3] else 0
-treefruit_df$TF_BunchGender_next <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", c("tree_id", "Fruitbunch")]$TF_BunchGender, tree_df$TF_NextGender)
-treefruit_df$TF_GenderPassOn <- ifelse(
-  treefruit_df$TF_NewLeaf_is == 1,
-  -treefruit_df$TF_BunchGender + treefruit_df$TF_BunchGender_next,
-  0
-)
-
 # TF_BunchGender[Tree,Fruitbunch](t) = TF_BunchGender[Tree,Fruitbunch](t - dt) + (TF_GenderPassOn[Tree,Fruitbunch]) * dt
 treefruit_df$TF_BunchGender <- treefruit_df$TF_BunchGender + (treefruit_df$TF_GenderPassOn)
-
-# TF_WeightPassOn[Sp1,Ripe] = if TF_yNewLeaf?[Sp1] = 1 then +TF_BunchWeight_kgpbunch[Sp1,Ripe_1] else 0
-# TF_WeightPassOn[Sp1,Ripe_1] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_1]+TF_BunchWeight_kgpbunch[Sp1,Ripe_2] else 0
-# TF_WeightPassOn[Sp1,Ripe_2] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_2]+TF_BunchWeight_kgpbunch[Sp1,Ripe_3] else 0
-# TF_WeightPassOn[Sp1,Ripe_3] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_3]+TF_BunchWeight_kgpbunch[Sp1,Ripe_4] else 0
-# TF_WeightPassOn[Sp1,Ripe_4] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_4]+TF_BunchWeight_kgpbunch[Sp1,Ripe_5] else 0
-# TF_WeightPassOn[Sp1,Ripe_5] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_5]+TF_BunchWeight_kgpbunch[Sp1,Ripe_6] else 0
-# TF_WeightPassOn[Sp1,Ripe_6] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_6]+TF_BunchWeight_kgpbunch[Sp1,Ripe_7] else 0
-# TF_WeightPassOn[Sp1,Ripe_7] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_7]+TF_BunchWeight_kgpbunch[Sp1,Ripe_8] else 0
-# TF_WeightPassOn[Sp1,Ripe_8] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_8]+TF_BunchWeight_kgpbunch[Sp1,Ripe_9] else 0
-# TF_WeightPassOn[Sp1,Ripe_9] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_9]+TF_BunchWeight_kgpbunch[Sp1,Ripe_10] else 0
-# TF_WeightPassOn[Sp1,Ripe_10] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_10]+TF_BunchWeight_kgpbunch[Sp1,Ripe_11] else 0
-# TF_WeightPassOn[Sp1,Ripe_11] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_11] + TF_BunchWeight_kgpbunch[Sp1,Ripe_12]else 0
-# TF_WeightPassOn[Sp1,Ripe_12] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Ripe_12] + TF_BunchWeight_kgpbunch[Sp1,Early_fruit] else 0
-# TF_WeightPassOn[Sp1,Early_fruit] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Early_fruit]+TF_BunchWeight_kgpbunch[Sp1,Pollinated] else 0
-# TF_WeightPassOn[Sp1,Pollinated] = if TF_yNewLeaf?[Sp1] = 1 then -TF_BunchWeight_kgpbunch[Sp1,Pollinated] + TF_BunchWeight_kgpbunch[Sp1,Anthesis] else 0
-# TF_WeightPassOn[Sp1,Anthesis] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_1] else 0
-# TF_WeightPassOn[Sp1,Anthesis_1] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_2] else 0
-# TF_WeightPassOn[Sp1,Anthesis_2] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_3] else 0
-# TF_WeightPassOn[Sp1,Anthesis_3] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_4] else 0
-# TF_WeightPassOn[Sp1,Anthesis_4] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_5] else 0
-# TF_WeightPassOn[Sp1,Anthesis_5] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp1,Anthesis_6] else 0
-# TF_WeightPassOn[Sp1,Anthesis_6] = if TF_yNewLeaf?[Sp1] = 1 then - TF_BunchWeight_kgpbunch[Sp1,Anthesis_6] else 0
-# TF_WeightPassOn[Sp2,Ripe] = if TF_yNewLeaf?[Sp2] = 1 then +TF_BunchWeight_kgpbunch[Sp2,Ripe_1] else 0
-# TF_WeightPassOn[Sp2,Ripe_1] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_1]+TF_BunchWeight_kgpbunch[Sp2,Ripe_2] else 0
-# TF_WeightPassOn[Sp2,Ripe_2] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_2]+TF_BunchWeight_kgpbunch[Sp2,Ripe_3] else 0
-# TF_WeightPassOn[Sp2,Ripe_3] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_3]+TF_BunchWeight_kgpbunch[Sp2,Ripe_4] else 0
-# TF_WeightPassOn[Sp2,Ripe_4] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_4]+TF_BunchWeight_kgpbunch[Sp2,Ripe_5] else 0
-# TF_WeightPassOn[Sp2,Ripe_5] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_5]+TF_BunchWeight_kgpbunch[Sp2,Ripe_6] else 0
-# TF_WeightPassOn[Sp2,Ripe_6] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_6]+TF_BunchWeight_kgpbunch[Sp2,Ripe_7] else 0
-# TF_WeightPassOn[Sp2,Ripe_7] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_7]+TF_BunchWeight_kgpbunch[Sp2,Ripe_8] else 0
-# TF_WeightPassOn[Sp2,Ripe_8] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_8]+TF_BunchWeight_kgpbunch[Sp2,Ripe_9] else 0
-# TF_WeightPassOn[Sp2,Ripe_9] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_9]+TF_BunchWeight_kgpbunch[Sp2,Ripe_10] else 0
-# TF_WeightPassOn[Sp2,Ripe_10] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_10]+TF_BunchWeight_kgpbunch[Sp2,Ripe_11] else 0
-# TF_WeightPassOn[Sp2,Ripe_11] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_11] + TF_BunchWeight_kgpbunch[Sp2,Ripe_12] else 0
-# TF_WeightPassOn[Sp2,Ripe_12] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Ripe_12] + TF_BunchWeight_kgpbunch[Sp2,Early_fruit] else 0
-# TF_WeightPassOn[Sp2,Early_fruit] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Early_fruit]+TF_BunchWeight_kgpbunch[Sp2,Pollinated] else 0
-# TF_WeightPassOn[Sp2,Pollinated] = if TF_yNewLeaf?[Sp2] = 1 then -TF_BunchWeight_kgpbunch[Sp2,Pollinated] + TF_BunchWeight_kgpbunch[Sp2,Anthesis] else 0
-# TF_WeightPassOn[Sp2,Anthesis] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_1] else 0
-# TF_WeightPassOn[Sp2,Anthesis_1] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_2] else 0
-# TF_WeightPassOn[Sp2,Anthesis_2] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_3] else 0
-# TF_WeightPassOn[Sp2,Anthesis_3] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_4] else 0
-# TF_WeightPassOn[Sp2,Anthesis_4] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_5] else 0
-# TF_WeightPassOn[Sp2,Anthesis_5] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp2,Anthesis_6] else 0
-# TF_WeightPassOn[Sp2,Anthesis_6] = if TF_yNewLeaf?[Sp2] = 1 then - TF_BunchWeight_kgpbunch[Sp2,Anthesis_6] else 0
-
-# TF_WeightPassOn[Sp3,Ripe] = if TF_yNewLeaf?[Sp3] = 1 then +TF_BunchWeight_kgpbunch[Sp3,Ripe_1] else 0
-# TF_WeightPassOn[Sp3,Ripe_1] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_1]+TF_BunchWeight_kgpbunch[Sp3,Ripe_2] else 0
-# TF_WeightPassOn[Sp3,Ripe_2] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_2]+TF_BunchWeight_kgpbunch[Sp3,Ripe_3] else 0
-# TF_WeightPassOn[Sp3,Ripe_3] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_3]+TF_BunchWeight_kgpbunch[Sp3,Ripe_4] else 0
-# TF_WeightPassOn[Sp3,Ripe_4] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_4]+TF_BunchWeight_kgpbunch[Sp3,Ripe_5] else 0
-# TF_WeightPassOn[Sp3,Ripe_5] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_5]+TF_BunchWeight_kgpbunch[Sp3,Ripe_6] else 0
-# TF_WeightPassOn[Sp3,Ripe_6] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_6]+TF_BunchWeight_kgpbunch[Sp3,Ripe_7] else 0
-# TF_WeightPassOn[Sp3,Ripe_7] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_7]+TF_BunchWeight_kgpbunch[Sp3,Ripe_8] else 0
-# TF_WeightPassOn[Sp3,Ripe_8] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_8]+TF_BunchWeight_kgpbunch[Sp3,Ripe_9] else 0
-# TF_WeightPassOn[Sp3,Ripe_9] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_9]+TF_BunchWeight_kgpbunch[Sp3,Ripe_10] else 0
-# TF_WeightPassOn[Sp3,Ripe_10] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Ripe_10]+TF_BunchWeight_kgpbunch[Sp3,Ripe_11] else 0
-# TF_WeightPassOn[Sp3,Ripe_11] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Ripe_11] + TF_BunchWeight_kgpbunch[Sp3,Ripe_12] else 0
-# TF_WeightPassOn[Sp3,Ripe_12] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Ripe_12] + TF_BunchWeight_kgpbunch[Sp3,Early_fruit] else 0
-# TF_WeightPassOn[Sp3,Early_fruit] = if TF_yNewLeaf?[Sp3] = 1 then -TF_BunchWeight_kgpbunch[Sp3,Early_fruit]+TF_BunchWeight_kgpbunch[Sp3,Pollinated] else 0
-# TF_WeightPassOn[Sp3,Pollinated] = if TF_yNewLeaf?[Sp3] = 1 then  -TF_BunchWeight_kgpbunch[Sp3,Pollinated] + TF_BunchWeight_kgpbunch[Sp3,Anthesis] else 0
-# TF_WeightPassOn[Sp3,Anthesis] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_1] else 0
-# TF_WeightPassOn[Sp3,Anthesis_1] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_1] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_2] else 0
-# TF_WeightPassOn[Sp3,Anthesis_2] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_2] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_3] else 0
-# TF_WeightPassOn[Sp3,Anthesis_3] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_3] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_4] else 0
-# TF_WeightPassOn[Sp3,Anthesis_4] = if TF_yNewLeaf?[Sp3] = 1 then  - TF_BunchWeight_kgpbunch[Sp3,Anthesis_4] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_5] else 0
-# TF_WeightPassOn[Sp3,Anthesis_5] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_5] + TF_BunchWeight_kgpbunch[Sp3,Anthesis_6] else 0
-# TF_WeightPassOn[Sp3,Anthesis_6] = if TF_yNewLeaf?[Sp3] = 1 then - TF_BunchWeight_kgpbunch[Sp3,Anthesis_6] else 0
-treefruit_df$TF_BunchWeight_kgpbunch_a <- c(0, 0, 0, treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_BunchWeight_kgpbunch)
-treefruit_df$TF_BunchWeight_kgpbunch_b <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_BunchWeight_kgpbunch, 0, 0, 0)
-treefruit_df$TF_YNewLeaf_is <- rep(tree_df$TF_YNewLeaf_is, nrow(fruit_df))
-treefruit_df$TF_WeightPassOn <- ifelse(
-  treefruit_df$TF_YNewLeaf_is == 1,
-  -treefruit_df$TF_BunchWeight_kgpbunch_a + treefruit_df$TF_BunchWeight_kgpbunch_b,
-  0
-)
-
-# TF_BunchWeightIncrAct[Tree,Fruitbunch] = if arraysum(TF_BunchweightIncrTarget[Tree,*] ) > 0 then T_FruitInc[DW,Tree]*(TF_BunchweightIncrTarget[Tree,Fruitbunch]/arraysum(TF_BunchweightIncrTarget[Tree,*]))* 10^4 /T_TreesperHa[Tree] else 0
-treefruit_df$TF_BunchweightIncrTarget_sum <- rep(tree_df$TF_BunchweightIncrTarget_sum, nrow(fruit_df))
-treefruit_df$T_FruitInc_DW <- rep(treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_FruitInc, nrow(fruit_df))
-treefruit_df$T_Treesperha <- rep(tree_df$T_Treesperha, nrow(fruit_df))
-treefruit_df$TF_BunchWeightIncrAct <- ifelse(
-  treefruit_df$TF_BunchweightIncrTarget_sum > 0,
-  treefruit_df$T_FruitInc_DW *
-    (
-      treefruit_df$TF_BunchweightIncrTarget / treefruit_df$TF_BunchweightIncrTarget_sum
-    ) * 10^4 / treefruit_df$T_Treesperha,
-  0
-)
-
-# TF_FruitLitterfall[Tree,Fruitbunch] = TF_FruitLitterFalloAm[Tree,Fruitbunch]
-treefruit_df$TF_FruitLitterfall <- treefruit_df$TF_FruitLitterFalloAm
 
 # TF_BunchWeight_kgpbunch[Tree,Fruitbunch](t) = TF_BunchWeight_kgpbunch[Tree,Fruitbunch](t - dt) + (TF_WeightPassOn[Tree,Fruitbunch] + TF_BunchWeightIncrAct[Tree,Fruitbunch] - TF_BunchWeightHarvest[Tree,Fruitbunch] - TF_FruitLitterfall[Tree,Fruitbunch]) * dt
 treefruit_df$TF_BunchWeight_kgpbunch <- treefruit_df$TF_BunchWeight_kgpbunch + (
@@ -17116,12 +17195,6 @@ treefruit_df$TF_BunchWeight_kgpbunch <- treefruit_df$TF_BunchWeight_kgpbunch + (
     treefruit_df$TF_BunchWeightHarvest -
     treefruit_df$TF_FruitLitterfall
 )
-
-# TF_BunchNo?[Tree] = If TF_BunchWeightHarvest[Tree,Ripe]>0 then 1 else 0
-tree_df$TF_BunchNo_is <- ifelse(treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_BunchWeightHarvest > 0, 1, 0)
-
-# TF_BunchNo[Tree] = TF_BunchNo?[Tree]
-tree_df$TF_BunchNo <- tree_df$TF_BunchNo_is
 
 # TF_CumBunchNo[Tree](t) = TF_CumBunchNo[Tree](t - dt) + (TF_BunchNo[Tree]) * dt
 tree_df$TF_CumBunchNo <- tree_df$TF_CumBunchNo + (tree_df$TF_BunchNo)
@@ -17132,101 +17205,8 @@ tree_df$TF_CumBunchWeightHarvest <- tree_df$TF_CumBunchWeightHarvest + aggregate
 # TF_CumFruitsHarvNo[Tree](t) = TF_CumFruitsHarvNo[Tree](t - dt) + (TF_FruitHarvNoperBunch[Tree,Fruitbunch]) * dt
 tree_df$TF_CumFruitsHarvNo <- tree_df$TF_CumFruitsHarvNo + aggregate(treefruit_df$TF_FruitHarvNoperBunch, treefruit_df["tree_id"], sum)$x
 
-# TF_TargetOilPrev[Sp1,Ripe] = TF_TargetOilperBunch[Sp1,Ripe_1]
-# TF_TargetOilPrev[Sp1,Ripe_1] = TF_TargetOilperBunch[Sp1,Ripe_2]
-# TF_TargetOilPrev[Sp1,Ripe_2] = TF_TargetOilperBunch[Sp1,Ripe_3]
-# TF_TargetOilPrev[Sp1,Ripe_3] = TF_TargetOilperBunch[Sp1,Ripe_4]
-# TF_TargetOilPrev[Sp1,Ripe_4] = TF_TargetOilperBunch[Sp1,Ripe_5]
-# TF_TargetOilPrev[Sp1,Ripe_5] = TF_TargetOilperBunch[Sp1,Ripe_6]
-# TF_TargetOilPrev[Sp1,Ripe_6] = TF_TargetOilperBunch[Sp1,Ripe_7]
-# TF_TargetOilPrev[Sp1,Ripe_7] = TF_TargetOilperBunch[Sp1,Ripe_8]
-# TF_TargetOilPrev[Sp1,Ripe_8] = TF_TargetOilperBunch[Sp1,Ripe_9]
-# TF_TargetOilPrev[Sp1,Ripe_9] = TF_TargetOilperBunch[Sp1,Ripe_10]
-# TF_TargetOilPrev[Sp1,Ripe_10] = TF_TargetOilperBunch[Sp1,Ripe_11]
-# TF_TargetOilPrev[Sp1,Ripe_11] = TF_TargetOilperBunch[Sp1,Ripe_12]
-# TF_TargetOilPrev[Sp1,Ripe_12] = TF_TargetOilperBunch[Sp1,Early_fruit]
-# TF_TargetOilPrev[Sp1,Early_fruit] = TF_TargetOilperBunch[Sp1,Pollinated]
-# TF_TargetOilPrev[Sp1,Pollinated] = TF_TargetOilperBunch[Sp1,Anthesis]
-# TF_TargetOilPrev[Sp1,Anthesis] = TF_TargetOilperBunch[Sp1,Anthesis_1]
-# TF_TargetOilPrev[Sp1,Anthesis_1] = TF_TargetOilperBunch[Sp1,Anthesis_2]
-# TF_TargetOilPrev[Sp1,Anthesis_2] = TF_TargetOilperBunch[Sp1,Anthesis_3]
-# TF_TargetOilPrev[Sp1,Anthesis_3] = TF_TargetOilperBunch[Sp1,Anthesis_4]
-# TF_TargetOilPrev[Sp1,Anthesis_4] = TF_TargetOilperBunch[Sp1,Anthesis_5]
-# TF_TargetOilPrev[Sp1,Anthesis_5] = TF_TargetOilperBunch[Sp1,Anthesis_6]
-# TF_TargetOilPrev[Sp1,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
-# TF_TargetOilPrev[Sp2,Ripe] = TF_TargetOilperBunch[Sp2,Ripe_1]
-# TF_TargetOilPrev[Sp2,Ripe_1] = TF_TargetOilperBunch[Sp2,Ripe_2]
-# TF_TargetOilPrev[Sp2,Ripe_2] = TF_TargetOilperBunch[Sp2,Ripe_3]
-# TF_TargetOilPrev[Sp2,Ripe_3] = TF_TargetOilperBunch[Sp2,Ripe_4]
-# TF_TargetOilPrev[Sp2,Ripe_4] = TF_TargetOilperBunch[Sp2,Ripe_5]
-# TF_TargetOilPrev[Sp2,Ripe_5] = TF_TargetOilperBunch[Sp2,Ripe_6]
-# TF_TargetOilPrev[Sp2,Ripe_6] = TF_TargetOilperBunch[Sp2,Ripe_7]
-# TF_TargetOilPrev[Sp2,Ripe_7] = TF_TargetOilperBunch[Sp2,Ripe_8]
-# TF_TargetOilPrev[Sp2,Ripe_8] = TF_TargetOilperBunch[Sp2,Ripe_9]
-# TF_TargetOilPrev[Sp2,Ripe_9] = TF_TargetOilperBunch[Sp2,Ripe_10]
-# TF_TargetOilPrev[Sp2,Ripe_10] = TF_TargetOilperBunch[Sp2,Ripe_11]
-# TF_TargetOilPrev[Sp2,Ripe_11] = TF_TargetOilperBunch[Sp2,Ripe_12]
-# TF_TargetOilPrev[Sp2,Ripe_12] = TF_TargetOilperBunch[Sp2,Early_fruit]
-# TF_TargetOilPrev[Sp2,Early_fruit] = TF_TargetOilperBunch[Sp2,Pollinated]
-# TF_TargetOilPrev[Sp2,Pollinated] = TF_TargetOilperBunch[Sp2,Anthesis]
-# TF_TargetOilPrev[Sp2,Anthesis] = TF_TargetOilperBunch[Sp2,Anthesis_1]
-# TF_TargetOilPrev[Sp2,Anthesis_1] = TF_TargetOilperBunch[Sp2,Anthesis_2]
-# TF_TargetOilPrev[Sp2,Anthesis_2] = TF_TargetOilperBunch[Sp2,Anthesis_3]
-# TF_TargetOilPrev[Sp2,Anthesis_3] = TF_TargetOilperBunch[Sp2,Anthesis_4]
-# TF_TargetOilPrev[Sp2,Anthesis_4] = TF_TargetOilperBunch[Sp2,Anthesis_5]
-# TF_TargetOilPrev[Sp2,Anthesis_5] = TF_TargetOilperBunch[Sp2,Anthesis_6]
-# TF_TargetOilPrev[Sp2,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
-# TF_TargetOilPrev[Sp3,Ripe] = TF_TargetOilperBunch[Sp3,Ripe_1]
-# TF_TargetOilPrev[Sp3,Ripe_1] = TF_TargetOilperBunch[Sp3,Ripe_2]
-# TF_TargetOilPrev[Sp3,Ripe_2] = TF_TargetOilperBunch[Sp3,Ripe_3]
-# TF_TargetOilPrev[Sp3,Ripe_3] = TF_TargetOilperBunch[Sp3,Ripe_4]
-# TF_TargetOilPrev[Sp3,Ripe_4] = TF_TargetOilperBunch[Sp3,Ripe_5]
-# TF_TargetOilPrev[Sp3,Ripe_5] = TF_TargetOilperBunch[Sp3,Ripe_6]
-# TF_TargetOilPrev[Sp3,Ripe_6] = TF_TargetOilperBunch[Sp3,Ripe_7]
-# TF_TargetOilPrev[Sp3,Ripe_7] = TF_TargetOilperBunch[Sp3,Ripe_8]
-# TF_TargetOilPrev[Sp3,Ripe_8] = TF_TargetOilperBunch[Sp3,Ripe_9]
-# TF_TargetOilPrev[Sp3,Ripe_9] = TF_TargetOilperBunch[Sp3,Ripe_10]
-# TF_TargetOilPrev[Sp3,Ripe_10] = TF_TargetOilperBunch[Sp3,Ripe_11]
-# TF_TargetOilPrev[Sp3,Ripe_11] = TF_TargetOilperBunch[Sp3,Ripe_12]
-# TF_TargetOilPrev[Sp3,Ripe_12] = TF_TargetOilperBunch[Sp3,Early_fruit]
-# TF_TargetOilPrev[Sp3,Early_fruit] = TF_TargetOilperBunch[Sp3,Pollinated]
-# TF_TargetOilPrev[Sp3,Pollinated] = TF_TargetOilperBunch[Sp3,Anthesis]
-# TF_TargetOilPrev[Sp3,Anthesis] = TF_TargetOilperBunch[Sp3,Anthesis_1]
-# TF_TargetOilPrev[Sp3,Anthesis_1] = TF_TargetOilperBunch[Sp3,Anthesis_2]
-# TF_TargetOilPrev[Sp3,Anthesis_2] = TF_TargetOilperBunch[Sp3,Anthesis_3]
-# TF_TargetOilPrev[Sp3,Anthesis_3] = TF_TargetOilperBunch[Sp3,Anthesis_4]
-# TF_TargetOilPrev[Sp3,Anthesis_4] = TF_TargetOilperBunch[Sp3,Anthesis_5]
-# TF_TargetOilPrev[Sp3,Anthesis_5] = TF_TargetOilperBunch[Sp3,Anthesis_6]
-# TF_TargetOilPrev[Sp3,Anthesis_6] = 0*TF_TargetOilperBunch[Sp1,Anthesis_6]
-treefruit_df$TF_TargetOilPrev <- c(treefruit_df[treefruit_df$Fruitbunch != "Ripe", ]$TF_TargetOilperBunch, 0, 0, 0)
-
-# TF_RelAgeNewLf[Tree] = if Simulation_Time <T_PlantTime[Tree] then 0 else if TF_PhyllochronTime[Tree] = 0 then 0 else (Time-TF_LeafTime[Tree])/TF_PhyllochronTime[Tree]
-tree_df$TF_RelAgeNewLf <- ifelse(
-  time < tree_df$T_PlantTime,
-  0,
-  ifelse(
-    tree_df$TF_PhyllochronTime == 0,
-    0,
-    (time - tree_df$TF_LeafTime) / tree_df$TF_PhyllochronTime
-  )
-)
-
-# TF_TargetOilCurr[Tree,Fruitbunch] = TF_TargetOilPrev[Tree,Fruitbunch]+TF_RelAgeNewLf[Tree]*(TF_TargetOilperBunch[Tree,Fruitbunch]-TF_TargetOilPrev[Tree,Fruitbunch])
-treefruit_df$TF_TargetOilCurr <- treefruit_df$TF_TargetOilPrev + tree_df$TF_RelAgeNewLf * (treefruit_df$TF_TargetOilperBunch - treefruit_df$TF_TargetOilPrev)
-
-# TF_OilinFruits[Tree,Fruitbunch] = TF_BunchWeight_kgpbunch[Tree,Fruitbunch]*TF_TargetOilCurr[Tree,Fruitbunch]
-treefruit_df$TF_OilinFruits <- treefruit_df$TF_BunchWeight_kgpbunch * treefruit_df$TF_TargetOilCurr
-
-# TF_OilHarvest[Tree] = if TF_BunchWeightHarvest[Tree,Ripe] > 0 then TF_OilinFruits[Tree,Ripe] else 0
-tree_df$TF_OilHarvest <- ifelse(treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_BunchWeightHarvest > 0,
-                                treefruit_df[treefruit_df$Fruitbunch == "Ripe", ]$TF_OilinFruits,
-                                0)
-
 # TF_CumOilHarvest[Tree](t) = TF_CumOilHarvest[Tree](t - dt) + (TF_OilHarvest[Tree]) * dt
 tree_df$TF_CumOilHarvest <- tree_df$TF_CumOilHarvest + (tree_df$TF_OilHarvest)
-
-# TF_OilProd[Tree] = ARRAYSUM(TF_OilinFruits[Tree,*])+TF_CumOilHarvest[Tree]-TF_CumOilProd[Tree]
-tree_df$TF_OilProd <- aggregate(treefruit_df$TF_OilinFruits, treefruit_df["tree_id"], sum)$x + tree_df$TF_CumOilHarvest - tree_df$TF_CumOilProd
 
 # TF_CumOilProd[Tree](t) = TF_CumOilProd[Tree](t - dt) + (TF_OilProd[Tree]) * dt
 tree_df$TF_CumOilProd <- tree_df$TF_CumOilProd + (tree_df$TF_OilProd)
@@ -17246,43 +17226,17 @@ tree_df$TF_OldFrondBiom[2] <- delay(tree_df$TF_DelayedFrond_BiomassTarget[2], tr
 tree_df$TF_OldFrondBiom[3] <- delay(tree_df$TF_DelayedFrond_BiomassTarget[3], transit_time[3], 0)
 tree_df$TF_DelayedFrond_BiomassTarget <- tree_df$TF_DelayedFrond_BiomassTarget + (tree_df$TF_OldFrondChange1 - tree_df$TF_OldFrondBiom)
 
-# TF_DMStressChange[Tree] = TF_StreesUpdateFraction*(TF_DWSufficiency[Tree]-TF_DW_Sufficiency_Yesterday[Tree])
-tree_df$TF_DMStressChange <- pars$T_par$TF_StreesUpdateFraction * (tree_df$TF_DWSufficiency - tree_df$TF_DW_Sufficiency_Yesterday)
-
 # TF_DW_Sufficiency_Yesterday[Tree](t) = TF_DW_Sufficiency_Yesterday[Tree](t - dt) + (TF_DMStressChange[Tree]) * dt
 tree_df$TF_DW_Sufficiency_Yesterday <- tree_df$TF_DW_Sufficiency_Yesterday + (tree_df$TF_DMStressChange)
 
 # TF_LeaffallCumNo[Tree](t) = TF_LeaffallCumNo[Tree](t - dt) + (TF_NewLeaffall?[Tree]) * dt
 tree_df$TF_LeaffallCumNo <- tree_df$TF_LeaffallCumNo + (tree_df$TF_NewLeaffall_is)
 
-# TF_LeavesTargetF[Tree] = TF_TargetLeafAlloc[Tree]
-tree_df$TF_LeavesTargetF <- tree_df$TF_TargetLeafAlloc
-
 # TF_LeavesTargetCum[Tree](t) = TF_LeavesTargetCum[Tree](t - dt) + (TF_LeavesTargetF[Tree]) * dt
 tree_df$TF_LeavesTargetCum <- tree_df$TF_LeavesTargetCum + (tree_df$TF_LeavesTargetF)
 
-# TF_SexDetermination[Tree] = if TF_CurrentLeafNo[Tree] < TF_FirstBudtoFlowerInit[Tree] then 0 else if TF_NewLeaf?[Tree] = 0 then 0 else if ((T_GroRes[DW,Tree]+T_GrowStor[DW,Tree])/T_BiomAG[DW,Tree]<TF_MaleThresh[Tree]) or (TF_WatNutSuff[Tree]<(TF_MThreshtoWatStress[Tree])) then 1-TF_NextGender[Tree] else 2-TF_NextGender[Tree]
-tp_DW <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]
-tree_df$TF_SexDetermination <- ifelse(
-  tree_df$TF_CurrentLeafNo < tree_df$TF_FirstBudtoFlowerInit,
-  0,
-  ifelse(
-    tree_df$TF_NewLeaf_is == 0,
-    0,
-    ifelse ((tp_DW$T_GroRes + tp_DW$T_GrowStor) / tp_DW$T_BiomAG < tree_df$TF_MaleThresh
-            |
-              tree_df$TF_WatNutSuff < tree_df$TF_MThreshtoWatStress,
-            1 - tree_df$TF_NextGender ,
-            2 - tree_df$TF_NextGender
-    )
-  )
-)
-
 # TF_NextGender[Tree](t) = TF_NextGender[Tree](t - dt) + (TF_SexDetermination[Tree]) * dt
 tree_df$TF_NextGender <- tree_df$TF_NextGender + (tree_df$TF_SexDetermination)
-
-# TF_Herbivory[Tree] = T_Herbivory[DW,Tree]
-tree_df$TF_Herbivory <- treepcomp_df[treepcomp_df$PlantComp == "DW", ]$T_Herbivory
 
 # TF_OldFrontBiomass[Tree](t) = TF_OldFrontBiomass[Tree](t - dt) + (TF_OldFrondBiom[Tree] - TF_OldFrondChange2[Tree] - TF_Herbivory[Tree]) * dt
 tree_df$TF_OldFrontBiomass <- tree_df$TF_OldFrontBiomass + (tree_df$TF_OldFrondBiom - tree_df$TF_OldFrondChange2 - tree_df$TF_Herbivory)
@@ -17290,20 +17244,11 @@ tree_df$TF_OldFrontBiomass <- tree_df$TF_OldFrontBiomass + (tree_df$TF_OldFrondB
 # TF_PalmTrunkHeight[Tree](t) = TF_PalmTrunkHeight[Tree](t - dt) + (TF_TrunkHIncr[Tree]) * dt
 tree_df$TF_PalmTrunkHeight <- tree_df$TF_PalmTrunkHeight + (tree_df$TF_TrunkHIncr)
 
-# TF_StressRec[Tree] = TF_ForgetStress[Tree]*(TW_Posgro[Tree]-TF_RecentTWPosgro[Tree])
-tree_df$TF_StressRec <- tree_df$TF_ForgetStress * (tree_df$TW_Posgro - tree_df$TF_RecentTWPosgro)
-
 # TF_RecentTWPosgro[Tree](t) = TF_RecentTWPosgro[Tree](t - dt) + (TF_StressRec[Tree]) * dt
 tree_df$TF_RecentTWPosgro <- tree_df$TF_RecentTWPosgro + (tree_df$TF_StressRec)
 
-# TF_TrunkTargetF[Tree] = TF_TrunkBiomass_GrowthAllocation[Tree]
-tree_df$TF_TrunkTargetF <- tree_df$TF_TrunkBiomass_GrowthAllocation
-
 # TF_TrunkTargetCum[Tree](t) = TF_TrunkTargetCum[Tree](t - dt) + (TF_TrunkTargetF[Tree]) * dt
 tree_df$TF_TrunkTargetCum <- tree_df$TF_TrunkTargetCum + (tree_df$TF_TrunkTargetF)
-
-# TF_YNewLeafF?[Tree] = -TF_YNewLeaf?[Tree]+TF_NewLeaf?[Tree]
-tree_df$TF_YNewLeafF_is <- -tree_df$TF_YNewLeaf_is + tree_df$TF_NewLeaf_is
 
 # TF_YNewLeaf?[Tree](t) = TF_YNewLeaf?[Tree](t - dt) + (TF_YNewLeafF?[Tree]) * dt
 tree_df$TF_YNewLeaf_is <- tree_df$TF_YNewLeaf_is + (tree_df$TF_YNewLeafF_is)
@@ -17311,52 +17256,11 @@ tree_df$TF_YNewLeaf_is <- tree_df$TF_YNewLeaf_is + (tree_df$TF_YNewLeafF_is)
 # TP_ParasiteBiomass[Tree,PlantComp](t) = TP_ParasiteBiomass[Tree,PlantComp](t - dt) + (TP_ParasiteGrowth[Tree,PlantComp] - TP_ParasiteRemoval[Tree,PlantComp]) * dt
 treepcomp_df$TP_ParasiteBiomass <- treepcomp_df$TP_ParasiteBiomass + (treepcomp_df$TP_ParasiteGrowth - treepcomp_df$TP_ParasiteRemoval)
 
-# TP_RelNutSupply[Tree] = if TP_Nutrient_Demand[Tree,N] = 0 then 0 else min(1,T_NUptTot[N,Tree]/TP_Nutrient_Demand[Tree,N],T_NUptTot[P,Tree]/TP_Nutrient_Demand[Tree,P])
-tn_N <- treenut_df[treenut_df$SlNut == "N", ]
-tn_P <- treenut_df[treenut_df$SlNut == "P", ]
-tree_df$TP_RelNutSupply <- ifelse(
-  tn_N$TP_Nutrient_Demand == 0,
-  0,
-  pmin(
-    1,
-    tn_N$T_NUptTot / tn_N$TP_Nutrient_Demand,
-    tn_P$T_NUptTot / tn_P$TP_Nutrient_Demand
-  )
-)
-
-# TP_RelNutSupplChange[Tree] = TP_RelNutSupply[Tree]-TP_RelNutSupplyDelayed[Tree]
-tree_df$TP_RelNutSupplChange <- tree_df$TP_RelNutSupply - tree_df$TP_RelNutSupplyDelayed
-
 # TP_RelNutSupplyDelayed[Tree](t) = TP_RelNutSupplyDelayed[Tree](t - dt) + (TP_RelNutSupplChange[Tree]) * dt
 tree_df$TP_RelNutSupplyDelayed <- tree_df$TP_RelNutSupplyDelayed + (tree_df$TP_RelNutSupplChange)
 
-# Rt_TAmount1[Zone,Tree] = Rt_TLrv1[Zone,Tree]*AF_DepthAct1[Zone]*100
-# Rt_TAmount2[Zone,Tree] = AF_Depth2[Zone]*Rt_TLrv2[Zone,Tree]*100
-# Rt_TAmount3[Zone,Tree] = AF_Depth3[Zone]*Rt_TLrv3[Zone,Tree]*100
-# Rt_TAmount4[Zone,Tree] = AF_Depth4[Zone]*Rt_TLrv4[Zone,Tree]*100
-zonelayertree_df$Rt_TAmount <- zonelayertree_df$AF_Depth * zonelayertree_df$Rt_TLrv *
-  100
-
-# Rt_TAmount[Zone,Tree] = Rt_TAmount1[Zone,Tree]+Rt_TAmount2[Zone,Tree]+Rt_TAmount3[Zone,Tree]+Rt_TAmount4[Zone,Tree]
-zonetree_df$Rt_TAmount <- aggregate(zonelayertree_df$Rt_TAmount, zonelayertree_df[c("zone", "tree_id")], sum)$x
-
-# Rt_TAmountPerTree[Tree] = AF_ZoneFrac[Zn1]*Rt_TAmount[Zn1,Tree]+AF_ZoneFrac[Zn2]*Rt_TAmount[Zn2,Tree]+AF_ZoneFrac[Zn3]*Rt_TAmount[Zn3,Tree]+AF_ZoneFrac[Zn4]*Rt_TAmount[Zn4,Tree]
-tree_df$Rt_TAmountPerTree <- aggregate(zonetree_df$AF_ZoneFrac * zonetree_df$Rt_TAmount,
-                                       zonetree_df["tree_id"],
-                                       sum)$x
-
-# TW_YDayUptChange[Tree] = if Rt_TAmountPerTree[Tree] <> 0 then -TW_DemandPerRoot[Tree]+TW_DemandPot[Tree]/Rt_TAmountPerTree[Tree] else 0
-tree_df$TW_YDayUptChange <- ifelse(
-  tree_df$Rt_TAmountPerTree != 0,
-  -tree_df$TW_DemandPerRoot + tree_df$TW_DemandPot / tree_df$Rt_TAmountPerTree,
-  0
-)
-
 # TW_DemandPerRoot[Tree](t) = TW_DemandPerRoot[Tree](t - dt) + (TW_YDayUptChange[Tree]) * dt
 tree_df$TW_DemandPerRoot <- tree_df$TW_DemandPerRoot + (tree_df$TW_YDayUptChange)
-
-# W_V4DrainF[Zone] = W_V4Drain[Zone]
-zone_df$W_V4DrainF <- zone_df$W_V4Drain
 
 # W_DrainCumV[Zone](t) = W_DrainCumV[Zone](t - dt) + (W_V4DrainF[Zone]) * dt
 zone_df$W_DrainCumV <- zone_df$W_DrainCumV + (zone_df$W_V4DrainF)
