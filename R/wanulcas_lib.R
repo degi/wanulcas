@@ -22,6 +22,7 @@ to_df <- function(x, is_print = F) {
   data.frame(x = n[ix], y = n[iy])
 }
 
+#TODO: mungkin nanti bisa  di hapus? modif?
 wgraph <- lapply(wgraph_file, function(x) {
   if (length(x$y_col) == 1) {
     df <- to_df(x$data)
@@ -46,85 +47,23 @@ names(wgraph) <- unlist(lapply(wgraph_file, function(x) {
   }
 }))
 
-get_y_df <- function(x,
-                     graph_name,
-                     x_column = NULL,
-                     y_column = NULL) {
-  df <- wgraph[[graph_name]]
-  
-  cols <- names(df)
-  if (is.null(x_column))
-    x_column <- cols[1]
-  if (is.null(y_column))
-    y_column <- cols[-1]
-  if (length(y_column) == 1) {
-    unlist(lapply(x, function(ix) {
-      get_graph_y(df,
-                  ix,
-                  x_column = x_column,
-                  y_column = y_column,
-                  mode = "continues")
-    }))
-  } else {
-    ylist <- lapply(x, function(ix) {
-      unlist(lapply(y_column, function(iy) {
-        get_graph_y(
-          df,
-          ix,
-          x_column = x_column,
-          y_column = iy,
-          mode = "continues"
-        )
-      }))
-    })
-    if (length(ylist) == 1) {
-      unlist(ylist)
-    } else {
-      as.vector(t(as.data.frame(ylist)))
-    }
+
+fgraph <- lapply(wgraph_file, function(x) {
+  flist <- list()
+  for (i in 1:length(x$data)) {
+    df <- to_df(x$data[i])
+    flist <- c(flist, approxfun(df$x, df$y, rule = 2))
   }
-}
+  names(flist) <- x$y_col
+  flist
+})
+names(fgraph) <- names(wgraph)
 
 ### FUNCTIONS ####################
 
-get_graph_y <- function(graph_df,
-                        x,
-                        x_column = NULL,
-                        y_column = NULL,
-                        mode = "continues") {
-  x <- as.numeric(x)
-  if (!is.null(x_column)) {
-    if (!x_column %in% names(graph_df)) {
-      return(NA)
-    }
-    xc <- graph_df[x_column]
-  } else {
-    xc <- graph_df[1]
-  }
-  
-  if (!is.null(y_column)) {
-    if (!y_column %in% names(graph_df)) {
-      return(NA)
-    }
-    yc <- graph_df[y_column]
-    graph_df <- cbind(xc, yc)
-  }
-  if (!is.numeric(x) || ncol(graph_df) < 2) {
-    return(NA)
-  }
-  suppressWarnings(i <- max(which(graph_df[1] < x, arr.ind = TRUE)))
-  if (!is.finite(i)) {
-    return(graph_df[1, 2])
-  }
-  if (i == nrow(graph_df)) {
-    return(graph_df[i, 2])
-  }
-  if (mode == "continues") {
-    graph_df[i, 2] + (x - graph_df[i, 1]) * (graph_df[i + 1, 2] - graph_df[i, 2]) /
-      (graph_df[i + 1, 1] - graph_df[i, 1])
-  } else {
-    graph_df[i, 2]
-  }
+get_y <- function(x, graph_name, f_idx = NULL) {
+  as.numeric(sapply(fgraph[[graph_name]], function(f)
+    f(x)))
 }
 
 get_var <- function(df, var, colnames) {
@@ -134,7 +73,6 @@ get_var <- function(df, var, colnames) {
     df[df$vars == var, x]
   }))
 }
-
 
 order_soil <- function(df) {
   df[order(df$layer, df$zone), ]
@@ -232,6 +170,17 @@ wanulcas_arr_dim <- list(
   nlayer = 4,
   ntree = 3,
   ncrop = 5,
+  npcomp = 3,
+  nprice = 2,
+  nanimals = 7,
+  nlimit = 3,
+  ncpools = 5,
+  nfruit = 22,
+  nstage = 2,
+  nbuf = 10,
+  ninp = 2,
+  nwater = 4,
+  nnut = 2,
   SlNut = c("N", "P"),
   PlantComp = c("DW", "N", "P"),
   PriceType = c("Private", "Social"),
@@ -274,8 +223,7 @@ wanulcas_arr_dim <- list(
   Tree_Stage = c("VegGen", "LeafAge"),
   BufValues = 1:10,
   ExtOrgInputs = 1:2,
-  soil_water_id = c("MS", "MW", "S", "W"),
-  nwater = 4
+  soil_water_id = c("MS", "MW", "S", "W")
 )
 
 get_wanulcas_def_arr <- function() {
@@ -2104,6 +2052,30 @@ TF_MaleSinkperBunch_params <- c(
 
 ### XLS input ###########
 
+generate_fun <- function(x, df) {
+  y_lab <- names(df)
+  f <- lapply(y_lab, function(y) {
+    approxfun(x, df[[y]], rule = 2)
+  })
+  names(f) <- y_lab
+  return(f)
+}
+
+CQ_Curr_Vars <- c(
+  "CQ_CRelLUECurr",
+  "CQ_CLWRCurr",
+  "CQ_CHarvAllocCurr",
+  "CQ_CSLACurr",
+  "CQ_CRtAllocCurr"
+)
+
+zone_stage_col_df <- data.frame(
+  CQ_CType = rep(1:5, each = 4),
+  zone = rep(1:4, 5),
+  coln = CQ_CType_params
+)
+
+# xls_input_file <- "Wanulcas.xlsm"
 get_xls_params <- function(xls_input_file) {
   parxls_df <- wb_to_df(xls_input_file, "LinkToStella")
   par_names <- names(parxls_df)
@@ -2126,40 +2098,97 @@ get_xls_params <- function(xls_input_file) {
   CQ_df$CQ_Unit <- CQ_Unit
   CQ_df$CQ_var <- CQ_var
   
+  get_df_fun <- function(v, x, cnames) {
+    i <- which(par_names == v)
+    nr <- length(x)
+    nc <- length(cnames)
+    df <- parxls_df[1:nr, i:(i + nc - 1)]
+    names(df) <- cnames
+    generate_fun(x, df)
+  }
   
-  CQ_CRelLUE_i <- which(par_names == "Cq_CRelLUE")
-  CQ_CRelLUE_df <- parxls_df[1:21, CQ_CRelLUE_i:(CQ_CRelLUE_i + 19)]
-  names(CQ_CRelLUE_df) <- CQ_CType_params
-  CQ_CRelLUE_df$CQ_Stage <- seq(0, 2, 0.1)
-  
-  CQ_CLWR_i <- which(par_names == "Cq_CLWR")
-  CQ_CLWR_df <- parxls_df[1:21, CQ_CLWR_i:(CQ_CLWR_i + 19)]
-  names(CQ_CLWR_df) <- CQ_CType_params
-  CQ_CLWR_df$CQ_Stage <- seq(0, 2, 0.1)
-  
-  CQ_CHarvAlloc_i <- which(par_names == "Cq_CHarvAlloc")
-  CQ_CHarvAlloc_df <- parxls_df[1:21, CQ_CHarvAlloc_i:(CQ_CHarvAlloc_i + 19)]
-  names(CQ_CHarvAlloc_df) <- CQ_CType_params
-  CQ_CHarvAlloc_df$CQ_Stage <- seq(0, 2, 0.1)
-  
-  CQ_CSLA_i <- which(par_names == "Cq_CSLA")
-  CQ_CSLA_df <- parxls_df[1:21, CQ_CSLA_i:(CQ_CSLA_i + 19)]
-  names(CQ_CSLA_df) <- CQ_CType_params
-  CQ_CSLA_df$CQ_Stage <- seq(0, 2, 0.1)
-  
-  CQ_CRtAlloc_i <- which(par_names == "Cq_CRtAlloc")
-  CQ_CRtAlloc_df <- parxls_df[1:11, CQ_CRtAlloc_i:(CQ_CRtAlloc_i + 19)]
-  names(CQ_CRtAlloc_df) <- CQ_CType_params
-  CQ_CRtAlloc_df$CQ_Stage <- seq(0, 2, 0.2)
-  
-  zone_stage_par <- list(
-    CQ_CRelLUE = CQ_CRelLUE_df,
-    CQ_CLWR = CQ_CLWR_df,
-    CQ_CHarvAlloc = CQ_CHarvAlloc_df,
-    CQ_CSLA = CQ_CSLA_df,
-    CQ_CRtAlloc = CQ_CRtAlloc_df
+  ### Cq_C ######
+  cq_df_v <- c("Cq_CRelLUE", "Cq_CLWR", "Cq_CHarvAlloc", "Cq_CSLA")
+  zone_stage_fun <- sapply(
+    cq_df_v,
+    get_df_fun,
+    x = seq(0, 2, 0.1),
+    cnames = CQ_CType_params,
+    simplify = FALSE,
+    USE.NAMES = TRUE
   )
-
+  zone_stage_fun[["Cq_CRtAlloc"]] <- get_df_fun("Cq_CRtAlloc", seq(0, 2, 0.2), CQ_CType_params)
+  names(zone_stage_fun) <- CQ_Curr_Vars
+  
+  ### T_Prun ######
+  T_Prun_fun <- list()
+  T_PrunFracD_cols <- c("T_PrunFracD_1", "T_PrunFracD_2", "T_PrunFracD_3")
+  T_Prun_fun[["T_PrunFracD"]] <- get_df_fun("T_PrunFracD", 0:40, T_PrunFracD_cols)
+  T_PrunHarvFracD_cols <- c("T_PrunHarvFracD_1",
+                            "T_PrunHarvFracD_2",
+                            "T_PrunHarvFracD_3")
+  T_Prun_fun[["T_PrunHarvFracD"]] <- get_df_fun("T_PrunHarvFracD", 0:40, T_PrunHarvFracD_cols)
+  T_Prun_fun[["T_PrunY"]] <- generate_fun(c(0:40), list(T_PrunY = parxls_df[1:41, "T_PrunY"]))[[1]]
+  T_Prun_fun[["T_PrunDoY"]] <- generate_fun(c(0:40), list(T_PrunDoY = parxls_df[1:41, "T_PrunDoY"]))[[1]]
+  
+  ### TW_PhiPot ######
+  ntree <- 3
+  nlayer <- 4
+  TW_pFPotRhizOpt_x <- seq(0, 5, 0.2)
+  TW_PhiPot_cols = c(
+    "TW_PhiPotT1L1",
+    "TW_PhiPotT2L1",
+    "TW_PhiPotT3L1",
+    "TW_PhiPotT1L2",
+    "TW_PhiPotT2L2",
+    "TW_PhiPotT3L2",
+    "TW_PhiPotT1L3",
+    "TW_PhiPotT2L3",
+    "TW_PhiPotT3L3",
+    "TW_PhiPotT1L4",
+    "TW_PhiPotT2L4",
+    "TW_PhiPotT3L4"
+  )
+  TW_PhiPot_meta_df <- data.frame(
+    varcol = TW_PhiPot_cols,
+    tree_id = rep(1:ntree, nlayer),
+    layer = rep(1:nlayer, each = ntree)
+  )
+  TW_PhiPot_meta_df <- TW_PhiPot_meta_df[order(TW_PhiPot_meta_df$tree_id), ]
+  TW_funs <- get_df_fun("TW_PhiPotT1L1", seq(0, 5, 0.2), TW_PhiPot_meta_df[["varcol"]])
+  TW_PhiPot_fun <- function(xs) {
+    mapply(function(f, x) {
+      f(x)
+    }, TW_funs, xs)
+  }
+  
+  generate_vec_fun <- function(funs) {
+    function(xs) {
+      mapply(function(f, x) {
+        f(x)
+      }, funs, xs)
+    }
+  }
+  
+  ### W_fun ######
+  
+  W_PhiTheta_cols <- c("W_PhiTheta1", "W_PhiTheta2", "W_PhiTheta3", "W_PhiTheta4")
+  W_PTheta_cols <- c("W_PTheta1", "W_PTheta2", "W_PTheta3", "W_PTheta4")
+  W_ThetaP_cols <- c("W_ThetaP1", "W_ThetaP2", "W_ThetaP3", "W_ThetaP4")
+  
+  graph_fun <- list()
+  Theta_x <- seq(0.01, 0.6, 0.59 / 50)
+  graph_fun[["W_PhiTheta"]] <- generate_vec_fun(get_df_fun(W_PhiTheta_cols[1], Theta_x, W_PhiTheta_cols))
+  graph_fun[["W_PTheta"]] <- generate_vec_fun(get_df_fun(W_PTheta_cols[1], Theta_x, W_PTheta_cols))
+  graph_fun[["W_ThetaP"]] <- generate_vec_fun(get_df_fun(W_ThetaP_cols[1], seq(-250, 0, 10), W_ThetaP_cols))
+  
+  T_PlantY_cols <- c("T_PlantY_1", "T_PlantY_2", "T_PlantY_3")
+  T_PlantDoY_cols <- c("T_PlantDoY_1", "T_PlantDoY_2", "T_PlantDoY_3")
+  graph_fun[["T_PlantY"]] <- generate_vec_fun(get_df_fun("T_PlantY", 0:20, T_PlantY_cols))
+  graph_fun[["T_PlantDoY"]] <- generate_vec_fun(get_df_fun("T_PlantDoY", 0:20, T_PlantDoY_cols))
+  graph_fun[["TEMP_DailyPotEvap"]] <- generate_fun(c(1:365), list(y = parxls_df[1:365, "Temp_DailyPotEvap"]))[[1]]
+  
+  
   CA_PlantDoY_i <- which(par_names == "Ca_PlantDoY")
   CA_PlantDoY_df <- parxls_df[1:21, CA_PlantDoY_i:(CA_PlantDoY_i + 3)]
   names(CA_PlantDoY_df) <- c("CA_PlantDoY1",
@@ -2184,10 +2213,6 @@ get_xls_params <- function(xls_input_file) {
                              "CQ_CropType4")
   CQ_CropType_df$CA_ComplCrop <- c(0:20)
   
-  
-  evap_df <- data.frame(time = 1:365)
-  evap_df$TEMP_DailyPotEvap <- parxls_df[1:365, c("Temp_DailyPotEvap")]
-  
   T_df <- parxls_df[1:length(T_params), c("T_Par1", "T_Par2", "T_Par3")]
   T_df$T_params <- T_params
   # T_df$T_var <- T_var
@@ -2198,36 +2223,6 @@ get_xls_params <- function(xls_input_file) {
   
   T_PrunOption_par <- get_par_xls_list(T_PrunUnit, "T_PrunOption")
   
-  
-  T_PrunY_df <-
-    data.frame(T_PrunPast = c(0:40), T_PrunY = parxls_df[1:41, "T_PrunY"])
-  
-  T_PrunDoY_df <-
-    data.frame(T_PrunPast = c(0:40), T_PrunDoY = parxls_df[1:41, "T_PrunDoY"])
-  
-  T_PrunFracD_i <- which(par_names == "T_PrunFracD")
-  T_PrunFracD_df <- parxls_df[1:41, T_PrunFracD_i:(T_PrunFracD_i + 2)]
-  names(T_PrunFracD_df) <- c("T_PrunFracD_1", "T_PrunFracD_2", "T_PrunFracD_3")
-  T_PrunFracD_df$T_PrunPast <- 0:40
-  
-  T_PrunHarvFracD_i <- which(par_names == "T_PrunHarvFracD")
-  T_PrunHarvFracD_df <- parxls_df[1:41, T_PrunHarvFracD_i:(T_PrunHarvFracD_i + 2)]
-  names(T_PrunHarvFracD_df) <- c("T_PrunHarvFracD_1",
-                                 "T_PrunHarvFracD_2",
-                                 "T_PrunHarvFracD_3")
-  T_PrunHarvFracD_df$T_PrunPast <- 0:40
-  
-  
-  T_PlantY_i <- which(par_names == "T_PlantY")
-  T_PlantY_df <- parxls_df[1:21, T_PlantY_i:(T_PlantY_i + 2)]
-  names(T_PlantY_df) <- c("T_PlantY_1", "T_PlantY_2", "T_PlantY_3")
-  T_PlantY_df$T_Compl <- 0:20
-  
-  T_PlantDoY_i <- which(par_names == "T_PlantDoY")
-  T_PlantDoY_df <- parxls_df[1:21, T_PlantDoY_i:(T_PlantDoY_i + 2)]
-  names(T_PlantDoY_df) <- c("T_PlantDoY_1", "T_PlantDoY_2", "T_PlantDoY_3")
-  T_PlantDoY_df$T_Compl <- 0:20
-
   S_SoilProp_par <- get_par_xls_list(S_Unit, "S_SoilProp")
   
   S_SoilProp_var <- list(
@@ -2247,41 +2242,6 @@ get_xls_params <- function(xls_input_file) {
     unlist(S_SoilProp_par[x])
   }))
   
-  
-  Theta_x <- seq(0.01, 0.6, 0.59 / 50)
-  W_PhiTheta_df <- parxls_df[1:length(Theta_x), c("W_PhiTheta1", "W_PhiTheta2", "W_PhiTheta3", "W_PhiTheta4")]
-  W_PhiTheta_df$Theta <- Theta_x
-  W_PTheta_df <- parxls_df[1:length(Theta_x), c("W_PTheta1", "W_PTheta2", "W_PTheta3", "W_PTheta4")]
-  W_PTheta_df$Theta <- Theta_x
-  P_x <- seq(-250, 0, 10)
-  W_ThetaP_df <- parxls_df[1:length(P_x), c("W_ThetaP1", "W_ThetaP2", "W_ThetaP3", "W_ThetaP4")]
-  W_ThetaP_df$P <- P_x
-  
-  ntree <- 3
-  nlayer <- 4
-  TW_pFPotRhizOpt_x <- seq(0, 5, 0.2)
-  TW_PhiPot_meta_df <- data.frame(
-    varcol = c(
-      "TW_PhiPotT1L1",
-      "TW_PhiPotT2L1",
-      "TW_PhiPotT3L1",
-      "TW_PhiPotT1L2",
-      "TW_PhiPotT2L2",
-      "TW_PhiPotT3L2",
-      "TW_PhiPotT1L3",
-      "TW_PhiPotT2L3",
-      "TW_PhiPotT3L3",
-      "TW_PhiPotT1L4",
-      "TW_PhiPotT2L4",
-      "TW_PhiPotT3L4"
-    ),
-    tree_id = rep(1:ntree, nlayer),
-    layer = rep(1:nlayer, each = ntree)
-  )
-  TW_PhiPot_df <- parxls_df[1:length(TW_pFPotRhizOpt_x), TW_PhiPot_meta_df$varcol]
-  TW_PhiPot_df$TW_pFPotRhizOpt <- TW_pFPotRhizOpt_x
-  
-  
   rain_df <- data.frame(time = 1:365)
   rain_df$Rain_Data <- parxls_df[1:365, c("Rain_Data")]
   
@@ -2289,31 +2249,18 @@ get_xls_params <- function(xls_input_file) {
   pars <- list(
     AF_System_par = AF_System_par,
     CQ_df = CQ_df,
-    zone_stage_par = zone_stage_par,
+    zone_stage_fun = zone_stage_fun,
+    T_Prun_fun = T_Prun_fun,
+    TW_PhiPot_fun = TW_PhiPot_fun,
+    graph_fun = graph_fun,
     
     CA_PlantDoY_df = CA_PlantDoY_df,
     CA_PlantYear_df = CA_PlantYear_df,
     CQ_CropType_df = CQ_CropType_df,
     
-    evap_df = evap_df,
-    
     tree_par_df = tree_par_df,
     T_PrunOption_par = T_PrunOption_par,
-    
-    T_PrunY_df = T_PrunY_df,
-    T_PrunDoY_df = T_PrunDoY_df,
-    T_PrunFracD_df = T_PrunFracD_df,
-    T_PrunHarvFracD_df = T_PrunHarvFracD_df,
-    
-    T_PlantY_df = T_PlantY_df,
-    T_PlantDoY_df = T_PlantDoY_df,
-    
     soil_df = soil_df,
-    W_PhiTheta_df = W_PhiTheta_df,
-    W_PTheta_df = W_PTheta_df,
-    W_ThetaP_df = W_ThetaP_df,
-    TW_PhiPot_meta_df = TW_PhiPot_meta_df,
-    TW_PhiPot_df = TW_PhiPot_df,
     rain_df = rain_df
   )
   
