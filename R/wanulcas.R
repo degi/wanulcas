@@ -10,14 +10,10 @@
 # Soil Data
 # https://app.soilhive.ag/availability
 
-# TO CHECK?:
-#
-# line 11613: W_V3Drain[Zone] =
-# * missing 0
-#
 
 
 options("warnPartialMatchDollar" = TRUE)
+options(scipen = 999)
 
 library(lubridate)
 library(openxlsx2)
@@ -25,8 +21,7 @@ library(yaml)
 library(progress)
 library(data.table)
 
-source("utils.R")
-source("wanulcas_rain.R")
+# source("utils.R")
 source("wanulcas_lib.R")
 
 outvars_df <- read.csv("output_vars.csv")
@@ -34,19 +29,24 @@ outvars_df[outvars_df[["arr"]] == "", "arr"] <- "single_df"
 
 
 n_iteration <- 1
-xls_input_file <- "Wanulcas.xlsm"
+xls_input_file <- "Wanulcas_danny.xlsx"
+# wanulcas_params <- danny_params
 output_vars <- NULL
+
 
 ## RUN #####################
 run_wanulcas <- function(n_iteration,
-                         xls_input_file = "Wanulcas.xlsm",
-                         output_vars = default_output_vars) {
-  print("Running WaNuLCAS")
+                         wanulcas_params = NULL,
+                         output_vars = NULL) {
+  
+  
+  
   
   if (is.null(output_vars)) {
     output_vars <- default_output_vars
   }
   ov_df <- outvars_df[outvars_df[["var"]] %in% output_vars, ]
+  
   output <- list()
   class(output) <- "wanulcas"
   
@@ -55,220 +55,108 @@ run_wanulcas <- function(n_iteration,
     assign(v, wanulcas_arr_dim[[v]])
   }
   
-  arr_init <- get_wanulcas_def_arr()
+  arr_init <- wanulcas_def_arr
   for (v in names(arr_init)) {
     assign(v, arr_init[[v]])
   }
   
-  assign_vars <- function(var_list) {
-    for (p in names(var_list)) {
-      if (p == "single_vars") {
-        vars <- var_list[[p]]
-        for (v in names(vars)) {
-          assign(v, vars[[v]], envir = parent.frame())
-        }
-      } else {
-        df <- get(p)
-        x_df <- var_list[[p]]
-        vars <- setdiff(names(x_df), names(arr_init[[p]]))
-        df[vars] <- x_df[vars]
-        assign(p, df, envir = parent.frame())
-      }
+  
+  if(is.null(wanulcas_params)) {
+    wanulcas_params <- default_params
+  }
+  
+  graph_functions <- generate_graph_functions(wanulcas_params$graphs)
+  wanulcas_params$graph_functions <- graph_functions
+  
+  get_y <- function(x, graph_name, mode = "all") {
+    if (mode == "pair") {
+      as.vector(mapply(function(f, xi)
+        f(xi), graph_functions[[graph_name]], x))
+    } else {
+      as.vector(sapply(graph_functions[[graph_name]], function(f)
+        f(x)))
     }
   }
   
-  pars <- get_wanulcas_def_inp()
-  for (p in pars) {
-    assign_vars(p)
+  # assign var  parameter
+  for (v in names(wanulcas_params$vars)) {
+    assign(v, wanulcas_params$vars[[v]])
   }
   
-  assign_vars(get_wanulcas_stock_vars())
+  # assign array parameter
+  for (a in names(wanulcas_params$arrays)) {
+    df <- get(a)
+    v_df <- as.data.frame(wanulcas_params$arrays[[a]]$vars)
+    df[names(v_df)] <- v_df
+    assign(a, df)
+  }
+  
+  
+  vstock <- get_wanulcas_stock_vars()
+  
+  for (p in names(vstock)) {
+    if (p == "single_vars") {
+      vars <- vstock[[p]]
+      for (v in names(vars)) {
+        assign(v, vars[[v]])
+      }
+    } else {
+      df <- get(p)
+      x_df <- vstock[[p]]
+      vars <- setdiff(names(x_df), names(arr_init[[p]]))
+      df[vars] <- x_df[vars]
+      assign(p, df)
+    }
+  }
   
   angle_df["TanAngles"] <- tan(angle_df[["LightAngles"]] * pi / 180)
   
-  
-  ### XLS Input Data #############
-  
-  xls_pars <- get_xls_params(xls_input_file)
-  for (p in names(xls_pars)) {
-    assign(p, xls_pars[[p]])
-  }
-  #TODO: bikin zone_stage_par approxfun disini
-  
-  AF_Circ <- AF_System_par$`Parkland?`
-  AF_ZoneTot <- AF_System_par[["AFTotZn"]]
-  
-  zw <- unlist(AF_System_par[c("AFZn1", "AFZn2", "AFZn3")])
-  zone_df["AF_ZoneWidth"] <- c(zw, AF_ZoneTot - sum(zw))
   zone_df["AF_SlopeSurfInit"] <- AF_SlopeSurfInit
   zone_df["AF_ZWcum"] <- cumsum(zone_df[["AF_ZoneWidth"]])
-  
-  if (AF_Circ == 0) {
-    zone_df[["AF_ZoneFrac"]] <- zone_df[["AF_ZoneWidth"]] / AF_ZoneTot
-  } else {
-    zone_df["AF_ZWcum_0"] <- c(0, head(zone_df[["AF_ZWcum"]], -1))
-    zone_df[["AF_ZoneFrac"]] <- (zone_df[["AF_ZWcum"]]^2 -  zone_df[["AF_ZWcum_0"]]^2) / AF_ZoneTot^2
-  }
-  
-  # AF_DepthLay1 = AF_System[SL1]
-  # AF_DepthLay2 = AF_System[SL2]
-  # AF_DepthLay3 = AF_System[SL3]
-  # AF_DepthLay4 = AF_System[SL1]
-  layer_df["AF_DepthLay"] <- unlist(AF_System_par[c("SL1", "SL2", "SL3", "SL4")])
-  # AF_TreePosit[Sp1] = AF_System[TSp1]
-  # AF_TreePosit[Sp2] = AF_System[TSp2]
-  # AF_TreePosit[Sp3] = AF_System[TSp3]
-  tree_df["AF_TreePosit"] <- unlist(AF_System_par[c("TSp1", "TSp2", "TSp3")])
-  # T_RelPosinZone[Sp1] = AF_System[TRelSp1]
-  # T_RelPosinZone[Sp2] = AF_System[TRelSp2]
-  # T_RelPosinZone[Sp3] = AF_System[TRelSp3]
-  tree_df["T_RelPosinZone"] <- unlist(AF_System_par[c("TRelSp1", "TRelSp2", "TRelSp3")])
-  # T_TreesperHa[Sp1] = AF_System[TDensSp1]
-  # T_TreesperHa[Sp2] = AF_System[TDensSp2]
-  # T_TreesperHa[Sp3] = AF_System[TDensSp3]
-  tree_df["T_Treesperha"] <- unlist(AF_System_par[c("TDensSp1", "TDensSp2", "TDensSp3")])
-  
   zone_df["RT_ZoneRight"] <- ifelse(zone_df[["AF_ZoneWidth"]] > 0, zone_df[["AF_ZWcum"]], 0)
   zone_df["RT_ZoneLeft"] <- ifelse(zone_df[["AF_ZoneWidth"]] > 0, c(0, head(zone_df[["AF_ZWcum"]], -1)), 0)
   
-  CQ_var_par <- CQ_df[["CQ_var"]][nzchar(CQ_df[["CQ_var"]])]
-  
-  get_val_by_CA_ComplCrop <- function(df, CA_ComplCrop, zone) {
-    mapply(function(x, z) {
-      df[df[["CA_ComplCrop"]] == x, z]
-    }, CA_ComplCrop, zone)
-  }
-  
-  tree_df[names(tree_par_df)] <- tree_par_df
-  #TODO: remove the vars below from tree_df, and assign directly to specific df
-  treefruit_df["TF_StageAbortSens"] <- unlist(tree_df[TF_StageAbortSens_params])
-  treefruit_df["TF_TargetOilperBunch"] <- unlist(tree_df[TF_TargetOilperBunch_params])
-  
   # T_TreeinZone?[Zone,Tree] = if AF_TreePosit[Tree] = AF_ZoneTree[Zone] then 1 else 0
-  zone_df["T_TreeinZone"] <- 0
-  tp <- tree_df[["AF_TreePosit"]][tree_df[["AF_TreePosit"]] > 0]
-  zone_df[["T_TreeinZone"]][tp] <- 1
+  zonetree_df["AF_ZoneTree"] <- rep(zone_df[["AF_ZoneTree"]], ntree)
+  zonetree_df["AF_TreePosit"] <- rep(tree_df[["AF_TreePosit"]], each = nzone)
+  zonetree_df["T_TreeinZone"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]], 1, 0)
+  
+  
+  # zone_df["T_TreeinZone"] <- 0
+  # tp <- tree_df[["AF_TreePosit"]][tree_df[["AF_TreePosit"]] > 0]
+  # zone_df[["T_TreeinZone"]][tp] <- 1
+  # 
+  
   
   # INIT MC_LAIperNecmss[Zone] = T_LWR[Sp1]*T_SLA[Sp1]
   zone_df["MC_LAIperNecmss"] <- tree_df[["T_LWR"]][1] * tree_df[["T_SLA"]][1]
   
   # INIT RT_TDistShapeAct[Tree] = RT_TDistShapeC[Tree]
   tree_df["RT_TDistShapeAct"] <- tree_df[["RT_TDistShapeC"]]
+  
   # INIT RT_TDecDepthAct[Tree] = RT_TDecDepthC[Tree]
   tree_df["RT_TDecDepthAct"] <- tree_df[["RT_TDecDepthC"]]
+  
   # AF_TreePosit2Q[Tree] = IF AF_TreePosit[Tree] = 2 then 1 else 0
   # AF_TreePosit3Q[Tree] = IF AF_TreePosit[Tree] = 3 then 1 else 0
   # AF_TreePosit4Q[Tree] = IF AF_TreePosit[Tree] = 4 then 1 else 0
   tree_df["AF_TreePosit2Q"] <- ifelse(tree_df[["AF_TreePosit"]] == 2, 1, 0)
   tree_df["AF_TreePosit3Q"] <- ifelse(tree_df[["AF_TreePosit"]] == 3, 1, 0)
   tree_df["AF_TreePosit4Q"] <- ifelse(tree_df[["AF_TreePosit"]] == 4, 1, 0)
+  
   # INIT TW_DryFactPower[Tree] = TW_DryFactPowerInit[Tree]
   tree_df["TW_DryFactPower"] <- tree_df[["TW_DryFactPowerInit"]]
+  
   # INIT TF_CurrentLeafNo[Tree] = TF_LeafCumInit[Tree]
   tree_df["TF_CurrentLeafNo"] <- tree_df[["TF_LeafCumInit"]]
   
-  
-  RT_TLrvL_df <- tree_df[RT_TLrvL_params]
-  zonelayertree_df["RT_TLrvL_par"] <- unlist(c(RT_TLrvL_df[1, ], RT_TLrvL_df[2, ], RT_TLrvL_df[3, ]))
   zonelayertree_df["RT_ATType"] <- rep(tree_df[["RT_ATType"]], each = nzone *  nlayer)
-  
-  treeanimal_df["PD_TEatenBy_is"] <- unlist(tree_df[PD_TEatenBy_params])
-  treefruit_df["TF_FemSinkperFruit"] <- unlist(tree_df[TF_FemSinkperFruit_params])
-  treefruit_df["TF_MaleSinkperBunch"] <- unlist(tree_df[TF_MaleSinkperBunch_params])
-  treenut_df["T_NutMob"] <- unlist(tree_df[c("T_NutMobT_N", "T_NutMobT_P")])
-  
-  # T_PrunOption_par <- get_par_xls_list(T_PrunUnit, "T_PrunOption")
-  C_BiomHarv_is <- T_PrunOption_par$`CropHarv?`
-  
-  # T_LfConc[DW,Sp1] = 0*(T_Par1[LfN]+T_Par2[LfN]+T_Par3[LfN])+1
-  # T_LfConc[DW,Sp2] = 0*(T_Par1[LfN]+T_Par2[LfN]+T_Par3[LfN])+1
-  # T_LfConc[DW,Sp3] = 0*(T_Par1[LfN]+T_Par2[LfN]+T_Par3[LfN])+1
-  # T_LfConc[N,Sp1] = (T_Par1[LfN]+0*T_Par2[LfN]+0*T_Par3[LfN])
-  # T_LfConc[N,Sp2] = (0*T_Par1[LfN]+T_Par2[LfN]+0*T_Par3[LfN])
-  # T_LfConc[N,Sp3] = (0*T_Par1[LfN]+0*T_Par2[LfN]+T_Par3[LfN])
-  # T_LfConc[P,Sp1] = (T_Par1[LfP]+0*T_Par2[LfP]+0*T_Par3[LfP])
-  # T_LfConc[P,Sp2] = (0*T_Par1[LfP]+T_Par2[LfP]+0*T_Par3[LfP])
-  # T_LfConc[P,Sp3] = (0*T_Par1[LfP]+0*T_Par2[LfP]+T_Par3[LfP])
-  treepcomp_df["T_LfConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_LfConc"]] <- tree_df[["T_LfConc_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_LfConc"]] <- tree_df[["T_LfConc_P"]]
-  
-  # T_TwigConc[DW,Sp1] = 0*(T_Par1[TwigN]+T_Par2[TwigN]+T_Par3[TwigN])+1
-  # T_TwigConc[DW,Sp2] = 0*(T_Par1[TwigN]+T_Par2[TwigN]+T_Par3[TwigN])+1
-  # T_TwigConc[DW,Sp3] = 0*(T_Par1[TwigN]+T_Par2[TwigN]+T_Par3[TwigN])+1
-  # T_TwigConc[N,Sp1] = T_Par1[TwigN]+0*T_Par2[TwigN]+0*T_Par3[TwigN]
-  # T_TwigConc[N,Sp2] = 0*T_Par1[TwigN]+T_Par2[TwigN]+0*T_Par3[TwigN]
-  # T_TwigConc[N,Sp3] = 0*T_Par1[TwigN]+0*T_Par2[TwigN]+T_Par3[TwigN]
-  # T_TwigConc[P,Sp1] = T_Par1[TwigP]+0*T_Par2[TwigP]+0*T_Par3[TwigP]
-  # T_TwigConc[P,Sp2] = 0*T_Par1[TwigP]+T_Par2[TwigP]+0*T_Par3[TwigP]
-  # T_TwigConc[P,Sp3] = 0*T_Par1[TwigP]+0*T_Par2[TwigP]+T_Par3[TwigP]
-  treepcomp_df["T_TwigConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_TwigConc"]] <- tree_df[["T_ConcTwig_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_TwigConc"]] <- tree_df[["T_ConcTwig_P"]]
-  
-  # T_FruitConc[DW,Sp1] = 0*(T_Par1[FruitN]+T_Par2[FruitN]+T_Par3[FruitN])+1
-  # T_FruitConc[DW,Sp2] = 0*(T_Par1[FruitN]+T_Par2[FruitN]+T_Par3[FruitN])+1
-  # T_FruitConc[DW,Sp3] = 0*(T_Par1[FruitN]+T_Par2[FruitN]+T_Par3[FruitN])+1
-  # T_FruitConc[N,Sp1] = T_Par1[FruitN]+0*T_Par2[FruitN]+0*T_Par3[FruitN]
-  # T_FruitConc[N,Sp2] = 0*T_Par1[FruitN]+T_Par2[FruitN]+0*T_Par3[FruitN]
-  # T_FruitConc[N,Sp3] = 0*T_Par1[FruitN]+0*T_Par2[FruitN]+T_Par3[FruitN]
-  # T_FruitConc[P,Sp1] = T_Par1[FruitP]+0*T_Par2[FruitP]+0*T_Par3[FruitP]
-  # T_FruitConc[P,Sp2] = 0*T_Par1[FruitP]+T_Par2[FruitP]+0*T_Par3[FruitP]
-  # T_FruitConc[P,Sp3] = 0*T_Par1[FruitP]+0*T_Par2[FruitP]+T_Par3[FruitP]
-  treepcomp_df["T_FruitConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_FruitConc"]] <- tree_df[["T_ConcFruit_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_FruitConc"]] <- tree_df[["T_ConcFruit_P"]]
-  
-  # T_GroResConc[DW,Sp1] = 0*(T_Par1[GroResN]+T_Par2[GroResN]+T_Par3[GroResN])+1
-  # T_GroResConc[DW,Sp2] = 0*(T_Par1[GroResN]+T_Par2[GroResN]+T_Par3[GroResN])+1
-  # T_GroResConc[DW,Sp3] = 0*(T_Par1[GroResN]+T_Par2[GroResN]+T_Par3[GroResN])+1
-  # T_GroResConc[N,Sp1] = T_Par1[GroResN]+0*T_Par2[GroResN]+0*T_Par3[GroResN]
-  # T_GroResConc[N,Sp2] = 0*T_Par1[GroResN]+T_Par2[GroResN]+0*T_Par3[GroResN]
-  # T_GroResConc[N,Sp3] = 0*T_Par1[GroResN]+0*T_Par2[GroResN]+T_Par3[GroResN]
-  # T_GroResConc[P,Sp1] = T_Par1[GroResP]+0*T_Par2[GroResP]+0*T_Par3[GroResP]
-  # T_GroResConc[P,Sp2] = 0*T_Par1[GroResP]+T_Par2[GroResP]+0*T_Par3[GroResP]
-  # T_GroResConc[P,Sp3] = 0*T_Par1[GroResP]+0*T_Par2[GroResP]+T_Par3[GroResP]
-  treepcomp_df["T_GroResConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_GroResConc"]] <- tree_df[["T_ConcGroRes_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_GroResConc"]] <- tree_df[["T_ConcGroRes_P"]]
-  
-  # T_RtConc[DW,Sp1] = 0*(T_Par1[RtN]+T_Par2[RtN]+T_Par3[RtN])+1
-  # T_RtConc[DW,Sp2] = 0*(T_Par1[RtN]+T_Par2[RtN]+T_Par3[RtN])+1
-  # T_RtConc[DW,Sp3] = 0*(T_Par1[RtN]+T_Par2[RtN]+T_Par3[RtN])+1
-  # T_RtConc[N,Sp1] = T_Par1[RtN]+0*T_Par2[RtN]+0*T_Par3[RtN]
-  # T_RtConc[N,Sp2] = 0*T_Par1[RtN]+T_Par2[RtN]+0*T_Par3[RtN]
-  # T_RtConc[N,Sp3] = 0*T_Par1[RtN]+0*T_Par2[RtN]+T_Par3[RtN]
-  # T_RtConc[P,Sp1] = T_Par1[RtP]+0*T_Par2[RtP]+0*T_Par3[RtP]
-  # T_RtConc[P,Sp2] = 0*T_Par1[RtP]+T_Par2[RtP]+0*T_Par3[RtP]
-  # T_RtConc[P,Sp3] = 0*T_Par1[RtP]+0*T_Par2[RtP]+T_Par3[RtP]
-  
-  treepcomp_df["T_RtConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_RtConc"]] <- tree_df[["T_ConcRT_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_RtConc"]] <- tree_df[["T_ConcRT_P"]]
-  
-  # T_WoodConc[DW,Sp1] = 0*(T_Par1[WoodN]+T_Par2[WoodN]+T_Par3[WoodN])+1
-  # T_WoodConc[DW,Sp2] = 0*(T_Par1[WoodN]+T_Par2[WoodN]+T_Par3[WoodN])+1
-  # T_WoodConc[DW,Sp3] = 0*(T_Par1[WoodN]+T_Par2[WoodN]+T_Par3[WoodN])+1
-  # T_WoodConc[N,Sp1] = T_Par1[WoodN]+0*T_Par2[WoodN]+0*T_Par3[WoodN]
-  # T_WoodConc[N,Sp2] = 0*T_Par1[WoodN]+T_Par2[WoodN]+0*T_Par3[WoodN]
-  # T_WoodConc[N,Sp3] = 0*T_Par1[WoodN]+0*T_Par2[WoodN]+T_Par3[WoodN]
-  # T_WoodConc[P,Sp1] = T_Par1[WoodP]+0*T_Par2[WoodP]+0*T_Par3[WoodP]
-  # T_WoodConc[P,Sp2] = 0*T_Par1[WoodP]+T_Par2[WoodP]+0*T_Par3[WoodP]
-  # T_WoodConc[P,Sp3] = 0*T_Par1[WoodP]+0*T_Par2[WoodP]+T_Par3[WoodP]
-  
-  treepcomp_df["T_WoodConc"] <- 1
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "N", ][["T_WoodConc"]] <- tree_df[["T_ConcWood_N"]]
-  treepcomp_df[treepcomp_df[["PlantComp"]] == "P", ][["T_WoodConc"]] <- tree_df[["T_ConcWood_P"]]
-  
   
   # TW_DryFactRangeInit[BufValues] = CW_DryFactRangeInit[BufValues]
   buf_df["TW_DryFactRangeInit"] <- buf_df[["CW_DryFactRangeInit"]]
-  
   treebuf_df["TW_DryFactRangeInit"] <- rep(buf_df[["TW_DryFactRangeInit"]], each = ntree)
   treebuf_df["TW_DemActSubtract"] <- rep(buf_df[["TW_DemActSubtract"]], each = ntree)
   
-  
-  layer_df[names(soil_df)] <- soil_df
   layer_df["S_KsatInitV"] <- layer_df[["S_KsatInitV"]] * 10
   layer_df["S_KsatDefV"] <- layer_df[["S_KsatDefV"]] * 10
   
@@ -281,24 +169,14 @@ run_wanulcas <- function(n_iteration,
   
   zone_df["CW_DryFactRangePower"] <- CW_DryFactRangePowerStart
   
-  irrigation_df = data.frame(day = c(1:365), irrigation = rep(0, 365))
-  
-  calendar_df <- data.frame(month = c(1:12))
-  calendar_df["EVAP_MonthlyMean_DayLength"] <- c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12)
-  calendar_df["RAIN_Numberof_DaysperMonth"] <- days_in_month(calendar_df[["month"]])
-  calendar_df["cumsum_days"] <- cumsum(calendar_df[["RAIN_Numberof_DaysperMonth"]])
-  calendar_df["EVAP_MonthlyMean_AirTemp"] <- c(25.8, 26.3, 26.9, 27.5, 27.6, 27.1, 26.7, 27, 27.6, 27.4, 26, 26.4)
+  calender_df["cumsum_days"] <- cumsum(calender_df[["RAIN_Numberof_DaysperMonth"]])
   
   # INIT RAIN_WeightTot = RAIN_Weight[Zn1]*AF_ZoneFrac[Zn1]+RAIN_Weight[Zn2]*AF_ZoneFrac[Zn2]+RAIN_Weight[Zn3]*AF_ZoneFrac[Zn3]+RAIN_Weight[Zn4]*AF_ZoneFrac[Zn4]
   RAIN_WeightTot <- sum(zone_df[["RAIN_Weight"]] * zone_df[["AF_ZoneFrac"]])
   zone_df["RAIN_WeightAct"] <- zone_df[["RAIN_Weight"]] / RAIN_WeightTot
   
-  #TODO: this was double declaration.. to be fixed
-  RAIN_pars <- get_rain_pars()
-  set.seed(RAIN_pars[["RAIN_par"]][["RAIN_GenSeed"]])
-  
-  
-  
+  set.seed(RAIN_GenSeed)
+
   #TODO: validate parameter here
   zonelayer_df[["AF_ZoneFrac"]] <- rep(zone_df[["AF_ZoneFrac"]], nlayer)
   
@@ -335,7 +213,6 @@ run_wanulcas <- function(n_iteration,
   
   # AF_DepthSlope1[Zn1] = if AF_DepthDynamic? = 0 then AF_DepthLay1 else
   #   (AF_DepthLay1/COS(ARCTAN(AF_SlopeSoilHoriz/100))+(0.5-AF_ZoneFrac[Zn1]/2)*(TAN(ARCTAN(AF_SlopeSoilHoriz/100))-TAN(ARCTAN(AF_SlopeCurr[Zn1]/100))))
-  
   # AF_DepthSlope1[Zn1] = if AF_DepthDynamic? = 0 then AF_DepthLay1 else (AF_DepthLay1/COS(ARCTAN(AF_SlopeSoilHoriz/100))+(0.5-AF_ZoneFrac[Zn1]/2)*(TAN(ARCTAN(AF_SlopeSoilHoriz/100))-TAN(ARCTAN(AF_SlopeCurr[Zn1]/100))))
   # AF_DepthSlope1[Zn2] = if AF_DepthDynamic? = 0 then AF_DepthLay1 else mAX((AF_DepthLay1/COS(ARCTAN(AF_SlopeSoilHoriz/100))+(0.5-AF_ZoneFrac[Zn1]-AF_ZoneFrac[Zn2]/2)*(TAN(ARCTAN(AF_SlopeSoilHoriz/100))-TAN(ARCTAN(AF_SlopeCurr[Zn2]/100)))),0.0001)
   # AF_DepthSlope1[Zn3] = if AF_DepthDynamic? = 0 then AF_DepthLay1 else max((AF_DepthLay1/COS(ARCTAN(AF_SlopeSoilHoriz/100))+(0.5-AF_ZoneFrac[Zn1]-AF_ZoneFrac[Zn2]-AF_ZoneFrac[Zn3]/2)*(TAN(ARCTAN(AF_SlopeSoilHoriz/100))-TAN(ARCTAN(AF_SlopeCurr[Zn3]/100)))),0.0001)
@@ -364,7 +241,7 @@ run_wanulcas <- function(n_iteration,
   
   #NOTE: Layer 1 AF_Depth is equal to AF_DepthAct1, the original ia copied to AF_Depth_original
   zonelayer_df["AF_Depth_original"] <- zonelayer_df[["AF_Depth"]]
-  zonelayer_df[layer_df[["layer"]] == 1, ][["AF_Depth"]] <- zone_df[["AF_DepthAct1"]]
+  zonelayer_df[zonelayer_df[["layer"]] == 1, "AF_Depth"] <- zone_df[["AF_DepthAct1"]]
   
   # AF_Depths[1] = AF_DepthAct1[Zn1]+0*(AF_Depth2[Zn1]+AF_Depth3[Zn1]+AF_Depth4[Zn1])
   # AF_Depths[2] = AF_Depth2[Zn1]+  +0*(AF_DepthAct1[Zn1]+AF_Depth3[Zn1]+AF_Depth4[Zn1])
@@ -399,29 +276,16 @@ run_wanulcas <- function(n_iteration,
                                                                             log10(zone_df[["S_RelSurfInfiltrInit"]])
                                                                         )))) / (2 * (-0.52))
   
-  # TODO: is this dynamic variable?
   # INIT S_BDActOverBDRefKsatV1[Zone] = (0.69-SQRT(-0.69^2-4*-0.52*(1.21-(LOG10(S_KsatInitV1[Zone]/S_KsatDefV1[Zone])))))/(2*-0.52)
-  zonelayer_df["S_BDActOverBDRefKsatV"] <- (0.69 - sqrt(-0.69^2 - 4 * -0.52 * (1.21 -
-                                                                                 (
-                                                                                   log10(zonelayer_df[["S_KsatInitV"]] / zonelayer_df[["S_KsatDefV"]])
-                                                                                 )))) / (2 * -0.52)
-  
-  # S_KsatV1Act[Zone] = S_KsatDefV1[Zone]*10^((-0.52*(S_BDActOverBDRefKsatV1[Zone]^2)-0.69*S_BDActOverBDRefKsatV1[Zone]+1.21))
-  zonelayer_df["S_KsatVAct"] <- zonelayer_df[["S_KsatDefV"]] * 10^((-0.52 * (zonelayer_df[["S_BDActOverBDRefKsatV"]]^2) - 0.69 * zonelayer_df[["S_BDActOverBDRefKsatV"]] +
-                                                                      1.21))
-  
-  # W_KSatH1[Zone] = S_KsatV1Act[Zone]*S_KSatHperV1[Zone]
-  # W_KSatH2[Zone] = S_KsatV2Act[Zone]*S_KsatHperV2[Zone]
-  # W_KSatH3[Zone] = S_KsatV3Act[Zone]*S_KsatHperV3[Zone]
-  # W_KSatH4[Zone] = S_KsatV4Act[Zone]*S_KsatHperV4[Zone]
-  zonelayer_df["W_KSatH"] <- zonelayer_df[["S_KsatVAct"]] * zonelayer_df[["S_KSatHperV"]]
+  zonelayer_df["S_BDActOverBDRefKsatV"] <- (0.69 - sqrt((-0.69)^2 - 4 * (-0.52) * (1.21 - log10(zonelayer_df[["S_KsatInitV"]] / zonelayer_df[["S_KsatDefV"]]) ))) / (2 * -0.52)
   
   # S_RelBD[Zn1,1] = S_BDActOverBDRefKsatV1[Zn1]+0*(S_BDActOverBDRefKsatV1[Zn1]+S_BDActOverBDRefKsatV2[Zn1]+S_BDActOverBDRefKsatV3[Zn1]+S_BDActOverBDRefKsatV4[Zn1])
   zonelayer_df["S_RelBD"] <- zonelayer_df[["S_BDActOverBDRefKsatV"]]
   
-  zonelayer_df["W_BDLayer"] <- rep(layer_df[["W_BDLayer"]], each = nzone)
   # W_PoreVol[Zone,SoilLayer] = (1-W_BDLayer[SoilLayer]*S_RelBD[Zone,SoilLayer]/2.5)
+  zonelayer_df["W_BDLayer"] <- rep(layer_df[["W_BDLayer"]], each = nzone)
   zonelayer_df["W_PoreVol"] <- (1 - zonelayer_df[["W_BDLayer"]] * zonelayer_df[["S_RelBD"]] / 2.5)
+  
   # W_ThetaI1[Zone] = W_ThetaInit1[Zone]*W_PoreVol[Zone,1]
   zonelayer_df["W_ThetaI"] <- zonelayer_df[["W_ThetaInit"]] * zonelayer_df[["W_PoreVol"]]
   
@@ -433,6 +297,7 @@ run_wanulcas <- function(n_iteration,
   # INIT AF_HGW2[Zone] = (.5*AF_Depth2[Zone]+AF_Depth3[Zone]+AF_Depth4[Zone] + AF_DepthGroundWater_Table  )*100
   # INIT AF_HGW3[Zone] = (.5*AF_Depth3[Zone]+AF_Depth4[Zone] + AF_DepthGroundWater_Table  )*100
   # INIT AF_HGW4[Zone] = (.5*AF_Depth4[Zone] + AF_DepthGroundWater_Table  )*100
+  # AF_HGW1[Zone](t) = AF_HGW1[Zone](t - dt)
   l1 <- zonelayer_df[zonelayer_df[["layer"]] == 1, c("AF_Depth_original", "AF_Depth")]
   l2_AF_Depth <- zonelayer_df[zonelayer_df[["layer"]] == 2, "AF_Depth"]
   l3_AF_Depth <- zonelayer_df[zonelayer_df[["layer"]] == 3, "AF_Depth"]
@@ -446,25 +311,14 @@ run_wanulcas <- function(n_iteration,
                                                              l4_AF_Depth +  AF_DepthGroundWater_Table) * 100
   zonelayer_df[zonelayer_df[["layer"]] == 4, "AF_HGW"] <- (0.5 * l4_AF_Depth +  AF_DepthGroundWater_Table) * 100
   
-  
   AF_HGW <- zonelayer_df[zonelayer_df[["zone"]] == 1, "AF_HGW"]
-  layer_W_ThetaP <- graph_fun[["W_ThetaP"]](-AF_HGW)
+  layer_W_ThetaP <- get_y(-AF_HGW, "W_ThetaP", mode = "pair")
   zonelayer_df["W_ThetaP"] <- rep(layer_W_ThetaP, each = nzone)
   
-  # LF_V1MaxDailyFlow[Zone] = (AF_DepthAct1[Zone]*S_KsatV1Act[Zone]+AF_Depth2[Zone]*S_KsatV2Act[Zone])/(AF_DepthAct1[Zone]+AF_Depth2[Zone])
-  # LF_V2MaxDailyFlow[Zone] = (AF_Depth2[Zone]*S_KsatV2Act[Zone]+AF_Depth3[Zone]*S_KsatV3Act[Zone])/(AF_Depth2[Zone]+AF_Depth3[Zone])
-  # LF_V3MaxDailyFlow[Zone] = (AF_Depth3[Zone]*S_KsatV3Act[Zone]+AF_Depth4[Zone]*S_KsatV4Act[Zone])/(AF_Depth3[Zone]+AF_Depth4[Zone])
-  # LF_V4MaxDailyFlow[Zone] = (AF_Depth4[Zone]*S_KsatV4Act[Zone]+AF_DeepSubSoil*S_KsatVDeepSub)/(AF_Depth4[Zone]+AF_DeepSubSoil)
-  zonelayer_df["AF_Depth_down"] <- c(zonelayer_df[zonelayer_df[["layer"]] %in% c(2:4), ][["AF_Depth"]], rep(AF_DeepSubSoil, nzone))
-  zonelayer_df["S_KsatVAct_down"] <- c(zonelayer_df[zonelayer_df[["layer"]] %in% c(2:4), ][["S_KsatVAct"]], rep(S_KsatVDeepSub, nzone))
-  
-  zonelayer_df["LF_VMaxDailyFlow"] <-  (zonelayer_df[["AF_Depth"]] * zonelayer_df[["S_KsatVAct"]]  + zonelayer_df[["AF_Depth_down"]] * zonelayer_df[["S_KsatVAct_down"]]) / (zonelayer_df[["AF_Depth"]] + zonelayer_df[["AF_Depth_down"]])
-  
+  # INIT MN_Struc[Zone,SlNut] = MN_InitStruc[Zone]/MN_NutRatStruc[SlNut]*AF_DepthAct1[Zone]*1000
   zonenut_df["MN_NutRatStruc"] <- rep(nut_df[["MN_NutRatStruc"]], each = nzone)
   zonenut_df["MN_InitStruc"] <- rep(zone_df[["MN_InitStruc"]], nnut)
   zonenut_df["AF_Depth1"] <- rep(zonelayer_df[zonelayer_df[["layer"]] == 1, ][["AF_Depth"]], nnut)
-  
-  # INIT MN_Struc[Zone,SlNut] = MN_InitStruc[Zone]/MN_NutRatStruc[SlNut]*AF_DepthAct1[Zone]*1000
   zonenut_df["MN_Struc"] <- zonenut_df[["MN_InitStruc"]] / zonenut_df[["MN_NutRatStruc"]] * zonenut_df[["AF_Depth1"]] *
     1000
   
@@ -489,7 +343,6 @@ run_wanulcas <- function(n_iteration,
   
   # INIT MC_Act[Zone] = MN_Act[Zone,N]*MN_CNAct
   zone_df["MC_Act"] <- zonenut_df[zonenut_df[["SlNut"]] == "N", ][["MN_Act"]] * MN_CNAct
-  
   
   # INIT MN_Slw[Zone,SlNut] = MN_InitSlw[Zone]/MN_NutRatSlw[SlNut]*AF_DepthAct1[Zone]*1000
   zonenut_df["MN_InitSlw"] <- rep(zone_df[["MN_InitSlw"]], nnut)
@@ -540,7 +393,6 @@ run_wanulcas <- function(n_iteration,
   MC2_CorgInit <- ifelse(MC2_SomInitType == 2,
                          MC2_CorgpCref * MC2_CrefMeth2,
                          MC2_CorgInitMeth3)
-  
   
   # INIT MC2_Metab[Zone,SoilLayer] = if MC2_SomInitType = 1 then (MN2_InitMetab[Zone]*1000*MC2_RelImpDeno[Zone]/(MC2_SOMDist[1]))*MC2_CNRatInitMet[Zone] else 0.01 * 10000*MC2_CorgInit*MC2_RelImpDeno[Zone]/MC2_SOMDist[1]
   zonelayer_df["MN2_InitMetab"] <- rep(zone_df[["MN2_InitMetab"]], nlayer)
@@ -601,7 +453,6 @@ run_wanulcas <- function(n_iteration,
   zone_df["MN2_DeltaPassSum"] <- aggregate(zonelayer_df["MN2_PassCorrectedLayer"], zonelayer_df["zone"], sum)[["MN2_PassCorrectedLayer"]] -
     aggregate(zonelayer_df["MN2_PassInitLayer"], zonelayer_df["zone"], sum)[["MN2_PassInitLayer"]]
   
-  
   # MN2_ActCorrectedInit[Zone] = if MN2_ActInitF[Zone] and MN2_SlwInitF[Zone] > 0 then MN2_ActInitF[Zone]-(MN2_DeltaPassSum[Zone]*MN2_ActInitF[Zone]/(MN2_ActInitF[Zone]+MN2_SlwInitF[Zone])) else 0
   zone_df["MN2_ActCorrectedInit"] <- ifelse(zone_df[["MN2_ActInitF"]] &
                                               zone_df[["MN2_SlwInitF"]] > 0, zone_df[["MN2_ActInitF"]] - (zone_df[["MN2_DeltaPassSum"]] * zone_df[["MN2_ActInitF"]] / (zone_df[["MN2_ActInitF"]] + zone_df[["MN2_SlwInitF"]])), 0)
@@ -652,128 +503,8 @@ run_wanulcas <- function(n_iteration,
     MC2_SomInitType == 1,
     zonelayer_df[["MN2_PassCorrectedSumInit"]] * MN_CNPass,
     (1 - 0.05 - MC2_CSlowFrac) * 10000 * MC2_CorgInit *
-      MC2_RelImpDeno[Zone] / layer_df[["MC2_SOMDist"]][1]
+      zonelayer_df[["MC2_RelImpDeno"]] / layer_df[["MC2_SOMDist"]][1]
   )
-  
-  # N_Unit[L1Zn1] = 1
-  # N_Unit[L1Zn2] = 2
-  # N_Unit[L1Zn3] = 3
-  # N_Unit[L1Zn4] = 4
-  # N_Unit[L2Zn1] = 5
-  # N_Unit[L2Zn2] = 6
-  # N_Unit[L2Zn3] = 7
-  # N_Unit[L2Zn4] = 8
-  # N_Unit[L3Zn1] = 9
-  # N_Unit[L3Zn2] = 10
-  # N_Unit[L3Zn3] = 11
-  # N_Unit[L3Zn4] = 12
-  # N_Unit[L4Zn1] = 13
-  # N_Unit[L4Zn2] = 14
-  # N_Unit[L4Zn3] = 15
-  # N_Unit[L4Zn4] = 16
-  zonelayer_df["N_Unit"] <- c(1:16)
-  
-  # N_Init[Init_N] = GRAPH(N_Unit[Init_N])
-  # (1.00, 0.06), (2.00, 0.06), (3.00, 0.06), (4.00, 0.06), (5.00, 0.08), (6.00, 0.08), (7.00, 0.08), (8.00, 0.08), (9.00, 0.08), (10.0, 0.08), (11.0, 0.08), (12.0, 0.08), (13.0, 0.08), (14.0, 0.08), (15.0, 0.08), (16.0, 0.08)
-  N_Init_df <- data.frame(
-    N_Unit = c(1:16),
-    N_Init = c(
-      0.06,
-      0.06,
-      0.06,
-      0.06,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08,
-      0.08
-    )
-  )
-  
-  # N_NInit1[Zn1] = N_Init[L1Zn1]
-  # N_NInit1[Zn2] = N_Init[L1Zn2]
-  # N_NInit1[Zn3] = N_Init[L1Zn3]
-  # N_NInit1[Zn4] = N_Init[L1Zn4]
-  # N_Ninit2[Zn1] = N_Init[L2Zn1]
-  # N_Ninit2[Zn2] = N_Init[L2Zn2]
-  # N_Ninit2[Zn3] = N_Init[L2Zn3]
-  # N_Ninit2[Zn4] = N_Init[L2Zn4]
-  # N_NInit3[Zn1] = N_Init[L3Zn1]
-  # N_NInit3[Zn2] = N_Init[L3Zn2]
-  # N_NInit3[Zn3] = N_Init[L3Zn3]
-  # N_NInit3[Zn4] = N_Init[L3Zn4]
-  # N_NInit4[Zn1] = N_Init[L4Zn1]
-  # N_NInit4[Zn2] = N_Init[L4Zn2]
-  # N_NInit4[Zn3] = N_Init[L4Zn3]
-  # N_NInit4[Zn4] = N_Init[L4Zn4]
-  zonelayer_df["N_NInit"] <- N_Init_df[["N_Init"]]
-  
-  # N_PStParam[P_Param] = GRAPH(N_One[P_Param])
-  # (1.00, 0.234), (2.00, 0.243), (3.00, 0.238), (4.00, 0.238), (5.00, 0.234), (6.00, 0.243), (7.00, 0.238), (8.00, 0.238), (9.00, 0.234), (10.0, 0.243), (11.0, 0.238), (12.0, 0.238), (13.0, 0.234), (14.0, 0.243), (15.0, 0.238), (16.0, 0.238), (17.0, 0.0005), (18.0, 0.0005), (19.0, 0.0005), (20.0, 0.0005), (21.0, 8.39), (22.0, 8.39), (23.0, 8.39), (24.0, 8.39)
-  
-  # N_PStParam_df <- data.frame(
-  #   N_One = c(1:24),
-  #   N_PStParam = c(0.234,0.243,0.238,0.238,0.234,0.243,0.238,0.238,0.234,0.243,0.238,0.238,0.234,0.243,0.238,0.238,5e-04,5e-04,5e-04,5e-04,8.39,8.39,8.39,8.39)
-  # )
-  
-  N_PStParam_list <- as.list(
-    c(
-      0.234,
-      0.243,
-      0.238,
-      0.238,
-      0.234,
-      0.243,
-      0.238,
-      0.238,
-      0.234,
-      0.243,
-      0.238,
-      0.238,
-      0.234,
-      0.243,
-      0.238,
-      0.238,
-      5e-04,
-      5e-04,
-      5e-04,
-      5e-04,
-      8.39,
-      8.39,
-      8.39,
-      8.39
-    )
-  )
-  names(N_PStParam_list) <- Pinit_params
-  
-  zonelayer_df["N_PStParam"] <- unlist(N_PStParam_list[c(
-    "Pinit11",
-    "Pinit21",
-    "Pinit31",
-    "Pinit41",
-    "Pinit12",
-    "Pinit22",
-    "Pinit32",
-    "Pinit42",
-    "Pinit13",
-    "Pinit23",
-    "Pinit33",
-    "Pinit43",
-    "Pinit14",
-    "Pinit24",
-    "Pinit34",
-    "Pinit44"
-  )])
-  layer_df["PStMin"] <- unlist(N_PStParam_list[c("PStMin_1", "PStMin_2", "PStMin_3", "PStMin_4")])
-  layer_df["PStMax"] <- unlist(N_PStParam_list[c("PStMax1", "PStMax2", "PStMax3", "PStMax4")])
-  
   
   # N_Init1[Zn1,N] = N_NInit1[Zn1] + 0*N_PStParam[Pinit14]
   # N_Init1[Zn1,P] = 0*N_NInit1[Zn1]+N_PStParam[Pinit11]
@@ -808,7 +539,7 @@ run_wanulcas <- function(n_iteration,
   # N_Init4[Zn4,N] = N_NInit4[Zn4]+0*N_PStParam[Pinit41]
   # N_Init4[Zn4,P] = N_PStParam[Pinit44]+0*N_NInit4[Zn1]
   zonelayernut_df["N_Init"] <- NA
-  zonelayernut_df[zonelayernut_df[["SlNut"]] == "N", "N_Init"] <- zonelayer_df[["N_NInit"]]
+  zonelayernut_df[zonelayernut_df[["SlNut"]] == "N", "N_Init"] <- zonelayer_df[["N_Init"]]
   zonelayernut_df[zonelayernut_df[["SlNut"]] == "P", "N_Init"] <- zonelayer_df[["N_PStParam"]]
   
   # INIT N_Stock1[Zone,SlNut] = N_Init1[Zone,SlNut]*AF_DepthAct1[Zone]*1000
@@ -818,7 +549,6 @@ run_wanulcas <- function(n_iteration,
   zonelayernut_df["AF_Depth"] <- rep(zonelayer_df[["AF_Depth"]], nnut)
   zonelayernut_df["N_Stock"] <- zonelayernut_df[["N_Init"]] * zonelayernut_df[["AF_Depth"]] *
     1000
-  
   zonelayernut_df[zonelayernut_df[["layer"]] %in% c(2, 3), "N_Stock"] <- pmax(0, zonelayernut_df[zonelayernut_df[["layer"]] %in% c(2, 3), "N_Stock"])
   
   # INIT S&B_Topsoil_pH[Zone] = S&B_InitialpH
@@ -834,14 +564,12 @@ run_wanulcas <- function(n_iteration,
   zonelayer_df["AF_Depth_Frac"] <- zonelayer_df[["AF_ZoneFrac"]] * zonelayer_df[["AF_Depth"]]
   layer_df["AF_DepthAvg"] <- aggregate(zonelayer_df["AF_Depth_Frac"], zonelayer_df["layer"], sum)[["AF_Depth_Frac"]]
   
-  
   # INIT C_WeedSeedBank[Zone,PlantComp] = if AF_SimulateWeeds? = 1 then C_WeedSeedBankInit*C_UnitConv[PlantComp]*C_SeedConc[PlantComp] else 0
   zonepcomp_df["C_UnitConv"] <- rep(pcomp_df[["C_UnitConv"]], each = nzone)
   zonepcomp_df["C_SeedConc"] <- rep(pcomp_df[["C_SeedConc"]], each = nzone)
   zonepcomp_df["C_WeedSeedBank"] <- ifelse(AF_SimulateWeeds_is == 1,
                                            C_WeedSeedBankInit * zonepcomp_df[["C_UnitConv"]] * zonepcomp_df[["C_SeedConc"]],
                                            0)
-  
   
   # MC_ActResp = 0.85 - 0.68*MC_TextLitLayer
   MC_ActResp <- 0.85 - 0.68 * MC_TextLitLayer
@@ -1024,10 +752,8 @@ run_wanulcas <- function(n_iteration,
   nut_df[nut_df[["SlNut"]] == "P", ][["CENT2_SOMMetStrInit"]] <- nut_df[nut_df[["SlNut"]] == "N", ][["CENT2_SOMMetStrInit"]] /
     10
   
-  
   # INIT CENT2_SOMPoolsInit[N] = ((MN2_Act[Zn1,1]+MN2_Slw[Zn1,1]+MN2_Pass[Zn1,1] +MN2_Act[Zn1,2]+MN2_Slw[Zn1,2]+MN2_Pass[Zn1,2] +MN2_Act[Zn1,3]+MN2_Slw[Zn1,3]+MN2_Pass[Zn1,3] +MN2_Act[Zn1,4]+MN2_Slw[Zn1,4]+MN2_Pass[Zn1,4])*AF_ZoneFrac[Zn1]+(MN2_Act[Zn2,1]+MN2_Slw[Zn2,1]+MN2_Pass[Zn2,1] + MN2_Act[Zn2,2]+MN2_Slw[Zn2,2]+MN2_Pass[Zn2,2] + MN2_Act[Zn2,3]+MN2_Slw[Zn2,3]+MN2_Pass[Zn2,3] + MN2_Act[Zn2,4]+MN2_Slw[Zn2,4]+MN2_Pass[Zn2,4])*AF_ZoneFrac[Zn2]+(MN2_Act[Zn3,1]+MN2_Slw[Zn3,1]+MN2_Pass[Zn3,1] + MN2_Act[Zn3,2]+MN2_Slw[Zn3,2]+MN2_Pass[Zn3,2] + MN2_Act[Zn3,3]+MN2_Slw[Zn3,3]+MN2_Pass[Zn3,3] + MN2_Act[Zn3,4]+MN2_Slw[Zn3,4]+MN2_Pass[Zn3,4])*AF_ZoneFrac[Zn3]+(MN2_Act[Zn4,1]+MN2_Slw[Zn4,1]+MN2_Pass[Zn4,1] + MN2_Act[Zn4,2]+MN2_Slw[Zn4,2]+MN2_Pass[Zn4,2] + MN2_Act[Zn4,3]+MN2_Slw[Zn4,3]+MN2_Pass[Zn4,3]+ MN2_Act[Zn4,4]+MN2_Slw[Zn4,4]+MN2_Pass[Zn4,4])*AF_ZoneFrac[Zn4])
   # INIT CENT2_SOMPoolsInit[P] = ((MN2_Act[Zn1,1]+MN2_Slw[Zn1,1]+MN2_Pass[Zn1,1] +MN2_Act[Zn1,2]+MN2_Slw[Zn1,2]+MN2_Pass[Zn1,2] +MN2_Act[Zn1,3]+MN2_Slw[Zn1,3]+MN2_Pass[Zn1,3] +MN2_Act[Zn1,4]+MN2_Slw[Zn1,4]+MN2_Pass[Zn1,4])*AF_ZoneFrac[Zn1]+(MN2_Act[Zn2,1]+MN2_Slw[Zn2,1]+MN2_Pass[Zn2,1] + MN2_Act[Zn2,2]+MN2_Slw[Zn2,2]+MN2_Pass[Zn2,2] + MN2_Act[Zn2,3]+MN2_Slw[Zn2,3]+MN2_Pass[Zn2,3] + MN2_Act[Zn2,4]+MN2_Slw[Zn2,4]+MN2_Pass[Zn2,4])*AF_ZoneFrac[Zn2]+(MN2_Act[Zn3,1]+MN2_Slw[Zn3,1]+MN2_Pass[Zn3,1] + MN2_Act[Zn3,2]+MN2_Slw[Zn3,2]+MN2_Pass[Zn3,2] + MN2_Act[Zn3,3]+MN2_Slw[Zn3,3]+MN2_Pass[Zn3,3] + MN2_Act[Zn3,4]+MN2_Slw[Zn3,4]+MN2_Pass[Zn3,4])*AF_ZoneFrac[Zn3]+(MN2_Act[Zn4,1]+MN2_Slw[Zn4,1]+MN2_Pass[Zn4,1] + MN2_Act[Zn4,2]+MN2_Slw[Zn4,2]+MN2_Pass[Zn4,2] + MN2_Act[Zn4,3]+MN2_Slw[Zn4,3]+MN2_Pass[Zn4,3]+ MN2_Act[Zn4,4]+MN2_Slw[Zn4,4]+MN2_Pass[Zn4,4])*AF_ZoneFrac[Zn4])/10
-  
   nut_df["CENT2_SOMPoolsInit"] <- sum(
     zone_df[["AF_ZoneFrac"]] * aggregate(
       zonelayer_df[["MN2_Act"]] + zonelayer_df[["MN2_Slw"]] + zonelayer_df[["MN2_Pass"]],
@@ -1116,129 +842,13 @@ run_wanulcas <- function(n_iteration,
   # INIT P_NPV[PriceType] = P_Initial_NPV
   price_df["P_NPV"] <- price_df[["P_Initial_NPV"]]
   
-  PFAll <- as.list(get_y(1:length(PF_UnitAll), "PFAll"))
-  names(PFAll) <- PF_UnitAll
-  
-  # P_PriceFert[N,Private] = P_ParamAll[FertNP]
-  # P_PriceFert[N,Social] = P_ParamAll[FertNS]
-  # P_PriceFert[P,Private] = P_ParamAll[FertPP]
-  # P_PriceFert[P,Social] = P_ParamAll[FertPS
-  nutprice_df["P_PriceFert"] <- c(PFAll[["FertNP"]], PFAll[["FertPP"]], PFAll[["FertNS"]], PFAll[["FertPS"]])
-  
-  # P_CPestContPrice[Private] = P_ParamAll[PestP]
-  # P_CPestContPrice[Social] = P_ParamAll[PestS]
-  price_df["P_CPestContPrice"] <- c(PFAll[["PestP"]], PFAll[["PestS"]])
-  
-  # PF_UnitCrop_df <- as.data.frame(t(matrix(
-  #   get_y(1:length(PF_UnitCrop), "PFCrop"), nrow = length(PF_UnitCrop)
-  # )))
-  
-  PF_UnitCrop_df <- as.data.frame(t(wgraph[["PFCrop"]][, -1]))
-  names(PF_UnitCrop_df) <- PF_UnitCrop
-  PF_UnitCrop_df["crop_id"] <- c(1:5)
-  
-  # PF_UnitTree_df <- as.data.frame(t(matrix(
-  #   get_y(1:length(PF_UnitTree), "PFTree"), nrow = length(PF_UnitTree)
-  # )))
-  
-  PF_UnitTree_df <- as.data.frame(t(wgraph[["PFTree"]][, -1]))
-  names(PF_UnitTree_df) <- PF_UnitTree
-  PF_UnitTree_df["tree_id"] <- 1:3
-  
-  
-  # P_UnitLabCost[Private] = P_ParamAll[UnitLabP]
-  # P_UnitLabCost[Social] = P_ParamAll[LabUnitS]
-  price_df["P_UnitLabCost"] <- c(PFAll[["UnitLabP"]], PFAll[["LabUnitS"]])
-  
   P_2DayAfterCropharv <- P_CropHarvMarker
   
-  # P_TPlantLab[Sp1] = P_ParamT1[Plantlab]+0*P_ParamT2[Plantlab]+0*P_ParamT3[Plantlab]
-  # P_TPlantLab[Sp2] = 0*P_ParamT1[Plantlab]+P_ParamT2[Plantlab]+0*P_ParamT3[Plantlab]
-  # P_TPlantLab[Sp3] = 0*P_ParamT1[Plantlab]+0*P_ParamT2[Plantlab]+P_ParamT3[Plantlab]
-  tree_df["P_TPlantLab"] <- PF_UnitTree_df[["Plantlab"]]
-  
-  # P_TPrunLab[Sp1] = P_ParamT1[PrunLab]+0*P_ParamT2[PrunLab]+0*P_ParamT3[PrunLab]
-  # P_TPrunLab[Sp2] = 0*P_ParamT1[PrunLab]+P_ParamT2[PrunLab]+0*P_ParamT3[PrunLab]
-  # P_TPrunLab[Sp3] = 0*P_ParamT1[PrunLab]+0*P_ParamT2[PrunLab]+P_ParamT3[PrunLab]
-  tree_df["P_TPrunLab"] <- PF_UnitTree_df[["PrunLab"]]
-  
-  # P_TWoodHarvLab[Sp1] = P_ParamT1[Woodlab]+0*P_ParamT2[Woodlab]+0*P_ParamT3[Woodlab]
-  # P_TWoodHarvLab[Sp2] = 0*P_ParamT1[Woodlab]+P_ParamT2[Woodlab]+0*P_ParamT3[Woodlab]
-  # P_TWoodHarvLab[Sp3] = 0*P_ParamT1[Woodlab]+0*P_ParamT2[Woodlab]+P_ParamT3[Woodlab]
-  tree_df["P_TWoodHarvLab"] <- PF_UnitTree_df[["Woodlab"]]
-  
-  # P_TFruitHarvLab[Sp1] = P_ParamT1[FruitLab]+0*P_ParamT2[FruitLab]+0*P_ParamT3[FruitLab]
-  # P_TFruitHarvLab[Sp2] = 0*P_ParamT1[FruitLab]+P_ParamT2[FruitLab]+0*P_ParamT3[FruitLab]
-  # P_TFruitHarvLab[Sp3] = 0*P_ParamT1[FruitLab]+0*P_ParamT2[FruitLab]+P_ParamT3[FruitLab]
-  tree_df["P_TFruitHarvLab"] <- PF_UnitTree_df[["FruitLab"]]
-  
-  # P_BurnLab = P_ParamAll[BurnLab]
-  P_BurnLab <- PFAll[["BurnLab"]]
-  
-  # P_TLatexHarvLab[Sp1] = P_ParamT1[LatexLab]+0*P_ParamT2[LatexLab]+0*P_ParamT3[LatexLab]
-  # P_TLatexHarvLab[Sp2] = 0*P_ParamT1[LatexLab]+P_ParamT2[LatexLab]+0*P_ParamT3[LatexLab]
-  # P_TLatexHarvLab[Sp3] = 0*P_ParamT1[LatexLab]+0*P_ParamT2[LatexLab]+P_ParamT3[LatexLab]
-  tree_df["P_TLatexHarvLab"] <- PF_UnitTree_df[["LatexLab"]]
-  
-  # P_TFertLab[Sp1] = P_ParamT1[FertLab]+0*(P_ParamT2[FertLab]+P_ParamT3[FertLab])
-  # P_TFertLab[Sp2] = P_ParamT2[FertLab]+0*(P_ParamT1[FertLab]+P_ParamT3[FertLab])
-  # P_TFertLab[Sp3] = P_ParamT3[FertLab]+0*(P_ParamT2[FertLab]+P_ParamT1[FertLab])
-  tree_df["P_TFertLab"] <- PF_UnitTree_df[["FertLab"]]
-  
-  # P_DiscountRate = P_ParamAll[Discrate]
-  P_DiscountRate <- PFAll[["Discrate"]]
-  
-  # P_FenceMatCost[Private] = P_ParamAll[FenceP]
-  # P_FenceMatCost[Social] = P_ParamAll[FenceS]
-  price_df["P_FenceMatCost"] <- c(PFAll[["FenceP"]], PFAll[["FenceS"]])
-  
-  # P_TFruitPrice[Private,Sp1] = P_ParamT1[FruitP]+0*P_ParamT2[FruitP]+0*P_ParamT3[FruitP]
-  # P_TFruitPrice[Private,Sp2] = 0*P_ParamT1[FruitP]+P_ParamT2[FruitP]+0*P_ParamT3[FruitP]
-  # P_TFruitPrice[Private,Sp3] = 0*P_ParamT1[FruitP]+0*P_ParamT2[FruitP]+P_ParamT3[FruitP]
-  # P_TFruitPrice[Social,Sp1] = P_ParamT1[FruitS]+0*P_ParamT2[FruitS]+0*P_ParamT3[FruitS]
-  # P_TFruitPrice[Social,Sp2] = 0*P_ParamT1[FruitS]+P_ParamT2[FruitS]+0*P_ParamT3[FruitS]
-  # P_TFruitPrice[Social,Sp3] = 0*P_ParamT1[FruitS]+0*P_ParamT2[FruitS]+P_ParamT3[FruitS]
-  treeprice_df["P_TFruitPrice"] <- c(PF_UnitTree_df[["FruitP"]], PF_UnitTree_df[["FruitS"]])
-  
-  # P_TLatexPrice[Private,Sp1] = P_ParamT1[LatexP]+0*P_ParamT2[LatexP]+0*P_ParamT3[LatexP]
-  # P_TLatexPrice[Private,Sp2] = 0*P_ParamT1[LatexP]+P_ParamT2[LatexP]+0*P_ParamT3[LatexP]
-  # P_TLatexPrice[Private,Sp3] = 0*P_ParamT1[LatexP]+0*P_ParamT2[LatexP]+P_ParamT3[LatexP]
-  # P_TLatexPrice[Social,Sp1] = P_ParamT1[LatexS]+0*P_ParamT2[LatexS]+0*P_ParamT3[LatexS]
-  # P_TLatexPrice[Social,Sp2] = 0*P_ParamT1[LatexS]+P_ParamT2[LatexS]+0*P_ParamT3[LatexS]
-  # P_TLatexPrice[Social,Sp3] = 0*P_ParamT1[LatexS]+0*P_ParamT2[LatexS]+P_ParamT3[LatexS]
-  treeprice_df["P_TLatexPrice"] <- c(PF_UnitTree_df[["LatexP"]], PF_UnitTree_df[["LatexS"]])
-  
-  # P_TPrunPrice[Private,Sp1] = P_ParamT1[PrunP]+0*P_ParamT2[PrunP]+0*P_ParamT3[PrunP]
-  # P_TPrunPrice[Private,Sp2] = 0*P_ParamT1[PrunP]+P_ParamT2[PrunP]+0*P_ParamT3[PrunP]
-  # P_TPrunPrice[Private,Sp3] = 0*P_ParamT1[PrunP]+0*P_ParamT2[PrunP]+P_ParamT3[PrunP]
-  # P_TPrunPrice[Social,Sp1] = P_ParamT1[PrunS]+0*P_ParamT2[PrunS]+0*P_ParamT3[PrunS]
-  # P_TPrunPrice[Social,Sp2] = 0*P_ParamT1[PrunS]+P_ParamT2[PrunS]+0*P_ParamT3[PrunS]
-  # P_TPrunPrice[Social,Sp3] = 0*P_ParamT1[PrunS]+0*P_ParamT2[PrunS]+P_ParamT3[PrunS]
-  treeprice_df["P_TPrunPrice"] <- c(PF_UnitTree_df[["PrunP"]], PF_UnitTree_df[["PrunS"]])
-  
-  # P_TWoodPrice[Private,Sp1] = P_ParamT1[WoodP]+0*P_ParamT2[WoodP]+0*P_ParamT3[WoodP]
-  # P_TWoodPrice[Private,Sp2] = 0*P_ParamT1[WoodP]+P_ParamT2[WoodP]+0*P_ParamT3[WoodP]
-  # P_TWoodPrice[Private,Sp3] = 0*P_ParamT1[WoodP]+0*P_ParamT2[WoodP]+P_ParamT3[WoodP]
-  # P_TWoodPrice[Social,Sp1] = P_ParamT1[WoodS]+0*P_ParamT2[WoodS]+0*P_ParamT3[WoodS]
-  # P_TWoodPrice[Social,Sp2] = 0*P_ParamT1[WoodS]+P_ParamT2[WoodS]+0*P_ParamT3[WoodS]
-  # P_TWoodPrice[Social,Sp3] = 0*P_ParamT1[WoodS]+0*P_ParamT2[WoodS]+P_ParamT3[WoodS]
-  treeprice_df["P_TWoodPrice"] <- c(PF_UnitTree_df[["WoodP"]], PF_UnitTree_df[["WoodS"]])
-  
-  # P_TSeedPrice[Private,Sp1] = P_ParamT1[SeedP]+0*P_ParamT2[SeedP]+0*P_ParamT3[SeedP]
-  # P_TSeedPrice[Private,Sp2] = 0*P_ParamT1[SeedP]+P_ParamT2[SeedP]+0*P_ParamT3[SeedP]
-  # P_TSeedPrice[Private,Sp3] = 0*P_ParamT1[SeedP]+0*P_ParamT2[SeedP]+P_ParamT3[SeedP]
-  # P_TSeedPrice[Social,Sp1] = P_ParamT1[SeedS]+0*P_ParamT2[SeedS]+0*P_ParamT3[SeedS]
-  # P_TSeedPrice[Social,Sp2] = 0*P_ParamT1[SeedS]+P_ParamT2[SeedS]+0*P_ParamT3[SeedS]
-  # P_TSeedPrice[Social,Sp3] = 0*P_ParamT1[SeedS]+0*P_ParamT2[SeedS]+P_ParamT3[SeedS]
-  treeprice_df["P_TSeedPrice"] <- c(PF_UnitTree_df[["SeedP"]], PF_UnitTree_df[["SeedS"]])
-  
-  
-  zonetree_df["AF_ZoneTree"] <- rep(zone_df[["AF_ZoneTree"]], ntree)
+  # zonetree_df["AF_ZoneTree"] <- rep(zone_df[["AF_ZoneTree"]], ntree)
   zonetree_df[["AF_ZoneFrac"]] <- rep(zone_df[["AF_ZoneFrac"]], ntree)
-  zonetree_df["T_TreeinZone"] <- rep(zone_df[["T_TreeinZone"]], ntree)
-  zonetree_df["AF_TreePosit"] <- rep(tree_df[["AF_TreePosit"]], each = nzone)
+  # zonetree_df["T_TreeinZone"] <- rep(zone_df[["T_TreeinZone"]], ntree)
+  # zonetree_df["AF_TreePosit"] <- rep(tree_df[["AF_TreePosit"]], each = nzone)
   zonetree_df["T_RelPosinZone"] <- rep(tree_df[["T_RelPosinZone"]], each = nzone)
-  
   
   # INIT T_PrunWeighTot[Tree] = T_PrunWeight[Zn1,Tree]*AF_ZoneFrac[Zn1]+T_PrunWeight[Zn2,Tree]*AF_ZoneFrac[Zn2]+T_PrunWeight[Zn3,Tree]*AF_ZoneFrac[Zn3]+T_PrunWeight[Zn4,Tree]*AF_ZoneFrac[Zn4]
   zonetree_df["T_PrunWeighTot_a"] <- zonetree_df[["T_PrunWeight"]] * zonetree_df[["AF_ZoneFrac"]]
@@ -1261,11 +871,8 @@ run_wanulcas <- function(n_iteration,
                                        (treepcomp_df[treepcomp_df[["PlantComp"]] == "DW", "T_BiomAG"] * 10000 / (tree_df[["T_Treesperha"]] * tree_df[["T_DiamBiom1"]]))^(1 / tree_df[["T_DiamSlopeBiom"]]),
                                        0)
   
-  #TODO: discrete!
-  tree_df["T_PlantY"] <- graph_fun[["T_PlantY"]](tree_df[["T_Compl"]])
-  tree_df["T_PlantDoY"] <- graph_fun[["T_PlantDoY"]](tree_df[["T_Compl"]])
-  
-  CA_DOYStart <- 1
+  tree_df["T_PlantY"] <- get_y(tree_df[["T_Compl"]], "T_PlantY", mode = "pair")
+  tree_df["T_PlantDoY"] <- get_y(tree_df[["T_Compl"]], "T_PlantDoY", mode = "pair")
   
   # T_PlantTime[Tree] = T_PlantDoY[Tree] + 365* (T_PlantY[Tree])-CA_DOYStart
   tree_df["T_PlantTime"] <- tree_df[["T_PlantDoY"]] + 365 * (tree_df[["T_PlantY"]]) -   CA_DOYStart
@@ -1276,32 +883,74 @@ run_wanulcas <- function(n_iteration,
   # INIT TF_LeaffallTime[Tree] = T_PlantTime[Tree]
   tree_df["TF_LeaffallTime"] <- tree_df[["T_PlantTime"]]
   
-  RAIN_Yesterday <- 0
+  RAIN_Yesterday_is <- F
+  RAIN_df <- as.data.frame(wanulcas_params$graphs$RAIN_Data$xy_data$RAIN_Data)
   
   ## LOOP ##########################
-  time <- 1
-  pb <- progress_bar[["new"]](format = "[:bar] :percent [Elapsed: :elapsedfull | Eta: :eta]",
-                              total = n_iteration,
+  time <- 0
+  pb <- progress_bar[["new"]](format = "Running WaNuLCAS [:bar] :percent in :elapsedfull [Eta::eta]",
+                              total = n_iteration+1,
                               clear = F)
-  # complete = "=",   # Completion bar character
-  # incomplete = "-", # Incomplete bar character
-  # current = ">",    # Current bar character
-  # clear = FALSE,    # If TRUE, clears the bar when finish
-  # width = 100)      # Width of the progress bar
+  out_check <- NULL
   
-  
-  for (time in 1:n_iteration) {
+  for (time in 0:n_iteration) {
     pb[["tick"]]()
+
+    # RAIN_DoY = IF (RAIN_AType=1 AND RAIN_Cycle?= 0) THEN (TIME+CA_DOYStart-365*RAIN_YearStart) ELSE
+    # if (MOD(TIME+CA_DOYStart-365*RAIN_YearStart,365)) = 0 then 365 else (MOD(TIME+CA_DOYStart-365*RAIN_YearStart,366))
+    RAIN_DoY <- ifelse(
+      RAIN_AType == 1 &&
+        RAIN_Cycle_is == 0,
+      time + CA_DOYStart - 365 * RAIN_YearStart,
+      ifelse ((time + CA_DOYStart - 365 * RAIN_YearStart %% 365) == 0,
+              365,
+              time + CA_DOYStart - 365 * RAIN_YearStart %% 366
+      )
+    )
     
-    Rain <- get_rain(time,
-                     RAIN_pars[["RAIN_par"]],
-                     RAIN_pars[["RAIN_month_par"]],
-                     RAIN_pars[["RAIN_graph"]],
-                     rain_df,
-                     RAIN_Yesterday,
-                     CA_DOYStart = CA_DOYStart)
-    RAIN_Yesterday <- Rain > 0
-    W_Irrigation_Data <- irrigation_df[irrigation_df[["day"]] == (time %% 365 + 1), ][["irrigation"]]
+    # W_Irrigation_Data = GRAPH(Rain_DoY)
+    W_Irrigation_Data <- graph_functions$W_Irrigation_Data$W_Irrigation_Data(RAIN_DoY)
+    
+    # Rain = IF(INT(RAIN_AType)=2)THEN (RAIN_Type2*RAIN_Multiplier)+W_Irrigation_Data else
+    #   IF(INT(RAIN_AType)=4)THEN((MAX(0,RAIN_Today?*RAIN_fTable))*RAIN_Multiplier)+W_Irrigation_Data ELSE IF (INT(RAIN_AType)=3) THEN ((RAIN_fRandom*RAIN_Today?)*RAIN_Multiplier)+W_Irrigation_Data ELSE (RY152*RAIN_Multiplier)+W_Irrigation_Data
+    if (RAIN_AType == 2) {
+      Rain <- get_simulated_rain(RAIN_DoY, wanulcas_params, RAIN_Yesterday_is)
+    } else if (RAIN_AType == 4) {
+      Rain <- get_monthly_avg_rain(RAIN_DoY, wanulcas_params)
+    } else if (RAIN_AType == 3) {
+      Rain <- get_random_rain(RAIN_DoY, wanulcas_params)
+    } else {
+      Rain <- graph_functions$RAIN_Data$RAIN_Data(RAIN_DoY)
+    }
+    Rain <- Rain * RAIN_Multiplier + W_Irrigation_Data
+    RAIN_Yesterday_is <- Rain > 0
+    
+    # TODO: duplicated at the initial
+    # T_BiomAG[PlantComp,Tree] = T_LfTwig[PlantComp,Tree]+T_SapWood[PlantComp,Tree]+T_GroRes[PlantComp,Tree]
+    treepcomp_df["T_BiomAG"] <- treepcomp_df[["T_LfTwig"]] + treepcomp_df[["T_SapWood"]] + treepcomp_df[["T_GroRes"]]
+    
+    # T_PlantTime[Tree] = T_PlantDoY[Tree] + 365* (T_PlantY[Tree])-CA_DOYStart
+    tree_df["T_PlantY"] <- get_y(tree_df[["T_Compl"]], "T_PlantY", mode = "pair")
+    tree_df["T_PlantDoY"] <- get_y(tree_df[["T_Compl"]], "T_PlantDoY", mode = "pair")
+    tree_df["T_PlantTime"] <- tree_df[["T_PlantDoY"]] + 365 * (tree_df[["T_PlantY"]]) -   CA_DOYStart
+
+    # S_KsatV1Act[Zone] = S_KsatDefV1[Zone]*10^((-0.52*(S_BDActOverBDRefKsatV1[Zone]^2)-0.69*S_BDActOverBDRefKsatV1[Zone]+1.21))
+    zonelayer_df["S_KsatVAct"] <- zonelayer_df[["S_KsatDefV"]] * 10^((-0.52 * (zonelayer_df[["S_BDActOverBDRefKsatV"]]^2) - 0.69 * zonelayer_df[["S_BDActOverBDRefKsatV"]] +
+                                                                        1.21))
+    
+    # LF_V1MaxDailyFlow[Zone] = (AF_DepthAct1[Zone]*S_KsatV1Act[Zone]+AF_Depth2[Zone]*S_KsatV2Act[Zone])/(AF_DepthAct1[Zone]+AF_Depth2[Zone])
+    # LF_V2MaxDailyFlow[Zone] = (AF_Depth2[Zone]*S_KsatV2Act[Zone]+AF_Depth3[Zone]*S_KsatV3Act[Zone])/(AF_Depth2[Zone]+AF_Depth3[Zone])
+    # LF_V3MaxDailyFlow[Zone] = (AF_Depth3[Zone]*S_KsatV3Act[Zone]+AF_Depth4[Zone]*S_KsatV4Act[Zone])/(AF_Depth3[Zone]+AF_Depth4[Zone])
+    # LF_V4MaxDailyFlow[Zone] = (AF_Depth4[Zone]*S_KsatV4Act[Zone]+AF_DeepSubSoil*S_KsatVDeepSub)/(AF_Depth4[Zone]+AF_DeepSubSoil)
+    zonelayer_df["AF_Depth_down"] <- c(zonelayer_df[zonelayer_df[["layer"]] %in% c(2:4), ][["AF_Depth"]], rep(AF_DeepSubSoil, nzone))
+    zonelayer_df["S_KsatVAct_down"] <- c(zonelayer_df[zonelayer_df[["layer"]] %in% c(2:4), ][["S_KsatVAct"]], rep(S_KsatVDeepSub, nzone))
+    zonelayer_df["LF_VMaxDailyFlow"] <-  (zonelayer_df[["AF_Depth"]] * zonelayer_df[["S_KsatVAct"]]  + zonelayer_df[["AF_Depth_down"]] * zonelayer_df[["S_KsatVAct_down"]]) / (zonelayer_df[["AF_Depth"]] + zonelayer_df[["AF_Depth_down"]])
+    
+    # W_KSatH1[Zone] = S_KsatV1Act[Zone]*S_KSatHperV1[Zone]
+    # W_KSatH2[Zone] = S_KsatV2Act[Zone]*S_KsatHperV2[Zone]
+    # W_KSatH3[Zone] = S_KsatV3Act[Zone]*S_KsatHperV3[Zone]
+    # W_KSatH4[Zone] = S_KsatV4Act[Zone]*S_KsatHperV4[Zone]
+    zonelayer_df["W_KSatH"] <- zonelayer_df[["S_KsatVAct"]] * zonelayer_df[["S_KSatHperV"]]
     
     # LF_H2MaxDailyFlow[Zone] = W_KSatH2[Zone]*(AF_SlopeSoilHoriz/100)*AF_Depth2[Zone]
     # LF_H3MaxDailyFlow[Zone] = W_KSatH3[Zone]*(AF_SlopeSoilHoriz/100)*AF_Depth3[Zone]
@@ -1313,7 +962,6 @@ run_wanulcas <- function(n_iteration,
     # LF_H1MaxMailyFlow[Zn2] = (W_KSatH1[Zn2]*(AF_DepthAct1[Zn2]+AF_DepthAct1[Zn1])/2*AF_SlopeSoilHoriz/100)
     # LF_H1MaxMailyFlow[Zn3] = (W_KSatH1[Zn3]*(AF_DepthAct1[Zn3]+AF_DepthAct1[Zn2])/2*AF_SlopeSoilHoriz/100)
     # LF_H1MaxMailyFlow[Zn4] = (W_KSatH1[Zn4]*(AF_DepthAct1[Zn4]+AF_DepthAct1[Zn3])/2*AF_SlopeSoilHoriz/100)
-    
     l1 <- zonelayer_df[zonelayer_df[["layer"]] == 1, c("zone", "AF_Depth", "W_KSatH")]
     a <- c(l1[l1[["zone"]] == 4, "AF_Depth"], tail(l1[["AF_Depth"]], -1))
     b <- c(l1[l1[["zone"]] == 4, "AF_Depth"], head(l1[["AF_Depth"]], -1))
@@ -1335,6 +983,12 @@ run_wanulcas <- function(n_iteration,
     zonelayer_df["W_FieldCap"] <- pmax(zonelayer_df[["W_FieldCapKcrit"]], zonelayer_df[["W_ThetaP"]])
     zonelayer_df["W_WatDef"] <- zonelayer_df[["W_FieldCap"]] * zonelayer_df[["AF_Depth"]] * 1000 - zonelayer_df[["W_Stock"]]
     
+    # S_RelBD[Zn1,1] = S_BDActOverBDRefKsatV1[Zn1]+0*(S_BDActOverBDRefKsatV1[Zn1]+S_BDActOverBDRefKsatV2[Zn1]+S_BDActOverBDRefKsatV3[Zn1]+S_BDActOverBDRefKsatV4[Zn1])
+    zonelayer_df["S_RelBD"] <- zonelayer_df[["S_BDActOverBDRefKsatV"]]
+    
+    # W_PoreVol[Zone,SoilLayer] = (1-W_BDLayer[SoilLayer]*S_RelBD[Zone,SoilLayer]/2.5)
+    zonelayer_df["W_PoreVol"] <- (1 - zonelayer_df[["W_BDLayer"]] * zonelayer_df[["S_RelBD"]] / 2.5)
+    
     # W_WatDefLog1[Zone] = W_PoreVol[Zone,1]*AF_DepthAct1[Zone]*1000-W_Stock1[Zone]
     # W_WatDefLog2[Zone] = W_PoreVol[Zone,2]*AF_Depth2[Zone]*1000-W_Stock2[Zone]
     # W_WatDefLog3[Zone] = W_PoreVol[Zone,3]*AF_Depth3[Zone]*1000-W_Stock3[Zone]
@@ -1345,7 +999,6 @@ run_wanulcas <- function(n_iteration,
     # LF_MaxVInflow2[Zone] = IF W_WaterLog? = 0 then max(W_WatDef2[Zone]+min(LF_V2MaxDailyFlow[Zone],LF_MaxVInflow3[Zone]),0) else max(W_WatDefLog2[Zone]+min(LF_V2MaxDailyFlow[Zone],LF_MaxVInflow3[Zone]),0)
     # LF_MaxVInflow3[Zone] = IF W_WaterLog? = 0 then max(W_WatDef3[Zone]+min(LF_V3MaxDailyFlow[Zone],LF_MaxVInflow4[Zone]),0) else max(W_WatDefLog3[Zone]+min(LF_V3MaxDailyFlow[Zone],LF_MaxVInflow4[Zone]),0)
     # LF_MaxVInflow4[Zone] = IF W_WaterLog? = 0 then max(W_WatDef4[Zone]+LF_V4MaxDailyFlow[Zone],0)
-    
     zonelayer_df["LF_MaxVInflow"] <- 0
     if (W_WaterLog_is == 0) {
       zonelayer_df["W_WatDef_calc"] <- zonelayer_df[["W_WatDef"]]
@@ -1354,7 +1007,6 @@ run_wanulcas <- function(n_iteration,
     }
     
     zonelayer_df[zonelayer_df[["layer"]] == 4, "LF_MaxVInflow"] <- pmax(zonelayer_df[zonelayer_df[["layer"]] == 4, "W_WatDef_calc"] + zonelayer_df[zonelayer_df[["layer"]] == 4, "LF_VMaxDailyFlow"], 0)
-    
     zonelayer_df[zonelayer_df[["layer"]] == 3, "LF_MaxVInflow"] <- pmax(zonelayer_df[zonelayer_df[["layer"]] == 3, "W_WatDef_calc"] + pmin(zonelayer_df[zonelayer_df[["layer"]] ==
                                                                                                                                                           3, "LF_VMaxDailyFlow"], zonelayer_df[zonelayer_df[["layer"]] == 4, "LF_MaxVInflow"]), 0)
     zonelayer_df[zonelayer_df[["layer"]] == 2, "LF_MaxVInflow"] <- pmax(zonelayer_df[zonelayer_df[["layer"]] == 2, "W_WatDef_calc"] + pmin(zonelayer_df[zonelayer_df[["layer"]] ==
@@ -1372,6 +1024,7 @@ run_wanulcas <- function(n_iteration,
     zone_df["S_SurfInfiltrAct"] <- zone_df[["S_SurfInfiltrPerKsatDef"]] * zonelayer_df[zonelayer_df[["layer"]] == 1, "S_KsatInitV"] *
       10^((-0.52 * (zone_df[["S_BDActOverBDRefInfiltr"]]^2) - 0.69 * zone_df[["S_BDActOverBDRefInfiltr"]] +
              1.21))
+    
     # LF_SICZF[Zone] = AF_ZoneFrac[Zone]*S_SurfInfiltrAct[Zone]
     zone_df["LF_SICZF"] <- zone_df[["AF_ZoneFrac"]] * zone_df[["S_SurfInfiltrAct"]]
     
@@ -1383,27 +1036,51 @@ run_wanulcas <- function(n_iteration,
     #### Crop par curr ################################
     zn_CQ_CType <- zone_df[["CQ_CType"]]
     # only update the parameters if there were changes in crop type
-    if (any(zn_CQ_CType != prev_zn_CQ_CType) || time == 1) {
-      zone_df[CQ_var_par] <- t(CQ_df[CQ_df[["CQ_var"]] %in% CQ_var_par, zn_CQ_CType])
-      zonenut_df["CQ_NConcYoungCurr"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "ConcYN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "ConcYP", zn_CQ_CType]))
-      zonenut_df["CQ_NConcOldCurr"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "ConcOldN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "ConcOldP", zn_CQ_CType]))
-      zonenut_df["N_CNutMob"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "NutMobN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "NutMobP", zn_CQ_CType]))
-      zoneanimal_df["PD_CropsEaten_is"] <- as.vector(t(CQ_df[CQ_df[["CQ_Unit"]] %in% Eatenby_params, zn_CQ_CType]))
-      zonelayer_df["Lrvm"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm1", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm2", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm3", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm4", zn_CQ_CType]))
+    if (any(zn_CQ_CType != prev_zn_CQ_CType) || time == 0) {
+      zone_df[names(crop_df)] <- crop_df[zn_CQ_CType, ]
+      cn_N <- cropnut_df[cropnut_df$SlNut == "N", ]
+      cn_P <- cropnut_df[cropnut_df$SlNut == "N", ]
+      cn_var <- c("CQ_NConcOldCurr", "CQ_NConcYoungCurr", "N_CNutMob")
+      zonenut_df[cn_var] <- sapply(cn_var, function(v)
+        c(cn_N[zn_CQ_CType, v], cn_P[zn_CQ_CType, v]))
+      zoneanimal_df["PD_CropsEaten_is"] <- as.numeric(sapply(Animals, function(a)
+        cropanimal_df[cropanimal_df$Animals == a, "PD_CropsEaten_is"][zn_CQ_CType]))
+      zonelayer_df["Lrvm"] <- as.numeric(sapply(1:nlayer, function(l)
+        croplayer_df[croplayer_df$layer == l, "Lrvm"][zn_CQ_CType]))
+      
+      zoneprice_df["P_CYieldPrice"] <- as.numeric(sapply(PriceType, function(p)
+        cropprice_df[cropprice_df$PriceType == p, "P_CYieldPrice"][zn_CQ_CType]))
+      
+      # zone_df[CQ_var_par] <- t(CQ_df[CQ_df[["CQ_var"]] %in% CQ_var_par, zn_CQ_CType])
+      # zonenut_df["CQ_NConcYoungCurr"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "ConcYN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "ConcYP", zn_CQ_CType]))
+      # zonenut_df["CQ_NConcOldCurr"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "ConcOldN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "ConcOldP", zn_CQ_CType]))
+      # zonenut_df["N_CNutMob"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "NutMobN", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "NutMobP", zn_CQ_CType]))
+      # zoneanimal_df["PD_CropsEaten_is"] <- as.vector(t(CQ_df[CQ_df[["CQ_Unit"]] %in% Eatenby_params, zn_CQ_CType]))
+      # zonelayer_df["Lrvm"] <- unlist(c(CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm1", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm2", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm3", zn_CQ_CType], CQ_df[CQ_df[["CQ_Unit"]] == "Lrvm4", zn_CQ_CType]))
     }
     
     zone_df["CQ_StageAfterHarvest"] <- ifelse(zone_df[["CQ_SingleCycle_is_Cur"]] == 1, 0, 0.7)
     
     # CQ_CLWRCurr[Zone] = If(CQ_CType[Zone]=1)then(CQ_CLWR[Type1, Zone]) else if(CQ_CType[Zone]=2)then(CQ_CLWR[Type2, Zone]) else if(CQ_CType[Zone]=3)then(CQ_CLWR[Type3, Zone]) else
     #   if(CQ_CType[Zone]=4)then(CQ_CLWR[Type4, Zone]) else (CQ_CLWR[Type5, Zone])
-    zcq_df <- zone_df["CQ_Stage"]
-    zcq_df["z"] <- zone_stage_col_df[zone_stage_col_df[["zone"]] == zone_df[["zone"]] &
-                                       zone_stage_col_df[["CQ_CType"]] == zone_df[["CQ_CType"]], "coln"]
-    zone_df[CQ_Curr_Vars] <- sapply(CQ_Curr_Vars, function(cq) {
-      #TODO: coba pakai mapply
-      apply(zcq_df, 1, function(x) {
-        zone_stage_fun[[c(cq, x[["z"]])]](x[["CQ_Stage"]])
-      })
+    # zcq_df <- zone_df["CQ_Stage"]
+    # zcq_df["z"] <- zone_stage_col_df[zone_stage_col_df[["zone"]] == zone_df[["zone"]] &
+    #                                    zone_stage_col_df[["CQ_CType"]] == zone_df[["CQ_CType"]], "coln"]
+    
+    
+    # zone_df[CQ_Curr_Vars] <- sapply(CQ_Curr_Vars, function(cq) {
+    #
+    #   #TODO: coba pakai mapply
+    #   apply(zcq_df, 1, function(x) {
+    #     zone_stage_fun[[c(cq, x[["z"]])]](x[["CQ_Stage"]])
+    #   })
+    # })
+    
+    fi <- which(zone_stage_col_df[["zone"]] == zone_df[["zone"]] &
+                  zone_stage_col_df[["CQ_CType"]] == zone_df[["CQ_CType"]])
+    zone_df[CQ_Curr_Vars[["var"]]] <- sapply(CQ_Curr_Vars$graph, function(v) {
+      mapply(function(i, x)
+        graph_functions[[v]][[i]](x), fi, zone_df[["CQ_Stage"]])
     })
     
     # C_LAI[Zone] = CQ_CLWRCurr[Zone]*CQ_CSLACurr[Zone]*C_BiomStLv[Zone,DW]
@@ -1482,14 +1159,80 @@ run_wanulcas <- function(n_iteration,
     # AF_RelZoneTreeNextLeft[Zone,Tree] = if AF_TreePosit[Tree] = AF_ZoneTree[Zn1]-1 then AF_ZoneFrac[Zn1] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn2]-1 then AF_ZoneFrac[Zn2] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn3]-1 then AF_ZoneFrac[Zn3] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn4] -1 then AF_ZoneFrac[Zn4] else 0
     # AF_RelZoneTreeNextRight[Zone,Tree] = if AF_TreePosit[Tree] = AF_ZoneTree[Zn1]+1 then AF_ZoneFrac[Zn1] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn2]+1 then AF_ZoneFrac[Zn2] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn3]+1 then AF_ZoneFrac[Zn3] else if AF_TreePosit[Tree] = AF_ZoneTree[Zn4] +1 then AF_ZoneFrac[Zn4] else 0
     # AF_RelZoneTreeRight[Zone,Tree] = T_RelPosinZone[Tree]*AF_ZoneTreeLeftRight[Zone,Tree]
+
+    zonetree_df["AF_ZoneTree_z1"] <- zone_df[zone_df[["zone"]] == 1, "AF_ZoneTree"]
+    zonetree_df["AF_ZoneTree_z2"] <- zone_df[zone_df[["zone"]] == 2, "AF_ZoneTree"]
+    zonetree_df["AF_ZoneTree_z3"] <- zone_df[zone_df[["zone"]] == 3, "AF_ZoneTree"]
+    zonetree_df["AF_ZoneTree_z4"] <- zone_df[zone_df[["zone"]] == 4, "AF_ZoneTree"]
+    zonetree_df["AF_ZoneFrac_z1"] <- zone_df[zone_df[["zone"]] == 1, "AF_ZoneFrac"]
+    zonetree_df["AF_ZoneFrac_z2"] <- zone_df[zone_df[["zone"]] == 2, "AF_ZoneFrac"]
+    zonetree_df["AF_ZoneFrac_z3"] <- zone_df[zone_df[["zone"]] == 3, "AF_ZoneFrac"]
+    zonetree_df["AF_ZoneFrac_z4"] <- zone_df[zone_df[["zone"]] == 4, "AF_ZoneFrac"]
+    
     zonetree_df["AF_RelZoneTreeLeft"] <- (1 - zonetree_df[["T_RelPosinZone"]]) *
       zonetree_df[["AF_ZoneTreeLeftRight"]]
-    zonetree_df["AF_RelZoneTreeNext2Left"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] - 2, zonetree_df[["AF_ZoneFrac"]], 0)
-    zonetree_df["AF_RelZoneTreeNext2Right"] <-  ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] + 2, zonetree_df[["AF_ZoneFrac"]], 0)
-    zonetree_df["AF_RelZoneTreeNextLeft"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] - 1, zonetree_df[["AF_ZoneFrac"]], 0)
-    zonetree_df["AF_RelZoneTreeNextRight"] <- ifelse(zonetree_df[["AF_TreePosit"]] ==  zonetree_df[["AF_ZoneTree"]] + 1, zonetree_df[["AF_ZoneFrac"]], 0)
+    
+    zonetree_df["AF_RelZoneTreeNext2Left"] <- ifelse(
+      zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z1"]] - 2,
+      zonetree_df[["AF_ZoneFrac_z1"]],
+      ifelse(
+        zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z2"]] - 2,
+        zonetree_df[["AF_ZoneFrac_z2"]],
+        ifelse(
+          zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z3"]] - 2,
+          zonetree_df[["AF_ZoneFrac_z3"]],
+          ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z4"]] - 2, zonetree_df[["AF_ZoneFrac_z4"]], 0)
+        )
+      )
+    )
+    
+    zonetree_df["AF_RelZoneTreeNext2Right"] <- ifelse(
+      zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z1"]] + 2,
+      zonetree_df[["AF_ZoneFrac_z1"]],
+      ifelse(
+        zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z2"]] + 2,
+        zonetree_df[["AF_ZoneFrac_z2"]],
+        ifelse(
+          zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z3"]] + 2,
+          zonetree_df[["AF_ZoneFrac_z3"]],
+          ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z4"]] + 2, zonetree_df[["AF_ZoneFrac_z4"]], 0)
+        )
+      )
+    )
+    zonetree_df["AF_RelZoneTreeNextLeft"] <- ifelse(
+      zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z1"]] - 1,
+      zonetree_df[["AF_ZoneFrac_z1"]],
+      ifelse(
+        zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z2"]] - 1,
+        zonetree_df[["AF_ZoneFrac_z2"]],
+        ifelse(
+          zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z3"]] - 1,
+          zonetree_df[["AF_ZoneFrac_z3"]],
+          ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z4"]] - 1, zonetree_df[["AF_ZoneFrac_z4"]], 0)
+        )
+      )
+    )
+    zonetree_df["AF_RelZoneTreeNextRight"] <- ifelse(
+      zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z1"]] + 1,
+      zonetree_df[["AF_ZoneFrac_z1"]],
+      ifelse(
+        zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z2"]] + 1,
+        zonetree_df[["AF_ZoneFrac_z2"]],
+        ifelse(
+          zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z3"]] + 1,
+          zonetree_df[["AF_ZoneFrac_z3"]],
+          ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree_z4"]] + 1, zonetree_df[["AF_ZoneFrac_z4"]], 0)
+        )
+      )
+    )
     zonetree_df["AF_RelZoneTreeRight"] <- zonetree_df[["T_RelPosinZone"]] * zonetree_df[["AF_ZoneTreeLeftRight"]]
     
+    # zonetree_df["AF_RelZoneTreeNext2Left"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] - 2, zonetree_df[["AF_ZoneFrac"]], 0)
+    # zonetree_df["AF_RelZoneTreeNext2Right"] <-  ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] + 2, zonetree_df[["AF_ZoneFrac"]], 0)
+    # zonetree_df["AF_RelZoneTreeNextLeft"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]] - 1, zonetree_df[["AF_ZoneFrac"]], 0)
+    # zonetree_df["AF_RelZoneTreeNextRight"] <- ifelse(zonetree_df[["AF_TreePosit"]] ==  zonetree_df[["AF_ZoneTree"]] + 1, zonetree_df[["AF_ZoneFrac"]], 0)
+    # zonetree_df["AF_RelZoneTreeRight"] <- zonetree_df[["T_RelPosinZone"]] * zonetree_df[["AF_ZoneTreeLeftRight"]]
+    # 
     # T_RelCanWidthZn[Zone,Tree] = if AF_ZoneFrac[Zone] = 0 then 0 else if T_TreeinZone?[Zone,Tree]=1 then min (1,(max(0,min(T_RelPosinZone[Tree]*AF_ZoneFrac[Zone],T_CanWidthRel[Tree]))+max(0,min((1-T_RelPosinZone[Tree])*AF_ZoneFrac[Zone],T_CanWidthRel[Tree])))/AF_ZoneFrac[Zone]) else max(0,min(1,(T_CanWidthRel[Tree]-(T_Tree1ToTheLeft?[Zone,Tree]*AF_RelZoneTreeLeft[Zone,Tree]+T_Tree2ToTheLeft?[Zone,Tree]*AF_RelZoneTreeNextleft[Zone,Tree]+T_Tree3ToTheLeft?[Zone,Tree]*AF_RelZoneTreeNext2Left[Zone,Tree]+T_Tree1ToTheRight?[Zone,Tree]*AF_RelZoneTreeRight[Zone,Tree]+T_Tree2ToTheRight?[Zone,Tree]*AF_RelZoneTreeNextRight[Zone,Tree]+T_Tree3ToTheRight?[Zone,Tree]*AF_RelZoneTreeNext2Right[Zone,Tree]))/AF_ZoneFrac[Zone]))
     zonetree_df["T_RelCanWidthZn"] <-
       ifelse (zonetree_df[["AF_ZoneFrac"]] == 0, 0, ifelse (zonetree_df[["T_TreeinZone"]] == 1, pmin(1, (
@@ -1512,6 +1255,17 @@ run_wanulcas <- function(n_iteration,
             )
         ) / zonetree_df[["AF_ZoneFrac"]]
       ))))
+    
+    # T_RelCanWidthZn[Zone,Tree] = if AF_ZoneFrac[Zone] = 0 then 0 else 
+    #   if T_TreeinZone?[Zone,Tree]=1 then min (1,(max(0,min(T_RelPosinZone[Tree]*AF_ZoneFrac[Zone],T_CanWidthRel[Tree]))+max(0,min((1-T_RelPosinZone[Tree])*AF_ZoneFrac[Zone],T_CanWidthRel[Tree])))/AF_ZoneFrac[Zone]) else 
+    #     max(0,min(1,(T_CanWidthRel[Tree]-
+    #                    (T_Tree1ToTheLeft?[Zone,Tree]*AF_RelZoneTreeLeft[Zone,Tree]+
+    #                       T_Tree2ToTheLeft?[Zone,Tree]*AF_RelZoneTreeNextleft[Zone,Tree]+
+    #                       T_Tree3ToTheLeft?[Zone,Tree]*AF_RelZoneTreeNext2Left[Zone,Tree]+
+    #                       T_Tree1ToTheRight?[Zone,Tree]*AF_RelZoneTreeRight[Zone,Tree]+
+    #                       T_Tree2ToTheRight?[Zone,Tree]*AF_RelZoneTreeNextRight[Zone,Tree]+
+    #                       T_Tree3ToTheRight?[Zone,Tree]*AF_RelZoneTreeNext2Right[Zone,Tree]))/AF_ZoneFrac[Zone]))
+    # 
     
     # T_LAICan[Tree] = IF(T_CanWidthRel[Tree]>0)THEN(MAX(T_LAI[Tree]/T_CanWidthRel[Tree],0))ELSE(0)
     zonetree_df["T_LAICan"] <- ifelse(zonetree_df[["T_CanWidthRel"]] > 0, pmax(zonetree_df[["T_LAI"]] / zonetree_df[["T_CanWidthRel"]], 0), 0)
@@ -1849,6 +1603,8 @@ run_wanulcas <- function(n_iteration,
     zone_df["W_EstDrain1"] <- ifelse(zone_df[["W_WaterLog_is"]] == 0,
                                      pmax(0, zone_df[["W_EstDrain1_a"]] - zl1[["W_WatDef"]]),
                                      pmax(0, zone_df[["W_EstDrain1_a"]] - zl1[["W_WatDefLog"]]))
+    
+    ### CHECK ##########
     
     # W_Drain1[Zn1] = MAX(0,W_EstDrain1[Zn1]+AF_LatInFlowRatio[Zn1]*W_H1RelDrain[Zn2]*(W_EstDrain1[Zn2]+AF_LatInFlowRatio[Zn2]*W_H1RelDrain[Zn3]*(W_EstDrain1[Zn3]+AF_LatInFlowRatio[Zn3]*W_H1RelDrain[Zn4]*W_EstDrain1[Zn4]-AF_AccLatInflowratio[Zn3]*LF_Lat4Inflow1)-AF_AccLatInflowratio[Zn2]*LF_Lat4Inflow1)-AF_AccLatInflowratio[Zn1]*LF_Lat4Inflow1)
     # W_Drain1[Zn2] = MAX(0,W_EstDrain1[Zn2]+AF_LatInFlowRatio[Zn2]*W_H1RelDrain[Zn3]*(W_EstDrain1[Zn3]+AF_LatInFlowRatio[Zn3]*W_H1RelDrain[Zn4]*W_EstDrain1[Zn4]-AF_AccLatInflowratio[Zn3]*LF_Lat4Inflow1)-AF_AccLatInflowratio[Zn2]*LF_Lat4Inflow1)
@@ -2189,8 +1945,7 @@ run_wanulcas <- function(n_iteration,
     )
     
     
-    # W_PoreVol[Zone,SoilLayer] = (1-W_BDLayer[SoilLayer]*S_RelBD[Zone,SoilLayer]/2.5)
-    zonelayer_df["W_PoreVol"] <- (1 - zonelayer_df[["W_BDLayer"]] * zonelayer_df[["S_RelBD"]] / 2.5)
+    
     
     
     
@@ -2306,7 +2061,6 @@ run_wanulcas <- function(n_iteration,
       0
     )
     
-    
     # CQ_C_HostEffForT1[Zone] = if CQ_CType[Zone]=1 then C_HostEffForT1[Type1] else
     #   if CQ_CType[Zone]=2 then C_HostEffForT1[Type2] else
     # if CQ_CType[Zone]=3 then C_HostEffForT1[Type3] else
@@ -2315,23 +2069,6 @@ run_wanulcas <- function(n_iteration,
     
     # TODO: to be revised
     zone_df["CQ_C_HostEffForT1"] <- crop_df[["C_HostEffForT1"]][zone_df[["CQ_CType"]]]
-    
-    
-    
-    # zonelayer_df["Lrvm"] <- 0
-    # zonelayer_df[zonelayer_df[["layer"]] == 1, "Lrvm"] <- unlist(lapply(zone_df[["crop_type"]], function(x) {
-    #   get_var(plant_data[["crop_pars_df"]], "RT_CLrvm1", x)
-    # }))
-    # zonelayer_df[zonelayer_df[["layer"]] == 2, "Lrvm"] <- unlist(lapply(zone_df[["crop_type"]], function(x) {
-    #   get_var(plant_data[["crop_pars_df"]], "RT_CLrvm2", x)
-    # }))
-    # zonelayer_df[zonelayer_df[["layer"]] == 3, "Lrvm"] <- unlist(lapply(zone_df[["crop_type"]], function(x) {
-    #   get_var(plant_data[["crop_pars_df"]], "RT_CLrvm3", x)
-    # }))
-    # zonelayer_df[zonelayer_df[["layer"]] == 4, "Lrvm"] <- unlist(lapply(zone_df[["crop_type"]], function(x) {
-    #   get_var(plant_data[["crop_pars_df"]], "RT_CLrvm4", x)
-    # }))
-    
     
     # RT_CLrvM1Curr[Zone] = CQ_ParametersCurr[Zone,Lrvm1]*RT_CMultiplier
     # RT_CLrvM2Curr[Zone] = CQ_ParametersCurr[Zone,Lrvm2]*RT_CMultiplier
@@ -2346,12 +2083,6 @@ run_wanulcas <- function(n_iteration,
     zone_df["RT_ACType"] <- RT_ACType
     
     # RT_CLraC[Zone] = CQ_ParametersCurr[Zone,LraConst]
-    # zone_df["RT_CLraC"] <- unlist(lapply(zone_df[["crop_type"]], function(x) {
-    #   get_var(plant_data[["crop_pars_df"]], "RT_CLraConst", x)
-    # }))
-    
-    
-    
     C_Root_DW_zone_df <- aggregate(list(C_Root_sum = zonelayerpcomp_df[zonelayerpcomp_df[["PlantComp"]] == "DW", "C_Root"]), by = zonelayer_df[c("zone")], sum)
     zone_df["C_Root_DW_zone"] <- C_Root_DW_zone_df[["C_Root_sum"]]
     
@@ -2497,10 +2228,11 @@ run_wanulcas <- function(n_iteration,
     zonelayertree_df["RT_TParasitFrac"] <- rt2_df[["RT_TParasitFrac"]]
     
     zonelayertree_df["RT_TLrv"] <- zonelayertree_df[["RT_TLrvM"]] * (1 - zonelayertree_df[["RT_TParasitFrac"]])
+    
     sp1_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 1, c("RT_TLrvM", "RT_CParasitFrac")]
     sp2_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 2, c("RT_TLrvM", "RT_TParasitFrac")]
     sp3_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 3, c("RT_TLrvM", "RT_TParasitFrac")]
-    zonelayertree_df[zonelayertree_df[["tree_id"]] == 1, "RT_TLrv"] <- sp1_df[["RT_TLrvM"]] * sp1_df[["RT_CParasitFrac"]] + sp2_df[["RT_TLrvM"]] * sp2_df[["RT_TParasitFrac"]] + sp3_df[["RT_TLrvM"]] * sp3_df[["RT_TParasitFrac"]]
+    zonelayertree_df[zonelayertree_df[["tree_id"]] == 1, "RT_TLrv"] <- sp1_df[["RT_TLrvM"]] + sp1_df[["RT_TLrvM"]] * sp1_df[["RT_CParasitFrac"]] + sp2_df[["RT_TLrvM"]] * sp2_df[["RT_TParasitFrac"]] + sp3_df[["RT_TLrvM"]] * sp3_df[["RT_TParasitFrac"]]
     
     
     
@@ -2522,7 +2254,9 @@ run_wanulcas <- function(n_iteration,
     # W_PTheta3[Zone] = GRAPH(W_Theta3[Zone])
     # W_PTheta4[Zone] = GRAPH(W_Theta4[Zone])
     layer_df["W_Theta"] <- zonelayer_df[zonelayer_df[["zone"]] == 1, "W_Theta"]
-    layer_df["W_PTheta"] <- graph_fun[["W_PTheta"]](layer_df[["W_Theta"]])
+    # layer_df["W_PTheta"] <- graph_fun[["W_PTheta"]](layer_df[["W_Theta"]])
+    layer_df["W_PTheta"] <- get_y(layer_df[["W_Theta"]], "W_PTheta", mode = "pair")
+    
     zonelayer_df["W_PTheta"] <- rep(layer_df[["W_PTheta"]], each = nzone)
     
     # TW_PStem1[Tree] = W_PTheta1[Zn1]*TW_Condutc1[Zn1,Tree]+ W_PTheta1[Zn2]*TW_Condutc1[Zn2,Tree]+ W_PTheta1[Zn3]*TW_Condutc1[Zn3,Tree]+ W_PTheta1[Zn4]*TW_Condutc1[Zn4,Tree]
@@ -2576,19 +2310,20 @@ run_wanulcas <- function(n_iteration,
     
     
     # EVAP_SumAirTemp[Calender] = (EVAP_MonthlyMean_AirTemp[Calender]/5)^1.514
-    calendar_df["EVAP_SumAirTemp"] <- (calendar_df[["EVAP_MonthlyMean_AirTemp"]] /
+    calender_df["EVAP_SumAirTemp"] <- (calender_df[["EVAP_MonthlyMean_AirTemp"]] /
                                          5)^1.514
     
+    
     # E_Heat_Index = ARRAYSUM(EVAP_SumAirTemp[*])
-    E_Heat_Index <- sum(calendar_df[["EVAP_SumAirTemp"]])
+    E_Heat_Index <- sum(calender_df[["EVAP_SumAirTemp"]])
     
     # E_Alpha = (6.75*10^-7)*E_Heat_Index^3-(7.71*10^-5)*E_Heat_Index^2+(1.792*10^-2)*E_Heat_Index+0.49239
     E_Alpha <- (6.75 * 10^-7) * E_Heat_Index^3 - (7.71 * 10^-5) * E_Heat_Index^2 +
       (1.792 * 10^-2) * E_Heat_Index + 0.49239
     
     # EVAP_Monthly_PotThornthwaite[Calender] = 1.6*(EVAP_MonthlyMean_DayLength[Calender]/12)*(RAIN_Numberof_DaysperMonth[Calender]/30)*(10*EVAP_MonthlyMean_AirTemp[Calender]/E_Heat_Index)^E_Alpha
-    calendar_df["EVAP_Monthly_PotThornthwaite"] <- 1.6 * (calendar_df[["EVAP_MonthlyMean_DayLength"]] /
-                                                            12) * (calendar_df[["RAIN_Numberof_DaysperMonth"]] / 30) * (10 * calendar_df[["EVAP_MonthlyMean_AirTemp"]] /
+    calender_df["EVAP_Monthly_PotThornthwaite"] <- 1.6 * (calender_df[["EVAP_MonthlyMean_DayLength"]] /
+                                                            12) * (calender_df[["RAIN_Numberof_DaysperMonth"]] / 30) * (10 * calender_df[["EVAP_MonthlyMean_AirTemp"]] /
                                                                                                                           E_Heat_Index)^E_Alpha
     
     # EVAP_DailyPot_Thornthwaite = 10*(if RAIN_DoY <= 31 then EVAP_Monthly_PotThornthwaite[january]/RAIN_Numberof_DaysperMonth[january] else
@@ -2604,13 +2339,14 @@ run_wanulcas <- function(n_iteration,
     #   if RAIN_DoY <= 334 then EVAP_Monthly_PotThornthwaite[november]/RAIN_Numberof_DaysperMonth[november] else EVAP_Monthly_PotThornthwaite[december]/RAIN_Numberof_DaysperMonth[december])
     
     i_month <- min(max(which(
-      c(0, calendar_df[["cumsum_days"]]) < RAIN_DoY, arr.ind = TRUE
+      c(0, calender_df[["cumsum_days"]]) < RAIN_DoY, arr.ind = TRUE
     )), 12)
-    cdf <- calendar_df[i_month, ]
+    cdf <- calender_df[i_month, ]
     EVAP_DailyPot_Thornthwaite <- 10 * cdf[["EVAP_Monthly_PotThornthwaite"]] /
       cdf[["RAIN_Numberof_DaysperMonth"]]
     
-    TEMP_DailyPotEvap <- graph_fun[["TEMP_DailyPotEvap"]](time %% 365)
+    # TEMP_DailyPotEvap <- graph_fun[["TEMP_DailyPotEvap"]](time %% 365)
+    TEMP_DailyPotEvap <- get_y(time %% 365, "TEMP_DailyPotEvap")
     
     # EVAP_Pot = if TEMP_PotEvapConst? = 1 then TEMP_PotEvapConst else if EVAP_Pot_Thornthwaite? = 2 then EVAP_DailyPot_Thornthwaite else TEMP_DailyPotEvap
     EVAP_Pot <- ifelse(
@@ -2839,6 +2575,7 @@ run_wanulcas <- function(n_iteration,
     # LIGHT_TCCap3[Zone] = (1-LIGHT_TCCap1[Zone])*(1-LIGHT_TCCap2[Zone])* (1-EXP(-T_klight[Sp1]*LIGHT_LAIT3[Zone,Sp1]-T_klight[Sp2]*LIGHT_LAIT3[Zone,Sp2]-T_klight[Sp3]*LIGHT_LAIT3[Zone,Sp3]-LIGHT_kTB[Sp1]*LIGHT_TBAI3[Zone,Sp1]-LIGHT_kTB[Sp2]*LIGHT_TBAI3[Zone,Sp2]-LIGHT_kTB[Sp3]*LIGHT_TBAI3[Zone,Sp3]-CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L3]))
     # LIGHT_TCCap4[Zone] = (1-LIGHT_TCCap1[Zone])*(1-LIGHT_TCCap2[Zone])*(1-LIGHT_TCCap3[Zone])*(1-EXP(-T_klight[Sp1]*LIGHT_LAIT4[Zone,Sp1]-T_klight[Sp2]*LIGHT_LAIT4[Zone,Sp2]-T_klight[Sp3]*LIGHT_LAIT4[Zone,Sp3]-LIGHT_kTB[Sp1]*LIGHT_TBAI4[Zone,Sp1]-LIGHT_kTB[Sp2]*LIGHT_TBAI4[Zone,Sp2]-LIGHT_kTB[Sp3]*LIGHT_TBAI4[Zone,Sp3]-CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L4]))
     
+
     zlt_sp1_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 1, c("LIGHT_LAIT", "LIGHT_TBAI")]
     zlt_sp2_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 2, c("LIGHT_LAIT", "LIGHT_TBAI")]
     zlt_sp3_df <- zonelayertree_df[zonelayertree_df[["tree_id"]] == 3, c("LIGHT_LAIT", "LIGHT_TBAI")]
@@ -2848,8 +2585,8 @@ run_wanulcas <- function(n_iteration,
     
     zonelayer_df["LIGHT_TCCap"] <- 1 - exp(
       -t_sp1_df[["T_klight"]] * zlt_sp1_df[["LIGHT_LAIT"]] -
-        t_sp2_df[["T_klight"]] * zlt_sp1_df[["LIGHT_LAIT"]] -
-        t_sp3_df[["T_klight"]] * zlt_sp1_df[["LIGHT_LAIT"]] -
+        t_sp2_df[["T_klight"]] * zlt_sp2_df[["LIGHT_LAIT"]] -
+        t_sp3_df[["T_klight"]] * zlt_sp3_df[["LIGHT_LAIT"]] -
         t_sp1_df[["LIGHT_kTB"]] * zlt_sp1_df[["LIGHT_TBAI"]] -
         t_sp2_df[["LIGHT_kTB"]] * zlt_sp2_df[["LIGHT_TBAI"]] -
         t_sp3_df[["LIGHT_kTB"]] * zlt_sp3_df[["LIGHT_TBAI"]] -
@@ -2862,8 +2599,7 @@ run_wanulcas <- function(n_iteration,
     zl3_df_LIGHT_TCCap <-  zonelayer_df[zonelayer_df[["layer"]] == 3, "LIGHT_TCCap"]
     zonelayer_df[zonelayer_df[["layer"]] == 4, "LIGHT_TCCap"] <- (1 - zl1_df_LIGHT_TCCap) * (1 - zl2_df_LIGHT_TCCap) * (1 - zl3_df_LIGHT_TCCap) * zonelayer_df[zonelayer_df[["layer"]] == 4, "LIGHT_TCCap"]
     
-    
-    
+
     # LIGHT_TCap1[Zone,Tree] = IF(T_klight[Sp1]*LIGHT_LAIT1[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT1[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT1[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L2]+LIGHT_kTB[Sp1]*LIGHT_TBAI1[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI1[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI1[Zone,Sp3])>0 THEN(LIGHT_TCCap1[Zone]*(T_klight[Tree]*LIGHT_LAIT1[Zone,Tree])/(T_klight[Sp1]*LIGHT_LAIT1[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT1[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT1[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L2]+LIGHT_kTB[Sp1]*LIGHT_TBAI1[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI1[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI1[Zone,Sp3]))ELSE(0)
     # LIGHT_TCap2[Zone,Tree] = IF(LIGHT_TCCap2[Zone]>0)THEN(LIGHT_TCCap2[Zone]*(T_klight[Tree]*LIGHT_LAIT2[Zone,Tree])/(T_klight[Sp1]*LIGHT_LAIT2[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT2[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT2[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L2]+LIGHT_kTB[Sp1]*LIGHT_TBAI2[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI2[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI2[Zone,Sp3]))ELSE(0)
     # LIGHT_TCap3[Zone,Tree] = IF(LIGHT_TCCap3[Zone]>0)THEN(LIGHT_TCCap3[Zone]*T_klight[Tree]*LIGHT_LAIT3[Zone,Tree]/(T_klight[Sp1]*LIGHT_LAIT3[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT3[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT3[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L3]+LIGHT_kTB[Sp1]*LIGHT_TBAI3[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI3[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI3[Zone,Sp3]))ELSE(0)
@@ -2891,7 +2627,6 @@ run_wanulcas <- function(n_iteration,
     zonelayertree_df[zonelayertree_df[["layer"]] == 1, "LIGHT_TCap"] <- ifelse(zl1t_df[["LIGHT_sp"]] > 0, zl1t_df[["LIGHT_TCCap"]] * (zl1t_df[["T_klight"]] * zl1t_df[["LIGHT_LAIT"]]) /
                                                                                  zl1t_df[["LIGHT_sp"]] , 0)
     
-    
     # angle_df <- data.frame(LightAngles = LightAngles)
     #
     # # TanAngles[LightAngle] = tan(LightAngles[LightAngle]*PI/180)
@@ -2913,8 +2648,7 @@ run_wanulcas <- function(n_iteration,
     # LightCapPerAngleZn4[LightAngle] = AF_Zonewidth[Zn4]+
     #   (min(AF_Zonewidth[Zn3],max(0,(L_Top[Zn4]-L_Top[Zn3]))*max(0,TanAngles[LightAngle]))+
     #min(AF_Zonewidth[Zn4],max(0,(L_Top[Zn3]-L_Top[Zn4]))*max(0,TanAngles[LightAngle])))/2
-    
-    
+ 
     z1 <- zone_df[zone_df[["zone"]] == 1, c("AF_ZoneWidth", "L_Top")]
     z2 <- zone_df[zone_df[["zone"]] == 2, c("AF_ZoneWidth", "L_Top")]
     z3 <- zone_df[zone_df[["zone"]] == 3, c("AF_ZoneWidth", "L_Top")]
@@ -2957,7 +2691,7 @@ run_wanulcas <- function(n_iteration,
       ifelse(
         angle_df[["LightSwitch"]] == 2,
         Light2PerAngleSkewed,
-        ifelse(angle_df[["LightSwitch"]] == 3, Light3PerAngleVertical, 0)
+        ifelse(angle_df[["LightSwitch"]] == 3, angle_df[["Light3PerAngleVertical"]], 0)
       )
     )
     
@@ -3014,7 +2748,7 @@ run_wanulcas <- function(n_iteration,
       LIGHT_TCap_sum_df[["LIGHT_TCap"]]
     )
     
-    
+    # TODO: conver to vectorize calculation?
     z1_df <- zonetree_df[zonetree_df[["zone"]] == 1, c("LIGHT_TCap1234", "AF_ZoneFrac")]
     z2_df <- zonetree_df[zonetree_df[["zone"]] == 2, c("LIGHT_TCap1234", "AF_ZoneFrac")]
     z3_df <- zonetree_df[zonetree_df[["zone"]] == 3, c("LIGHT_TCap1234", "AF_ZoneFrac")]
@@ -3038,7 +2772,7 @@ run_wanulcas <- function(n_iteration,
     
     
     # T_TranspRatioTime[Tree] = GRAPH(T_Stage[Tree,LeafAge])
-    tree_df["T_TranspRatioTime"] <- get_y(treestage_df[treestage_df[["Tree_Stage"]] == "LeafAge", "T_Stage"], "T_TranspRatioTime")
+    tree_df["T_TranspRatioTime"] <- get_y(treestage_df[treestage_df[["Tree_Stage"]] == "LeafAge", "T_Stage"], "T_TranspRatioTime", mode = "pair")
     # tree_df["T_TranspRatioTime"] <- unlist(lapply(treestage_df[treestage_df[["Tree_Stage"]] == "LeafAge", "T_Stage"], get_T_TranspRatioTime))
     
     # TW_DemandPot[Tree] = If TW_EnergyDrivenEpot? = 1 then EVAP_TreeWatDem[Tree] + TP_WaterDemand[Tree] else if T_TranspRatioConstant? = 1 then
@@ -3368,8 +3102,11 @@ run_wanulcas <- function(n_iteration,
     # W_PhiTheta2[Zone] = GRAPH(W_Theta2[Zone])
     # W_PhiTheta3[Zone] = GRAPH(W_Theta3[Zone])
     # W_PhiTheta4[Zone] = GRAPH(W_Theta4[Zone])
-    layer_df["W_PhiTheta"] <- graph_fun[["W_PhiTheta"]](layer_df[["W_Theta"]])
-    zonelayer_df["W_PhiTheta"] <- rep(layer_df[["W_PhiTheta"]], each = nzone)
+    # layer_df["W_PhiTheta"] <- graph_fun[["W_PhiTheta"]](layer_df[["W_Theta"]])
+    ### TO BE CHECKED ##############
+    zonelayer_df["W_PhiTheta"] <- get_y(layer_df[["W_Theta"]], "W_PhiTheta")
+    
+    # zonelayer_df["W_PhiTheta"] <- rep(layer_df[["W_PhiTheta"]], each = nzone)
     
     zonelayertreebuf_df["RT_TC_G"] <- rep(zonelayer_df[["RT_TC_G"]], ntree * nbuf)
     zonelayertreebuf_df["W_PhiTheta"] <- rep(zonelayer_df[["W_PhiTheta"]], ntree * nbuf)
@@ -3379,7 +3116,6 @@ run_wanulcas <- function(n_iteration,
     # TW_pFPotRhizOptT3[Zone,BufValues] = IF TW_PotRhizOptT3[Zone,BufValues]<0 THEN LOG10(-TW_PotRhizOptT3[Zone,BufValues])ELSE 0
     zonetreebuf_df["TW_pFPotRhizOpt"] <- ifelse(zonetreebuf_df[["TW_PotRhizOpt"]] <
                                                   0, log10(-zonetreebuf_df[["TW_PotRhizOpt"]]), 0)
-    
     
     # TW_PhiPotT1L1[Zone,BufValues] = GRAPH(TW_pFPotRhizOptT1[Zone,BufValues])
     # TW_PhiPotT1L2[Zone,BufValues] = GRAPH(TW_pFPotRhizOptT1[Zone,BufValues])
@@ -3396,8 +3132,8 @@ run_wanulcas <- function(n_iteration,
     tree_df["TW_pFPotRhizOpt"] <- zonetreebuf_df[zonetreebuf_df[["zone"]] == 1 &
                                                    zonetreebuf_df[["buf_id"]] == 1, "TW_pFPotRhizOpt"]
     layertree_df["TW_pFPotRhizOpt"] <- rep(tree_df[["TW_pFPotRhizOpt"]], each = nlayer)
-    layertree_df["TW_PhiPot"] <- TW_PhiPot_fun(layertree_df[["TW_pFPotRhizOpt"]])
-    zonelayertreebuf_df["TW_PhiPot"] <- rep(rep(layertree_df[["TW_PhiPot"]], each = nzone), nbuf)
+    # layertree_df["TW_PhiPot"] <- TW_PhiPot_fun(layertree_df[["TW_pFPotRhizOpt"]])
+    layertree_df["TW_PhiPot"] <- get_y(layertree_df[["TW_pFPotRhizOpt"]], "TW_PhiPotTL", mode = "pair")
     
     # W_PotUptOptT1L1[Zone,BufValues] = IF RT_TC_G1[Zone]<>0 THEN 10*PI*(max(0,+W_PhiTheta1[Zone]-TW_PhiPotT1L1[Zone,BufValues]))*RT_TC_G1[Zone]*RT_TLrv1[Zone,Sp1] ELSE 0
     # W_PotUptOptT1L2[Zone,BufValues] = IF RT_TC_G2[Zone]<>0 THEN 10*PI*(max(0,+W_PhiTheta2[Zone]-TW_PhiPotT1L2[Zone,BufValues]))*RT_TC_G2[Zone]*RT_TLrv2[Zone,Sp1] ELSE 0
@@ -3411,6 +3147,7 @@ run_wanulcas <- function(n_iteration,
     # W_PotUptOptT3L2[Zone,BufValues] = IF RT_TC_G2[Zone]<>0 THEN 10*PI*(max(0,+W_PhiTheta2[Zone]-TW_PhiPotT3L2[Zone,BufValues]))*RT_TC_G2[Zone]*RT_TLrv2[Zone,Sp3] ELSE 0
     # W_PotUptOptT3L3[Zone,BufValues] = IF RT_TC_G3[Zone]<>0 THEN 10*PI*(max(0,+W_PhiTheta3[Zone]-TW_PhiPotT3L3[Zone,BufValues]))*RT_TC_G3[Zone]*RT_TLrv3[Zone,Sp3] ELSE 0
     # W_PotUptOptT3L4[Zone,BufValues] = IF RT_TC_G4[Zone]<>0 THEN 10*PI*(max(0,+W_PhiTheta4[Zone]-TW_PhiPotT3L4[Zone,BufValues]))*RT_TC_G4[Zone]*RT_TLrv4[Zone,Sp3] ELSE 0
+    zonelayertreebuf_df["TW_PhiPot"] <- rep(rep(layertree_df[["TW_PhiPot"]], each = nzone), nbuf)
     zonelayertreebuf_df["RT_TLrv"] <- rep(zonelayertree_df[["RT_TLrv"]], nbuf)
     zonelayertreebuf_df["W_PotUptOpt"] <- ifelse(
       zonelayertreebuf_df[["RT_TC_G"]] != 0,
@@ -3440,8 +3177,18 @@ run_wanulcas <- function(n_iteration,
     )
     zonelayertreebuf_df["W_PotUptOpt_b"] <- pmax(0,
                                                  100 * zonelayertreebuf_df[["RT_T_RelImp"]] * zonelayertreebuf_df[["AF_Depth"]] * zonelayertreebuf_df[["W_PotUptOpt"]])
-    zonetreebuf_df <- cbind(zonetreebuf_df,
-                            aggregate(zonelayertreebuf_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)[c("W_PotUptOpt_a", "W_PotUptOpt_b")])
+    # zonetreebuf_df <- cbind(zonetreebuf_df,
+    #                         aggregate(zonelayertreebuf_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)[c("W_PotUptOpt_a", "W_PotUptOpt_b")])
+
+    zonetreebuf_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")] <- 
+                            aggregate(zonelayertreebuf_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)[c("W_PotUptOpt_a", "W_PotUptOpt_b")]
+    
+    ### CHECK ####################
+    # zonetreebuf_df$W_PotUptOpt_1 <- aggregate(zonelayertreebuf_df[["W_PotUptOpt_a"]], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)[["x"]]
+    # zonetreebuf_df$W_PotUptOpt_2 <- aggregate(zonelayertreebuf_df[["W_PotUptOpt_b"]], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)[["x"]]
+    # 
+    # ztb_df <- aggregate(zonelayertreebuf_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")], zonelayertreebuf_df[c("zone", "tree_id", "buf_id")], sum)
+    # zonetreebuf_df[c("W_PotUptOpt_aa", "W_PotUptOpt_bb")] <- ztb_df[c("W_PotUptOpt_a", "W_PotUptOpt_b")]
     
     zonetreebuf_df["W_PotUptOptProfileZn"] <- ifelse(zonetreebuf_df[["TW_Water_Limited_is"]] == 1, zonetreebuf_df[["W_PotUptOpt_a"]], zonetreebuf_df[["W_PotUptOpt_b"]])
     
@@ -3760,59 +3507,40 @@ run_wanulcas <- function(n_iteration,
         )
     )^(1 / zonebuf_df[["CW_DrySoilFact"]])), zl1b[["W_PTheta"]])
     
-    
     # LIGHT_CCap1[Zone] = IF(LIGHT_TCCap1[Zone]>0)THEN(LIGHT_TCCap1[Zone]*(CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L1])/(T_klight[Sp1]*LIGHT_LAIT1[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT1[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT1[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L1]+LIGHT_kTB[Sp1]*LIGHT_TBAI1[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI1[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI1[Zone,Sp3]))ELSE(0)
     # LIGHT_CCap2[Zone] = IF(LIGHT_TCCap2[Zone]>0)THEN(LIGHT_TCCap2[Zone]*(CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L2])/(T_klight[Sp1]*LIGHT_LAIT2[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT2[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT2[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L2]+LIGHT_kTB[Sp1]*LIGHT_TBAI2[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI2[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI2[Zone,Sp3]))ELSE(0)
     # LIGHT_CCap3[Zone] = IF(LIGHT_TCCap3[Zone]>0)THEN(LIGHT_TCCap3[Zone]*CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L3]/(T_klight[Sp1]*LIGHT_LAIT3[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT3[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT3[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L3]+LIGHT_kTB[Sp1]*LIGHT_TBAI3[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI3[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI3[Zone,Sp3]))ELSE(0)
     # LIGHT_CCap4[Zone] = IF(LIGHT_TCCap4[Zone]>0)THEN(LIGHT_TCCap4[Zone]*CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L4]/(T_klight[Sp1]*LIGHT_LAIT4[Zone,Sp1]+T_klight[Sp2]*LIGHT_LAIT4[Zone,Sp2]+T_klight[Sp3]*LIGHT_LAIT4[Zone,Sp3]+CQ_kLightCurr[Zone]*LIGHT_LAIC[Zone,L4]+LIGHT_kTB[Sp1]*LIGHT_TBAI4[Zone,Sp1]+LIGHT_kTB[Sp2]*LIGHT_TBAI4[Zone,Sp2]+LIGHT_kTB[Sp3]*LIGHT_TBAI4[Zone,Sp3]))ELSE(0)
-    
     zonelayertree_df["LIGHT_CCap_a"] <- zonelayertree_df[["T_klight"]] * zonelayertree_df[["LIGHT_LAIT"]]
     zonelayertree_df["LIGHT_kTB"] <- rep(tree_df[["LIGHT_kTB"]], each = nzone * nlayer)
     zonelayertree_df["LIGHT_CCap_b"] <- zonelayertree_df[["LIGHT_kTB"]] * zonelayertree_df[["LIGHT_TBAI"]]
-    
-    zonelayer_df <- cbind(zonelayer_df,
-                          aggregate(zonelayertree_df[c("LIGHT_CCap_a", "LIGHT_CCap_b")], zonelayertree_df[c("zone", "layer")], sum)[c("LIGHT_CCap_a", "LIGHT_CCap_b")])
-    
+    zonelayer_df[c("LIGHT_CCap_a", "LIGHT_CCap_b")] <- aggregate(zonelayertree_df[c("LIGHT_CCap_a", "LIGHT_CCap_b")], zonelayertree_df[c("zone", "layer")], sum)[c("LIGHT_CCap_a", "LIGHT_CCap_b")]
+
     zonelayer_df["LIGHT_CCap"] <- ifelse(zonelayer_df[["LIGHT_TCCap"]] > 0, (
       zonelayer_df[["LIGHT_TCCap"]] * (zonelayer_df[["CQ_kLightCurr"]] * zonelayer_df[["LIGHT_LAIC"]]) / (
-        zonelayertree_df[["LIGHT_CCap_a"]] + zonelayertree_df[["LIGHT_CCap_b"]] +
+        zonelayer_df[["LIGHT_CCap_a"]] + zonelayer_df[["LIGHT_CCap_b"]] +
           zonelayer_df[["CQ_kLightCurr"]] * zonelayer_df[["LIGHT_LAIC"]]
       )
     ), 0)
-    
-    
-    zone_df["LIGHT_CCap_sum"] <- aggregate(list(x = zonelayer_df[["LIGHT_CCap"]]), zonelayer_df["zone"], sum)[["x"]]
-    
-    zone_df["LightSwitch"] <- LightSwitch
-    
+
     # LIGHT_CRelCap[Zone] = if LightSwitch = 1 or LightSwitch = 2 then (LIGHT_CCap1[Zone]+LIGHT_CCap2[Zone]+LIGHT_CCap3[Zone]+LIGHT_CCap4[Zone])*RelLightCapPerZone[Zone] else (LIGHT_CCap1[Zone]+LIGHT_CCap2[Zone]+LIGHT_CCap3[Zone]+LIGHT_CCap4[Zone])
+    zone_df["LIGHT_CCap_sum"] <- aggregate(list(x = zonelayer_df[["LIGHT_CCap"]]), zonelayer_df["zone"], sum)[["x"]]
+    zone_df["LightSwitch"] <- LightSwitch
     zone_df["LIGHT_CRelCap"] <- ifelse(zone_df[["LightSwitch"]] == 1 |
                                          zone_df[["LightSwitch"]] == 2, zone_df[["LIGHT_CCap_sum"]] * zone_df[["RelLightCapPerZone"]], zone_df[["LIGHT_CCap_sum"]])
-    
-    
+
     # EVAP_CropWatDem[Zone] = EVAP_EpotDemandNotMetBy_CanInterc*LIGHT_CRelCap[Zone]
     zone_df["EVAP_CropWatDem"] <- EVAP_EpotDemandNotMetBy_CanInterc * zone_df[["LIGHT_CRelCap"]]
-    
     
     # S&B_SlashYear[Sp1] = GRAPH( S&B_PastSlashEvents[Sp1])
     # S&B_SlashYear[Sp2] = GRAPH( S&B_PastSlashEvents[Sp2])
     # S&B_SlashYear[Sp3] = GRAPH( S&B_PastSlashEvents[Sp3])
-    tree_df["SB_SlashYear"] <- c(
-      get_y(tree_df[tree_df[["tree_id"]] == 1, "SB_PastSlashEvents"], "SB_SlashYear_Sp1"),
-      get_y(tree_df[tree_df[["tree_id"]] == 2, "SB_PastSlashEvents"], "SB_SlashYear_Sp2"),
-      get_y(tree_df[tree_df[["tree_id"]] == 3, "SB_PastSlashEvents"], "SB_SlashYear_Sp3")
-    )
-    
+    tree_df["SB_SlashYear"] <- get_y(tree_df[["SB_PastSlashEvents"]], "SB_SlashYear", mode = "pair")
     
     # S&B_SlashDOY[Sp1] = GRAPH(S&B_PastSlashEvents[Sp1])
     # S&B_SlashDOY[Sp2] = GRAPH(S&B_PastSlashEvents[Sp2])
     # S&B_SlashDOY[Sp3] = GRAPH(S&B_PastSlashEvents[Sp3])
-    tree_df["SB_SlashDOY"] <- c(
-      get_y(tree_df[tree_df[["tree_id"]] == 1, "SB_PastSlashEvents"], "SB_SlashDOY_Sp1"),
-      get_y(tree_df[tree_df[["tree_id"]] == 2, "SB_PastSlashEvents"], "SB_SlashDOY_Sp2"),
-      get_y(tree_df[tree_df[["tree_id"]] == 3, "SB_PastSlashEvents"], "SB_SlashDOY_Sp3")
-    )
-    
+    tree_df["SB_SlashDOY"] <- get_y(tree_df[["SB_PastSlashEvents"]], "SB_SlashDOY", mode = "pair")
     
     # S&B_SlashTime[Tree] = S&B_SlashDOY[Tree] + 365* (S&B_SlashYear[Tree])-CA_DOYStart
     tree_df["SB_SlashTime"] <- tree_df[["SB_SlashDOY"]] + 365 * (tree_df[["SB_SlashYear"]]) -
@@ -3852,8 +3580,12 @@ run_wanulcas <- function(n_iteration,
     SB_Fire_is <- ifelse(SB_FireTime_is == 1 &
                            sum(zone_df[["SB_IsSlashDry_is"]]) == 1, 1, 0)
     
-    zone_df["CA_PlantDoY"] <- get_val_by_CA_ComplCrop(CA_PlantDoY_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
-    zone_df["CA_PlantYear"] <- get_val_by_CA_ComplCrop(CA_PlantYear_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
+    # zone_df["CA_PlantDoY"] <- get_val_by_CA_ComplCrop(CA_PlantDoY_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
+    # zone_df["CA_PlantYear"] <- get_val_by_CA_ComplCrop(CA_PlantYear_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
+    
+    zone_df["CA_PlantDoY"] <- get_y(zone_df[["CA_ComplCrop"]], "CA_PlantDoY", mode = "pair")
+    zone_df["CA_PlantYear"] <- get_y(zone_df[["CA_ComplCrop"]], "CA_PlantYear", mode = "pair")
+    
     
     # CA_PlantTime[Zone] = CA_PlantDoY[Zone] + 365* (CA_PlantYear[Zone])-CA_DOYStart
     zone_df["CA_PlantTime"] <- zone_df[["CA_PlantDoY"]] + 365 * (zone_df[["CA_PlantYear"]]) -
@@ -4328,7 +4060,6 @@ run_wanulcas <- function(n_iteration,
                                                         "AF_Depth",
                                                         "W_ThetaInacc",
                                                         "W_Theta",
-                                                        "W_ThetaInacc",
                                                         "W_FieldCap")]
     zone_df["W_MaxSoilEvap"] <- zl1[["W_Stock"]] - zl1[["AF_Depth"]] * zl1[["W_ThetaInacc"]] *
       1000
@@ -4339,7 +4070,7 @@ run_wanulcas <- function(n_iteration,
     
     # EVAP_PotSoilEvap[Zone] = EVAP_EpotDemandNotMetBy_CanInterc*EVAP_LightNotCaptured[Zone]
     zone_df["EVAP_PotSoilEvap"] <- EVAP_EpotDemandNotMetBy_CanInterc * zone_df[["EVAP_LightNotCaptured"]]
-    
+
     # EVAP_SlashEvap[Zone] = EVAP_SlashDryFact*min(EVAP_SlashWater[Zone],max(0,(EVAP_Pot-RAIN_InterceptEvapAvg)))
     zone_df["EVAP_SlashEvap"] <- EVAP_SlashDryFact * pmin(zone_df[["EVAP_SlashWater"]], pmax(0, (EVAP_Pot -
                                                                                                    RAIN_InterceptEvapAvg)))
@@ -4352,22 +4083,17 @@ run_wanulcas <- function(n_iteration,
                                           zone_df[["C_LAI"]] + zone_df[["T_LAIEff_sum"]] + EVAP_MulchEffSurfLit * zone_df[["MC_LAIperNecmss"]] * zone_df[["MC_Struc"]]
                                         )
                                       ), 1)
-    
-    
-    zdw <- zonepcomp_df[zonepcomp_df[["PlantComp"]] == "DW", c("SB_FineNecromass", "SB_DeadWood")]
-    
+
     # S&B_SlashMoist[Zone] = if S&B_FineNecromass[Zone,DW]>0 then EVAP_SlashWater[Zone]/S&B_FineNecromass[Zone,DW] else 0
+    zdw <- zonepcomp_df[zonepcomp_df[["PlantComp"]] == "DW", c("SB_FineNecromass", "SB_DeadWood")]
     zone_df["SB_SlashMoist"] <- ifelse(zdw[["SB_FineNecromass"]] > 0, zone_df[["EVAP_SlashWater"]] / zdw[["SB_FineNecromass"]], 0)
-    
-    
+
     # S&B_IsSlashDry?[Zone] = if S&B_FineNecromass[Zone,DW] > 0 then if (S&B_FineNecromass[Zone,DW]*S&B_SlashMoist[Zone]+RAIN_CanopyWater[Zone]) /S&B_FineNecromass[Zone,DW] < S&B_CritMoist  then 1 else 0 else 0
     zone_df["SB_IsSlashDry_is"] <- ifelse(zdw[["SB_FineNecromass"]] > 0, ifelse((zdw[["SB_FineNecromass"]] * zone_df[["SB_SlashMoist"]] + zone_df[["RAIN_CanopyWater"]]) / zdw[["SB_FineNecromass"]] < SB_CritMoist, 1, 0), 0)
-    
     
     # S&B_Fire? = if S&B_FireTime? = 1 and ARRAYMEAN(S&B_IsSlashDry?[*]) = 1 then 1 else 0
     SB_Fire_is <- ifelse(SB_FireTime_is == 1 &
                            mean(zone_df[["SB_IsSlashDry_is"]]) == 1, 1, 0)
-    
     
     # S&B_PileUpT? = DELAY(S&B_Fire?,S&B_TimetoPileUp)
     SB_PileUpT_is <- delay(SB_Fire_is, SB_TimetoPileUp, 0)
@@ -4377,7 +4103,6 @@ run_wanulcas <- function(n_iteration,
     
     # S&B_WoodMoist[Zone] = if S&B_DeadWood[Zone,DW]>0 then EVAP_WoodMoist[Zone]/S&B_DeadWood[Zone,DW] else 0
     zone_df["SB_WoodMoist"] <- ifelse(zdw[["SB_DeadWood"]] > 0, zone_df[["EVAP_WoodMoist"]] / zdw[["SB_DeadWood"]], 0)
-    
     zone_df["SB_Fire_is"] <- SB_Fire_is
     zone_df["SB_SecondFire_is"] <- SB_SecondFire_is
     
@@ -4411,7 +4136,6 @@ run_wanulcas <- function(n_iteration,
     # W_StockAcc2[Zone] = max(0,W_Stock2[Zone]-W_ThetaInacc2[Zone]*AF_Depth2[Zone]*1000)
     # W_StockAcc3[Zone] = max(0,W_Stock3[Zone]-W_ThetaInacc3[Zone]*AF_Depth3[Zone]*1000)
     # W_StockAcc4[Zone] = max(0,W_Stock4[Zone]-W_ThetaInacc4[Zone]*AF_Depth4[Zone]*1000)
-    
     zonelayer_df["W_StockAcc"] <- pmax(0, zonelayer_df[["W_Stock"]] - zonelayer_df[["W_ThetaInacc"]] * zonelayer_df[["AF_Depth"]] *
                                          1000)
     zonelayer_df[zonelayer_df[["layer"]] == 1, "W_StockAcc"] <- pmax(0, zl1[["W_Stock"]] - zone_df[["EVAP_Surf"]] - zl1[["W_ThetaInacc"]] * zl1[["AF_Depth"]] * 1000)
@@ -4673,7 +4397,7 @@ run_wanulcas <- function(n_iteration,
     # W_Theta3_MW_W[Zone] = 1000*AF_Depth3[Zone]*max(0,min(W_Theta3[Zone],W_Theta3W[Zone])-W_Theta3MW[Zone])
     # W_Theta4_MW_W[Zone] = 1000*AF_Depth4[Zone]*max(0,min(W_Theta4[Zone],W_Theta4W[Zone])-W_Theta4MW[Zone])
     #
-    # W_Theta1S_MS[Zone] = 1000*AF_DepthAct1[Zone]*max(0,min(W_Theta1[Zone],W_Theta1MS[Zone])-W_Theta1S[Zone])
+    # W_Theta1S_MS[Zone]  = 1000*AF_DepthAct1[Zone]*max(0,min(W_Theta1[Zone],W_Theta1MS[Zone])-W_Theta1S[Zone])
     # W_Theta2_S_MS[Zone] = 1000*AF_Depth2[Zone]*max(0,min(W_Theta2[Zone],W_Theta2MS[Zone])-W_Theta2S[Zone])
     # W_Theta3_S_MS[Zone] = 1000*AF_Depth3[Zone]*max(0,min(W_Theta3[Zone],W_Theta3MS[Zone])-W_Theta3S[Zone])
     # W_Theta4_S_MS[Zone] = 1000*AF_Depth4[Zone]*max(0,min(W_Theta4[Zone],W_Theta4MS[Zone])-W_Theta4S[Zone])
@@ -4736,9 +4460,7 @@ run_wanulcas <- function(n_iteration,
     zonelayerwater_df[zonelayerwater_df[["water"]] == "W", "W_PhiP"] <- get_y(zone_df[["W_pFW"]], "W_PhiPW")
     
     
-    
-    zonelayerwater_df["W_PhiTheta"] <- rep(zonelayer_df[["W_PhiTheta"]], 4)
-    zonelayerwater_df[zonelayerwater_df[["water"]] == "W", "W_PhiTheta"] <- maxval #to be neglected when compared with min()
+
     
     
     # RT_Diam_MS[Zn1,1] = If RT_LrvMS[Zn1,1]> 0 then ((W_FlagCropMS[Zn1]*RT_CLrv1[Zn1]*SQRT(CQ_RtDiam[Zn1])+W_FlagTreeMS[Zn1,Sp1]*RT_TLrv1[Zn1,Sp1]*SQRT(RT_TDiam[Sp1])+W_FlagTreeMS[Zn1,Sp2]*RT_TLrv1[Zn1,Sp2]*SQRT(RT_TDiam[Sp2])+W_FlagTreeMS[Zn1,Sp3]*RT_TLrv1[Zn1,Sp3]*SQRT(RT_TDiam[Sp3]))/RT_LrvMS[Zn1,1])^2 else RT_Stopgap + 0*(RT_CLrv1[Zn1]+RT_CLrv2[Zn1]+RT_CLrv3[Zn1]+RT_CLrv4[Zn1])+0*(RT_TLrv1[Zn1,Sp1]+RT_TLrv2[Zn1,Sp1]+RT_TLrv3[Zn1,Sp1]+RT_TLrv4[Zn1,Sp1])
@@ -4866,6 +4588,10 @@ run_wanulcas <- function(n_iteration,
     # W_PotUptW2[Zone] = if W_WaterLimited?[Zone]=1 then IF RT_LrvW[Zone,2]>0 THEN min(W_Theta2_W_Soil[Zone],10*PI*100*AF_Depth2[Zone]*(max(0,+W_PhiTheta2[Zone]-W_PhiPW2[Zone]))*RT_GW[Zone,2]*RT_LrvW[Zone,2]) ELSE 0 else IF RT_LrvW[Zone,2]>0 THEN 10*PI*100*AF_Depth2[Zone]*(max(0,+W_PhiTheta2[Zone]-W_PhiPW2[Zone]))*RT_GW[Zone,2]*RT_LrvW[Zone,2] ELSE 0
     # W_PotUptW3[Zone] = if W_WaterLimited?[Zone]=1 then IF RT_LrvW[Zone,3]>0 THEN min(W_Theta3_W_Soil[Zone],10*PI*100*AF_Depth3[Zone]*(max(0,+W_PhiTheta3[Zone]-W_PhiPW3[Zone]))*RT_GW[Zone,3]*RT_LrvW[Zone,3]) ELSE 0 else IF RT_LrvW[Zone,3]>0 THEN 10*PI*100*AF_Depth3[Zone]*(max(0,+W_PhiTheta3[Zone]-W_PhiPW3[Zone]))*RT_GW[Zone,3]*RT_LrvW[Zone,3] ELSE 0
     # W_PotUptW4[Zone] = IF W_WaterLimited?[Zone]=1 then IF RT_LrvW[Zone,2]>0 THEN min(W_Theta4_W_Soil[Zone],10*PI*100*AF_Depth4[Zone]*(max(0,+W_PhiTheta4[Zone]-W_PhiPW4[Zone]))*RT_GW[Zone,4]*RT_LrvW[Zone,4]) ELSE 0 else IF RT_LrvW[Zone,2]>0 THEN 10*PI*100*AF_Depth4[Zone]*(max(0,+W_PhiTheta4[Zone]-W_PhiPW4[Zone]))*RT_GW[Zone,4]*RT_LrvW[Zone,4] ELSE 0
+    
+    zonelayerwater_df["W_PhiTheta"] <- rep(zonelayer_df[["W_PhiTheta"]], 4)
+    # zonelayerwater_df[zonelayerwater_df[["water"]] == "W", "W_PhiTheta"] <- maxval #to be neglected when compared with min()
+    
     zonelayerwater_df["W_WaterLimited_is"] <- rep(zone_df[["W_WaterLimited_is"]], nlayer)
     
     zonelayerwater_df["W_PhiP_x"] <- c(
@@ -4874,10 +4600,10 @@ run_wanulcas <- function(n_iteration,
       zonelayerwater_df[zonelayerwater_df[["water"]] == "MS", "W_PhiP"],
       rep(maxval, nzone * nlayer)
     )
-    zonelayerwater_df["W_PotUpt_a"] <- 10 * pi * 100 * zonelayerwater_df[["AF_Depth"]] * (pmax(
+    zonelayerwater_df["W_PotUpt_a"] <- 10 * pi * 100 * zonelayerwater_df[["AF_Depth"]] * pmax(
       0,
       pmin(zonelayerwater_df[["W_PhiP_x"]], zonelayerwater_df[["W_PhiTheta"]]) - zonelayerwater_df[["W_PhiP"]]
-    )) * zonelayerwater_df[["RT_G"]] * zonelayerwater_df[["RT_Lrv"]]
+    ) * zonelayerwater_df[["RT_G"]] * zonelayerwater_df[["RT_Lrv"]]
     
     zonelayerwater_df["W_PotUpt"] <- ifelse(
       zonelayerwater_df[["W_WaterLimited_is"]] == 1,
@@ -4888,7 +4614,7 @@ run_wanulcas <- function(n_iteration,
       ),
       ifelse(zonelayerwater_df[["RT_Lrv"]] > 0, zonelayerwater_df[["W_PotUpt_a"]], 0)
     )
-    
+
     # W_CUptPot1[Zone] = RT_CLrv1[Zone]*(W_FlagCropS[Zone]*W_PotUptS1[Zone]+W_FlagCropMS[Zone]*W_PotUptMS1[Zone]+W_FlagCropMW[Zone]*W_PotUptMW1[Zone]+W_FlagCropW[Zone]*W_PotUptW1[Zone])
     # W_CUptPot2[Zone] = RT_CLrv2[Zone]*(W_FlagCropS[Zone]*W_PotUptS2[Zone]+W_FlagCropMS[Zone]*W_PotUptMS2[Zone]+W_FlagCropMW[Zone]*W_PotUptMW2[Zone]+W_FlagCropW[Zone]*W_PotUptW2[Zone])
     # W_CUptPot3[Zone] = RT_CLrv3[Zone]*(W_FlagCropS[Zone]*W_PotUptS3[Zone]+W_FlagCropMS[Zone]*W_PotUptMS3[Zone]+W_FlagCropMW[Zone]*W_PotUptMW3[Zone]+W_FlagCropW[Zone]*W_PotUptW3[Zone])
@@ -4966,8 +4692,6 @@ run_wanulcas <- function(n_iteration,
       zonelayer_df[["W_CUptPotAct"]]
     )
     
-    
-    
     # W_TUptPotAct1[Zone,Tree] = IF W_StockAcc1[Zone]>0 then                                                           if (W_CUptPot1[Zone]+ARRAYSUM(W_TUptPot1[Zone,*]))>W_StockAcc1[Zone] then (W_StockAcc1[Zone]*W_TUptPot1[Zone,Tree]/(W_CUptPot1[Zone]+ARRAYSUM(W_TUptPot1[Zone,*])))ELSE W_TUptPot1[Zone,Tree] ELSE 0
     # W_TUptPotAct2[Zone,Tree] = IF(W_StockAcc2[Zone]>0)THEN IF (W_CUptPot2[Zone]+ARRAYSUM(W_TUptPot2[Zone,*]))>0 THEN IF (W_CUptPot2[Zone]+ARRAYSUM(W_TUptPot2[Zone,*]))>W_StockAcc2[Zone] THEN (W_StockAcc2[Zone]*W_TUptPot2[Zone,Tree]/(W_CUptPot2[Zone]+ARRAYSUM(W_TUptPot2[Zone,*])))ELSE(W_TUptPot2[Zone,Tree])ELSE(0)ELSE(0)
     # W_TUptPotAct3[Zone,Tree] = IF(W_StockAcc3[Zone]>0)THEN IF (W_CUptPot3[Zone]+ARRAYSUM(W_TUptPot3[Zone,*]))>0 THEN IF (W_CUptPot3[Zone]+ARRAYSUM(W_TUptPot3[Zone,*]))>W_StockAcc3[Zone] THEN (W_StockAcc3[Zone]*W_TUptPot3[Zone,Tree]/(W_CUptPot3[Zone]+ARRAYSUM(W_TUptPot3[Zone,*])))ELSE(W_TUptPot3[Zone,Tree])ELSE(0)ELSE(0)
@@ -5035,9 +4759,6 @@ run_wanulcas <- function(n_iteration,
       0
     )
     
-    
-    
-    
     # S_LFoodForWorms[Zone] = S_WormsLikeLitMetab*(MC_Metab[Zone]+MC_Act[Zone]+ 0.5 * MC_Slw[Zone])+S_WormsLikeLitStruc*(MC_Struc[Zone]+MC_Pass[Zone]+ 0.5 *MC_Slw[Zone] )
     zone_df["S_LFoodForWorms"] <- S_WormsLikeLitMetab * (zone_df[["MC_Metab"]] + zone_df[["MC_Act"]] + 0.5 * zone_df[["MC_Slw"]]) + S_WormsLikeLitStruc *
       (zone_df[["MC_Struc"]] + zone_df[["MC_Pass"]] + 0.5 * zone_df[["MC_Slw"]])
@@ -5068,7 +4789,7 @@ run_wanulcas <- function(n_iteration,
     
     # S_WormAct[Zone,SoilLayer] = S_LFoodForWorms[Zone]*S_RelWormLit[1]+S_SOMFoodForWorms[Zone,SoilLayer]*MN2_RelImpLayer[Zone,SoilLayer]
     zonelayer_df["S_LFoodForWorms"] <- rep(zone_df[["S_LFoodForWorms"]], nlayer)
-    zonelayer_df["S_WormAct"] <- zonelayer_df[["S_LFoodForWorms"]] * S_RelWormLit[1] + zonelayer_df[["S_SOMFoodForWorms"]] *
+    zonelayer_df["S_WormAct"] <- zonelayer_df[["S_LFoodForWorms"]] *  layer_df[layer_df$layer == 1, "S_RelWormLit"] + zonelayer_df[["S_SOMFoodForWorms"]] *
       zonelayer_df[["MN2_RelImpLayer"]]
     
     
@@ -5166,6 +4887,7 @@ run_wanulcas <- function(n_iteration,
     t_df <- df[rep(seq_len(ntree), each = nzone * nlayer * npcomp), ]
     zlp_df <- zonelayerpcomp_df[c("zone", "layer", "PlantComp")]
     t2_df <- zlp_df[rep(seq_len(nzone * nlayer * npcomp), ntree), ]
+    #TODO: is this cbind prone to error?
     t_df <- cbind(t_df, t2_df)
     t_df <- t_df[order(t_df[["PlantComp"]], t_df[["tree_id"]], t_df[["layer"]], t_df[["zone"]]), ]
     zonelayertreepcomp_df[colvar] <- t_df[colvar]
@@ -5223,9 +4945,8 @@ run_wanulcas <- function(n_iteration,
     
     
     
-    zone_df["CQ_CropType"] <- get_val_by_CA_ComplCrop(CQ_CropType_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
-    
-    
+    # zone_df["CQ_CropType"] <- get_val_by_CA_ComplCrop(CQ_CropType_df, zone_df[["CA_ComplCrop"]], zone_df[["zone"]])
+    zone_df["CQ_CropType"] <- get_y(zone_df[["CA_ComplCrop"]], "CQ_CropType", mode = "pair")
     
     # P_PriceCSeed[Private,Zn1] = P_ParamCCurr[Zn1,SeedP]
     # P_PriceCSeed[Private,Zn2] = P_ParamCCurr[Zn2,SeedP]
@@ -5235,33 +4956,33 @@ run_wanulcas <- function(n_iteration,
     # P_PriceCSeed[Social,Zn2] = P_ParamCCurr[Zn2,SeedS]
     # P_PriceCSeed[Social,Zn3] = P_ParamCCurr[Zn3,SeedS]
     # P_PriceCSeed[Social,Zn4] = P_ParamCCurr[Zn4,SeedS]
-    zoneprice_df["P_PriceCSeed"] <- c(PF_UnitCrop_df[zone_df[["CQ_CropType"]], "SeedP"], PF_UnitCrop_df[zone_df[["CQ_CropType"]], "SeedS"])
-    
-    # P_CPlantLab[Zone] = P_ParamCCurr[Zone,PlantLab]
-    zone_df["P_CPlantLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "PlantLab"]
-    
-    # P_CPestConLab[Zone] = P_ParamCCurr[Zone,PestLab]
-    zone_df["P_CPestConLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "PestLab"]
-    
-    # P_CWeedLab[Zone] = P_ParamCCurr[Zone,WeedLab]
-    zone_df["P_CWeedLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "WeedLab"]
-    
-    # P_CHarvLab[Zone] = P_ParamCCurr[Zone,HarvLab]
-    zone_df["P_CHarvLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "HarvLab"]
-    
-    # P_CFertLab[Zone] = P_ParamCCurr[Zone,FertLab]
-    zone_df["P_CFertLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "FertLab"]
-    
-    # P_CYieldPrice[Private,Zn1] = P_ParamCCurr[Zn1,YieldP]
-    # P_CYieldPrice[Private,Zn2] = P_ParamCCurr[Zn2,YieldP]
-    # P_CYieldPrice[Private,Zn3] = P_ParamCCurr[Zn3,YieldP]
-    # P_CYieldPrice[Private,Zn4] = P_ParamCCurr[Zn4,YieldP]
-    # P_CYieldPrice[Social,Zn1] = P_ParamCCurr[Zn1,YieldS]
-    # P_CYieldPrice[Social,Zn2] = P_ParamCCurr[Zn2,YieldS]
-    # P_CYieldPrice[Social,Zn3] = P_ParamCCurr[Zn3,YieldS]
-    # P_CYieldPrice[Social,Zn4] = P_ParamCCurr[Zn4,YieldS]
-    zoneprice_df["P_CYieldPrice"] <- c(PF_UnitCrop_df[zone_df[["CQ_CropType"]], "YieldP"], PF_UnitCrop_df[zone_df[["CQ_CropType"]], "YieldS"])
-    
+    # zoneprice_df["P_PriceCSeed"] <- c(PF_UnitCrop_df[zone_df[["CQ_CropType"]], "SeedP"], PF_UnitCrop_df[zone_df[["CQ_CropType"]], "SeedS"])
+    #
+    # # P_CPlantLab[Zone] = P_ParamCCurr[Zone,PlantLab]
+    # zone_df["P_CPlantLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "PlantLab"]
+    #
+    # # P_CPestConLab[Zone] = P_ParamCCurr[Zone,PestLab]
+    # zone_df["P_CPestConLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "PestLab"]
+    #
+    # # P_CWeedLab[Zone] = P_ParamCCurr[Zone,WeedLab]
+    # zone_df["P_CWeedLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "WeedLab"]
+    #
+    # # P_CHarvLab[Zone] = P_ParamCCurr[Zone,HarvLab]
+    # zone_df["P_CHarvLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "HarvLab"]
+    #
+    # # P_CFertLab[Zone] = P_ParamCCurr[Zone,FertLab]
+    # zone_df["P_CFertLab"] <- PF_UnitCrop_df[zone_df[["CQ_CropType"]], "FertLab"]
+    #
+    # # P_CYieldPrice[Private,Zn1] = P_ParamCCurr[Zn1,YieldP]
+    # # P_CYieldPrice[Private,Zn2] = P_ParamCCurr[Zn2,YieldP]
+    # # P_CYieldPrice[Private,Zn3] = P_ParamCCurr[Zn3,YieldP]
+    # # P_CYieldPrice[Private,Zn4] = P_ParamCCurr[Zn4,YieldP]
+    # # P_CYieldPrice[Social,Zn1] = P_ParamCCurr[Zn1,YieldS]
+    # # P_CYieldPrice[Social,Zn2] = P_ParamCCurr[Zn2,YieldS]
+    # # P_CYieldPrice[Social,Zn3] = P_ParamCCurr[Zn3,YieldS]
+    # # P_CYieldPrice[Social,Zn4] = P_ParamCCurr[Zn4,YieldS]
+    # zoneprice_df["P_CYieldPrice"] <- c(PF_UnitCrop_df[zone_df[["CQ_CropType"]], "YieldP"], PF_UnitCrop_df[zone_df[["CQ_CropType"]], "YieldS"])
+    #
     
     
     
@@ -5382,21 +5103,27 @@ run_wanulcas <- function(n_iteration,
     
     
     
-    treepcomp_df["T_PrunPlant_is"] <- T_PrunOption_par$`PrunPlant?`
+    # treepcomp_df["T_PrunPlant_is"] <- T_PrunOption_par$`PrunPlant?`
+    treepcomp_df["T_PrunPlant_is"] <- T_PrunPlant_is
     
+    # T_PrunDoY <- T_Prun_fun$T_PrunDoY(T_PrunPast)
+    # T_PrunY <- T_Prun_fun$T_PrunY(T_PrunPast)
     
-    T_PrunDoY <- T_Prun_fun$T_PrunDoY(T_PrunPast)
-    T_PrunY <- T_Prun_fun$T_PrunY(T_PrunPast)
+    T_PrunDoY <- get_y(T_PrunPast, "T_PrunDoY")
+    T_PrunY <- get_y(T_PrunPast, "T_PrunY")
     
-    tree_df["T_PrunFracD"] <- sapply(1:3, function(x, y) {
-      T_Prun_fun$T_PrunFracD[[x]](y)
-    }, y = T_PrunPast)
+    #
+    # tree_df["T_PrunFracD"] <- sapply(1:3, function(x, y) {
+    #   T_Prun_fun$T_PrunFracD[[x]](y)
+    # }, y = T_PrunPast)
+    #
+    # # T_PrunHarvFracD[Sp1] = GRAPH(T_PrunPast)
+    # tree_df["T_PrunHarvFracD"] <- sapply(1:3, function(x, y) {
+    #   T_Prun_fun$T_PrunHarvFracD[[x]](y)
+    # }, y = T_PrunPast)
     
-    # T_PrunHarvFracD[Sp1] = GRAPH(T_PrunPast)
-    tree_df["T_PrunHarvFracD"] <- sapply(1:3, function(x, y) {
-      T_Prun_fun$T_PrunHarvFracD[[x]](y)
-    }, y = T_PrunPast)
-    
+    tree_df["T_PrunFracD"] <- get_y(T_PrunPast, "T_PrunFracD")
+    tree_df["T_PrunHarvFracD"] <- get_y(T_PrunPast, "T_PrunHarvFracD")
     
     # T_PrunDay = T_PrunDoY+365*(T_PrunY)-CA_DOYStart
     T_PrunDay <- T_PrunDoY + 365 * (T_PrunY) - CA_DOYStart
@@ -5420,7 +5147,7 @@ run_wanulcas <- function(n_iteration,
     # T_CropinField? = if ARRAYMEAN(CQ_WeedZn?[*]) <1 then IF(CQ_Stage[Zn1] <T_PrunStageLimit OR CQ_Stage[Zn2] <T_PrunStageLimit OR  CQ_Stage[Zn3] <T_PrunStageLimit OR  CQ_Stage[Zn4] <T_PrunStageLimit)THEN(1)ELSE(0) else 0
     T_CropinField_is <- ifelse(mean(zone_df[["CQ_WeedZn_is"]]) < 1, ifelse(any(zone_df[["CQ_Stage"]] < T_PrunStageLimit), 1, 0), 0)
     
-    T_PrunType_is <- T_PrunOption_par$`PrunType?`
+    # T_PrunType_is <- T_PrunOption_par$`PrunType?`
     
     
     
@@ -5589,6 +5316,8 @@ run_wanulcas <- function(n_iteration,
     # T_Biom[PlantComp,Tree] = T_GroRes[PlantComp,Tree]+T_LfTwig[PlantComp,Tree]+T_SapWood[PlantComp,Tree]+T_Fruit[PlantComp,Tree]+T_RootPlCompTot[Tree,PlantComp]+T_HeartWood[PlantComp,Tree]+T_LatexStock[PlantComp,Tree]
     treepcomp_df["T_Biom"] <- treepcomp_df[["T_GroRes"]] + treepcomp_df[["T_LfTwig"]] + treepcomp_df[["T_SapWood"]] + treepcomp_df[["T_Fruit"]] + treepcomp_df[["T_RootPlCompTot"]] + treepcomp_df[["T_HeartWood"]] + treepcomp_df[["T_LatexStock"]]
     
+
+    
     # T_NBiom[N,Sp1] = T_Biom[N,Sp1]
     # T_NBiom[N,Sp2] = T_Biom[N,Sp2]
     # T_NBiom[N,Sp3] = T_Biom[N,Sp3]
@@ -5692,7 +5421,7 @@ run_wanulcas <- function(n_iteration,
     tree_df["T_Stage_VegGen"] <- treestage_df[treestage_df[["Tree_Stage"]] == "VegGen", "T_Stage"]
     
     # T_FruitAllocStage[Tree] = GRAPH(T_Stage[Tree,VegGen])
-    tree_df["T_FruitAllocStage"] <- get_y(tree_df[["T_Stage_VegGen"]], "T_FruitAllocStage")
+    tree_df["T_FruitAllocStage"] <- get_y(tree_df[["T_Stage_VegGen"]], "T_FruitAllocStage", mode = "pair")
     # tree_df["T_FruitAllocStage"] <- get_T_FruitAllocStage(tree_df[["T_Stage_VegGen"]])
     
     # TW_UptTot[Sp1] = AF_ZoneFrac[Zn1]*(W_T1Upt1[Zn1]+W_T1Upt2[Zn1]+W_T1Upt3[Zn1]+W_T1Upt4[Zn1])+
@@ -5717,8 +5446,8 @@ run_wanulcas <- function(n_iteration,
     zonetree_df["W_Upt_sum_frac"] <- zonetree_df[["AF_ZoneFrac"]] * zonetree_df[["W_Upt_sum"]]
     tree_df["TW_UptTot"] <- aggregate(zonetree_df["W_Upt_sum_frac"], zonetree_df["tree_id"], sum)[["W_Upt_sum_frac"]]
     
-    tree_df["AF_RunWatLim_is"] <- AF_RunWatLim_is
     # TW_Posgro[Tree] = IF (TW_DemandPot[Tree]>0 AND AF_RunWatLim? > 0.5)  THEN max(0,((TW_UptTot[Tree]-TP_WaterDemand[Tree])/(TW_DemandPot[Tree]-TP_WaterDemand[Tree]))) ELSE 1
+    tree_df["AF_RunWatLim_is"] <- AF_RunWatLim_is
     tree_df["TW_Posgro"] <- ifelse (tree_df[["TW_DemandPot"]] > 0 &
                                       tree_df[["AF_RunWatLim_is"]] > 0.5, pmax(0, ((tree_df[["TW_UptTot"]] - tree_df[["TP_WaterDemand"]]) / (tree_df[["TW_DemandPot"]] - tree_df[["TP_WaterDemand"]])
                                       )), 1)
@@ -5758,6 +5487,15 @@ run_wanulcas <- function(n_iteration,
                                                )
                                            ))
     
+    # T_CanBiomInc[PlantComp,Tree] = if T_GrowsToday?[Tree] = 0 then 0  else
+    #   if T_ApplyPalm?[Tree] = 1 then min(T_GroRes[PlantComp,Tree]*T_GroResFrac[Tree],TF_VegDemand[PlantComp,Tree])
+    # else
+    #   T_LvsFormed?[Tree]*MAX((T_LfTwig[DW, Tree]+(T_GroResFrac[Tree]*(1-T_FruitAllocStage[Tree]*T_RelFruitAllocMax[Tree])*T_GroRes[DW, Tree])*(1-T_RtAllocAct[Tree]))
+    #                          *T_UnitConv[PlantComp]*T_CanTargConc[PlantComp,Tree]-T_LfTwig[PlantComp,Tree],
+    #                          (T_GroResFrac[Tree]*T_GroRes[PlantComp,Tree])*(1-T_RtAllocAct[Tree]))
+
+    
+    
     treepcomp_df["T_PlantTime"] <- rep(tree_df[["T_PlantTime"]], npcomp)
     treepcomp_df["AF_AnyTrees_is"] <- AF_AnyTrees_is
     treepcomp_df["T_CanBiomInit"] <- rep(tree_df[["T_CanBiomInit"]], npcomp)
@@ -5774,18 +5512,18 @@ run_wanulcas <- function(n_iteration,
     # T_CanBiomIni[PlantComp,Tree] = T_CanInit[PlantComp,Tree]
     treepcomp_df["T_CanBiomIni"] <- treepcomp_df[["T_CanInit"]]
     
-    # T_LifallRed[DW,Sp1] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
-    # T_LifallRed[DW,Sp2] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
-    # T_LifallRed[DW,Sp3] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
-    # T_LifallRed[N,Sp1] = T_Par1[LifallRedN]+0*T_Par2[LifallRedN]+0*T_Par3[LifallRedN]
-    # T_LifallRed[N,Sp2] = 0*T_Par1[LifallRedN]+T_Par2[LifallRedN]+0*T_Par3[LifallRedN]
-    # T_LifallRed[N,Sp3] = 0*T_Par1[LifallRedN]+0*T_Par2[LifallRedN]+T_Par3[LifallRedN]
-    # T_LifallRed[P,Sp1] = T_Par1[LifallRedP]+0*T_Par2[LifallRedP]+0*T_Par3[LifallRedP]
-    # T_LifallRed[P,Sp2] = 0*T_Par1[LifallRedP]+T_Par2[LifallRedP]+0*T_Par3[LifallRedP]
-    # T_LifallRed[P,Sp3] = 0*T_Par1[LifallRedP]+0*T_Par2[LifallRedP]+T_Par3[LifallRedP]
-    treepcomp_df["T_LifallRed"] <- 0
-    treepcomp_df[treepcomp_df[["PlantComp"]] == "N", "T_LifallRed"] <- tree_df[["T_NLifallRed_N"]]
-    treepcomp_df[treepcomp_df[["PlantComp"]] == "P", "T_LifallRed"] <- tree_df[["T_NLifallRed_P"]]
+    # # T_LifallRed[DW,Sp1] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
+    # # T_LifallRed[DW,Sp2] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
+    # # T_LifallRed[DW,Sp3] = 0*(T_Par1[LifallRedN]+T_Par2[LifallRedN]+T_Par3[LifallRedN])
+    # # T_LifallRed[N,Sp1] = T_Par1[LifallRedN]+0*T_Par2[LifallRedN]+0*T_Par3[LifallRedN]
+    # # T_LifallRed[N,Sp2] = 0*T_Par1[LifallRedN]+T_Par2[LifallRedN]+0*T_Par3[LifallRedN]
+    # # T_LifallRed[N,Sp3] = 0*T_Par1[LifallRedN]+0*T_Par2[LifallRedN]+T_Par3[LifallRedN]
+    # # T_LifallRed[P,Sp1] = T_Par1[LifallRedP]+0*T_Par2[LifallRedP]+0*T_Par3[LifallRedP]
+    # # T_LifallRed[P,Sp2] = 0*T_Par1[LifallRedP]+T_Par2[LifallRedP]+0*T_Par3[LifallRedP]
+    # # T_LifallRed[P,Sp3] = 0*T_Par1[LifallRedP]+0*T_Par2[LifallRedP]+T_Par3[LifallRedP]
+    # treepcomp_df["T_LifallRed"] <- 0
+    # treepcomp_df[treepcomp_df[["PlantComp"]] == "N", "T_LifallRed"] <- tree_df[["T_NLifallRed_N"]]
+    # treepcomp_df[treepcomp_df[["PlantComp"]] == "P", "T_LifallRed"] <- tree_df[["T_NLifallRed_P"]]
     
     # T_LifallRedFac[PlantComp,Tree] = IF(T_TargetCan[PlantComp,Tree]>0)THEN((T_LfTwig[PlantComp,Tree]/T_TargetCan[PlantComp,Tree])^T_LifallRed[PlantComp,Tree])ELSE(1)
     treepcomp_df["T_LifallRedFac"] <- ifelse(treepcomp_df[["T_TargetCan"]] > 0,
@@ -5974,6 +5712,7 @@ run_wanulcas <- function(n_iteration,
                                          tree_df[["T_DiamSlopeBiom"]] > 0,
                                        (tree_df[["T_BiomAG_DW"]] * 10000 / (tree_df[["T_Treesperha"]] * tree_df[["T_DiamBiom1"]]))^(1 / tree_df[["T_DiamSlopeBiom"]]),
                                        0)
+
     # T_TargetLeaf&Twig[Tree] = 0.0001*T_Treesperha[Tree]*T_DiamLfTwig1[Tree]*(T_SapWoodDiam[Tree]^T_DiamSlopeLfTwig[Tree])
     tree_df["T_TargetLeafTwig"] <- 0.0001 * tree_df[["T_Treesperha"]] * tree_df[["T_DiamLfTwig1"]] *
       (tree_df[["T_SapWoodDiam"]]^tree_df[["T_DiamSlopeLfTwig"]])
@@ -6045,19 +5784,20 @@ run_wanulcas <- function(n_iteration,
     # T_WoodHarvDoY[Sp1] = GRAPH(T_WoodHarvPast[Sp1])
     # T_WoodHarvDoY[Sp2] = GRAPH(T_WoodHarvPast[Sp2])
     # T_WoodHarvDoY[Sp3] = GRAPH(T_WoodHarvPast[Sp3])
-    tree_df["T_WoodHarvDoY"] <- c(
-      get_y(tree_df[["T_WoodHarvPast"]][1], "T_WoodHarvDoY_Sp1"),
-      get_y(tree_df[["T_WoodHarvPast"]][2], "T_WoodHarvDoY_Sp2"),
-      get_y(tree_df[["T_WoodHarvPast"]][3], "T_WoodHarvDoY_Sp3")
-    )
-    tree_df["T_WoodHarvY"] <- c(
-      get_y(tree_df[["T_WoodHarvPast"]][1], "T_WoodHarvY_Sp1"),
-      get_y(tree_df[["T_WoodHarvPast"]][2], "T_WoodHarvY_Sp2"),
-      get_y(tree_df[["T_WoodHarvPast"]][3], "T_WoodHarvY_Sp3")
-    )
+    # tree_df["T_WoodHarvDoY"] <- c(
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][1], "T_WoodHarvDoY_Sp1"),
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][2], "T_WoodHarvDoY_Sp2"),
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][3], "T_WoodHarvDoY_Sp3")
+    # )
+    # tree_df["T_WoodHarvY"] <- c(
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][1], "T_WoodHarvY_Sp1"),
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][2], "T_WoodHarvY_Sp2"),
+    #   get_y_old(tree_df[["T_WoodHarvPast"]][3], "T_WoodHarvY_Sp3")
+    # )
     
-    # tree_df["T_WoodHarvDoY"] <- get_T_WoodHarvDoY(tree_df[["T_WoodHarvPast"]])
-    # tree_df["T_WoodHarvY"] <- get_T_WoodHarvY(tree_df[["T_WoodHarvPast"]])
+    tree_df["T_WoodHarvDoY"] <- get_y(tree_df[["T_WoodHarvPast"]], "T_WoodHarvDoY", mode = "pair")
+    tree_df["T_WoodHarvY"] <- get_y(tree_df[["T_WoodHarvPast"]], "T_WoodHarvY", mode = "pair")
+    
     
     # T_WoodHarvDay[Tree] = T_WoodHarvDoY[Tree]+365*(T_WoodHarvY[Tree])-CA_DOYStart
     tree_df["T_WoodHarvDay"] <- tree_df[["T_WoodHarvDoY"]] + 365 * (tree_df[["T_WoodHarvY"]]) -
@@ -6502,15 +6242,15 @@ run_wanulcas <- function(n_iteration,
     # N_KaPDef2[Zone] = GRAPH(N_Soil2[Zone,P])
     # N_KaPDef3[Zone] = GRAPH(N_Soil3[Zone,P])
     # N_KaPDef4[Zone] = GRAPH(N_Soil4[Zone,P])
-    zln_P <- zonelayernut_df[zonelayernut_df[["SlNut"]] == "P", c("layer", "N_Soil")]
-    zonelayer_df["N_KaPDef"] <- c(
-      get_y(zln_P[zln_P[["layer"]] == 1, "N_Soil"], "N_KaPDef1"),
-      get_y(zln_P[zln_P[["layer"]] == 2, "N_Soil"], "N_KaPDef2"),
-      get_y(zln_P[zln_P[["layer"]] == 3, "N_Soil"], "N_KaPDef3"),
-      get_y(zln_P[zln_P[["layer"]] == 4, "N_Soil"], "N_KaPDef4")
-    )
-    # print(zln_P)
-    # print(zonelayer_df[["N_KaPDef"]])
+    
+    # zln_P <- zonelayernut_df[zonelayernut_df[["SlNut"]] == "P", c("layer", "N_Soil")]
+    # zonelayer_df["N_KaPDef"] <- c(
+    #   get_y_old(zln_P[zln_P[["layer"]] == 1, "N_Soil"], "N_KaPDef1"),
+    #   get_y_old(zln_P[zln_P[["layer"]] == 2, "N_Soil"], "N_KaPDef2"),
+    #   get_y_old(zln_P[zln_P[["layer"]] == 3, "N_Soil"], "N_KaPDef3"),
+    #   get_y_old(zln_P[zln_P[["layer"]] == 4, "N_Soil"], "N_KaPDef4")
+    # )
+    zonelayer_df["N_KaPDef"] <- get_y(zonelayernut_df[zonelayernut_df[["SlNut"]] == "P", "N_Soil"], "N_KaPDef", mode = "pair")
     
     # N_CRhizVol1[Zone] = RT_CLrvMinM1[Zone]*PI*CQ_RtDiam[Zone]^2* ((1+RT_CRhizExt)^2-1)/4
     # N_CRhizVol2[Zone] = RT_CLrvMinM2[Zone]*PI*CQ_RtDiam[Zone]^2* ((1+RT_CRhizExt)^2-1)/4
@@ -7782,14 +7522,15 @@ run_wanulcas <- function(n_iteration,
     zonelayertreepcomp_df["T_Root_Inp_ZnL"] <- rep(zonelayertree_df[["T_Root_Inp_ZnL"]], npcomp)
     zonelayertreepcomp_df["T_RootInc"] <- rep(treepcomp_df[["T_RootInc"]], each = nzone *
                                                 nlayer)
-    zonelayertreepcomp_df["T_T1RelRtIncrTyp2"] <- rep(zonelayertree_df[["T_RelRtIncrTyp2"]], npcomp)
+    zonelayertreepcomp_df["T_UnitConv"] <- rep(treepcomp_df[["T_UnitConv"]], each = nzone *
+                                     nlayer)
+    zonelayertreepcomp_df["T_RtConc"] <- rep(treepcomp_df[["T_RtConc"]], each = nzone *
+                                                 nlayer)
     zonelayertreepcomp_df["T_Root_Inc"] <- ifelse(
       zonelayertreepcomp_df[["RT_ATType"]] < 2,
-      zonelayertreepcomp_df[["T_Root_Inp_ZnL"]],
+      zonelayertreepcomp_df[["T_Root_Inp_ZnL"]] * zonelayertreepcomp_df[["T_UnitConv"]] * zonelayertreepcomp_df[["T_RtConc"]],
       zonelayertreepcomp_df[["T_RootInc"]] * zonelayertreepcomp_df[["T_RelRtIncrTyp2"]]
     )
-    
-    
     
     # RT_TRelChangeV[Tree] = IF(RT_ATType[Tree]=2 AND T_Prun[DW, Tree]=0 AND T_LfTwig[DW,Tree]>0 AND T_PrunLapse[Tree]>T_PrunRecov[Tree])THEN((T_RootInc[DW, Tree])*1000*RT_TSRL[Tree]/RT_TlraX0Curr[Tree])ELSE(0)
     # RT_TRelChangeH[Tree] = IF(RT_ATType[Tree]=2 AND T_Prun[DW, Tree]=0 AND T_LfTwig[DW,Tree]>0 AND T_PrunLapse[Tree]>T_PrunRecov[Tree])THEN((T_RootInc[DW, Tree])*1000*RT_TSRL[Tree]/RT_TlraX0Curr[Tree])ELSE(0)
@@ -8398,10 +8139,15 @@ run_wanulcas <- function(n_iteration,
     
     # T_WoodHCurr[Tree] = IF T_StemDiam[Tree]>0 THEN(4*T_SapWood[DW,Tree]*10000/T_TreesperHa[Tree])/(T_WoodDens[Tree]*pi*(T_StemDiam[Tree]/100)^2) ELSE 0
     tree_df["T_WoodHCurr"] <- ifelse(tree_df[["T_StemDiam"]] > 0,
-                                     (4 * T_SapWood[DW, Tree] * 10000 / T_TreesperHa[Tree]) / (T_WoodDens[Tree] *
-                                                                                                 pi * (T_StemDiam[Tree] / 100)^2),
+                                     (4 * treepcomp_df[treepcomp_df[["PlantComp"]] == "DW", "T_SapWood"] * 10000 / tree_df[["T_Treesperha"]]) / (tree_df[["T_WoodDens"]] *
+                                                                                                                                                   pi * (tree_df[["T_StemDiam"]] / 100)^2),
                                      0)
     
+    
+    # tree_df["T_SapWoodDiam"] <- ifelse(tree_df[["T_BiomAG_DW"]] > 0.001 &
+    #                                      tree_df[["T_DiamSlopeBiom"]] > 0,
+    #                                    (tree_df[["T_BiomAG_DW"]] * 10000 / (tree_df[["T_Treesperha"]] * tree_df[["T_DiamBiom1"]]))^(1 / tree_df[["T_DiamSlopeBiom"]]),
+    #                                    0)
     
     # T_WoodHInc[Tree] = if (time=T_PlantTime[Tree]) then T_WoodHInit[Tree] else if T_ApplyPalm?[Tree] = 1 then TF_TrunkHIncr[Tree] else (IF T_DiesToday?[Tree] THEN -T_WoodH[Tree]
     # ELSE if T_ApplyFBA?[Tree]=1 then if  T_WoodHarvest[DW,Tree]>0  then -(T_WoodHarvest[DW,Tree]+T_GroResLoss[DW,Tree])*10000/(T_TreesperHa[Tree]*T_WoodDens[Tree]*pi*(T_StemDiam[Tree]/(2*100))^2)
@@ -8649,7 +8395,7 @@ run_wanulcas <- function(n_iteration,
     tree_df["PD_TFrugVFrac"] <- pmin(1, tree_df[["PD_TFrugiv_Abort"]] + AF_DynPestImpacts_is * tree_df[["PD_TFrugImp_sum"]])
     
     # T_GenLitStage[Tree] = GRAPH(T_Stage[Tree,VegGen])
-    tree_df["T_GenLitStage"] <- get_y(treestage_df[treestage_df[["Tree_Stage"]] == "VegGen", "T_Stage"], "T_GenLitStage")
+    tree_df["T_GenLitStage"] <- get_y(treestage_df[treestage_df[["Tree_Stage"]] == "VegGen", "T_Stage"], "T_GenLitStage", mode = "pair")
     
     # T_Frug_and_Littfall[PlantComp,Tree] = if T_ApplyPalm?[Tree]=1 then arraysum(TF_FruitLitterFalloAm[Tree,*]) * T_TreesperHa[Tree]/10^4 else if T_DiesToday?[Tree] = 1 then T_Fruit[PlantComp,Tree]/dt else T_Fruit[PlantComp,Tree]*PD_TFrugVFrac[Tree]+T_GenLitFracMax[Tree]*T_GenLitStage[Tree]*T_Fruit[PlantComp,Tree]
     tree_df["TF_FruitLitterFalloAm_sum"] <- aggregate(treefruit_df["TF_FruitLitterFalloAm"], treefruit_df["tree_id"], sum)[["TF_FruitLitterFalloAm"]]
@@ -8790,6 +8536,11 @@ run_wanulcas <- function(n_iteration,
     zone_df["MC_LitterAmount"] <- zp_DW[["C_ResidMulch"]] + sum_df[["T_LifallInc_DW_WtAct"]] +
       sum_df[["T_PrunMulch_DW_WtAct"]] + zp_DW[["SB_NecromLitTransf"]] + zp_DW[["SB_DeadWoodLitTransfer"]] /
       1000
+    
+    # MC_LitterAmount[Zone] = C_ResidMulch[Zone,DW]+
+    #   (T_LifallInc[DW,Sp1]*T_LifallWtAct[Zone,Sp1]+T_LifallInc[DW,Sp2]*T_LifallWtAct[Zone,Sp2]+T_LifallInc[DW,Sp3]*T_LifallWtAct[Zone,Sp3])+
+    #   (T_PrunMulch[DW,Sp1]*T_PrunWtAct[Zone,Sp1]+T_PrunMulch[DW,Sp2]*T_PrunWtAct[Zone,Sp2]+T_PrunMulch[DW,Sp3]*T_PrunWtAct[Zone,Sp3])+
+    #   S&B_NecromLitTransf[Zone,DW]+S&B_DeadWoodLitTransfer[Zone,DW]/1000
     
     # CA_FertAppDoY = GRAPH(CA_PastFertApp)
     CA_FertAppDoY <- get_y(CA_PastFertApp, "CA_FertAppDoY")
@@ -9942,7 +9693,7 @@ run_wanulcas <- function(n_iteration,
     tn_P <- treenut_df[treenut_df[["SlNut"]] == "P", ]
     tree_df["T_GroResInc_xP"] <-  pmax(0, tn_P[["T_NUptTot"]] - tn_P[["TP_Nutrient_Demand"]]) + tn_P[["T_NFix"]]
     treepcomp_df["T_GroResInc"] <- treepcomp_df[["T_GroInit"]] + c(tree_df[["T_GroResInc_xDW"]], tree_df[["T_GroResInc_xN"]], tree_df[["T_GroResInc_xP"]])
-    
+
     # T_BarkThickness = GRAPH(Time)
     T_BarkThickness <- get_y(time, "T_BarkThickness")
     
@@ -10621,13 +10372,15 @@ run_wanulcas <- function(n_iteration,
     
     # CA_ImmDOY[N] = GRAPH(CA_PastImmInp[N])
     # CA_ImmDOY[P] = GRAPH(CA_PastImmInp[P])
-    nut_df["CA_ImmDoY"] <- c(get_y(nut_df[["CA_PastImmInp"]][1], "CA_ImmDOY_N"),
-                             get_y(nut_df[["CA_PastImmInp"]][2], "CA_ImmDOY_P"))
+    # nut_df["CA_ImmDoY"] <- c(get_y_old(nut_df[["CA_PastImmInp"]][1], "CA_ImmDOY_N"),
+    #                          get_y_old(nut_df[["CA_PastImmInp"]][2], "CA_ImmDOY_P"))
+    nut_df["CA_ImmDoY"] <- get_y(nut_df[["CA_PastImmInp"]], "CA_ImmDOY", mode = "pair")
     
     # CA_ImmY[N] = GRAPH(CA_PastImmInp[N])
     # CA_ImmY[P] = GRAPH(CA_PastImmInp[P])
-    nut_df["CA_ImmY"] <- c(get_y(nut_df[["CA_PastImmInp"]][1], "CA_ImmY_N"),
-                           get_y(nut_df[["CA_PastImmInp"]][2], "CA_ImmY_P"))
+    # nut_df["CA_ImmY"] <- c(get_y(nut_df[["CA_PastImmInp"]][1], "CA_ImmY_N"),
+    #                        get_y(nut_df[["CA_PastImmInp"]][2], "CA_ImmY_P"))
+    nut_df["CA_ImmY"] <- get_y(nut_df[["CA_PastImmInp"]], "CA_ImmY", mode = "pair")
     
     # CA_ImmTime[SlNut] = CA_ImmDoY[SlNut] + 365*CA_ImmY[SlNut]-CA_DOYStart
     nut_df["CA_ImmTime"] <- nut_df[["CA_ImmDoY"]] + 365 * nut_df[["CA_ImmY"]] - CA_DOYStart
@@ -12950,7 +12703,8 @@ run_wanulcas <- function(n_iteration,
     
     ### Stock vars ##########################
     
-    
+
+   
     
     
     
@@ -12969,9 +12723,7 @@ run_wanulcas <- function(n_iteration,
     zonepcomp_df["C_BiomStLv"] <- zonepcomp_df[["C_BiomStLv"]] + (zonepcomp_df[["C_StLeafInc"]] - zonepcomp_df[["C_Resid"]] - zonepcomp_df[["C_StLeaveMulch"]] - zonepcomp_df[["C_BiomHarvest"]])
     
     # T_LfTwig[PlantComp,Tree](t) = T_LfTwig[PlantComp,Tree](t - dt) + (T_CanBiomInc[PlantComp,Tree] + T_CanBiomIni[PlantComp,Tree] - T_Prun[PlantComp,Tree] - T_LifallInc[PlantComp,Tree] - T_WoodInc[PlantComp,Tree] - T_Herbivory[PlantComp,Tree] - T_CanBiomSlashed[PlantComp,Tree] - T_CanBiomTimHarv[PlantComp,Tree]) * dt
-    treepcomp_df["T_LfTwig"] <- treepcomp_df[["T_LfTwig"]] + (
-      treepcomp_df[["T_CanBiomInc"]] + treepcomp_df[["T_CanBiomIni"]] - treepcomp_df[["T_Prun"]] - treepcomp_df[["T_LifallInc"]] - treepcomp_df[["T_WoodInc"]] - treepcomp_df[["T_Herbivory"]] - treepcomp_df[["T_CanBiomSlashed"]] - treepcomp_df[["T_CanBiomTimHarv"]]
-    )
+    treepcomp_df["T_LfTwig"] <- treepcomp_df[["T_LfTwig"]] + treepcomp_df[["T_CanBiomInc"]] + treepcomp_df[["T_CanBiomIni"]] - treepcomp_df[["T_Prun"]] - treepcomp_df[["T_LifallInc"]] - treepcomp_df[["T_WoodInc"]] - treepcomp_df[["T_Herbivory"]] - treepcomp_df[["T_CanBiomSlashed"]] - treepcomp_df[["T_CanBiomTimHarv"]]
     
     # TF_RecentFrondLength[Tree](t) = TF_RecentFrondLength[Tree](t - dt) + (TF_FrondGrowth[Tree]) * dt
     tree_df["TF_RecentFrondLength"] <- tree_df[["TF_RecentFrondLength"]] + tree_df[["TF_FrondGrowth"]]
@@ -13877,89 +13629,45 @@ run_wanulcas <- function(n_iteration,
     # N_Loss3iCum[Zone,SlNut](t) = N_Loss3iCum[Zone,SlNut](t - dt) + (N_LossAcc3[Zone,SlNut]) * dt
     # N_Loss4iCum[Zone,SlNut](t) = N_Loss4iCum[Zone,SlNut](t - dt) + (N_LossAcc4[Zone,SlNut]) * dt
     zonelayernut_df["N_LossiCum"] <- zonelayernut_df[["N_LossiCum"]] + (zonelayernut_df[["N_LossAcc"]])
+
     
+    ### Output saving ##########
     
-    
-    
-    
-    
-    
-    ### STORE OUTPUT DATA #################
-    #   arr_out <- unique(ov_df[["arr"]])
-    #   output <- lapply(arr_out, function(x) {
-    #     v <- ov_df[ov_df[["arr"]] == x, "var"]
-    #     out_df <- arr_init[[x]]
-    #     out_df["time"] <- time
-    #     if (x == "single_df") {
-    #       val <- sapply(v, get, envir = sys.frame(sys.parent(0)))
-    #       out_df <- cbind(out_df, t(val))
-    #     } else {
-    #       sim_df <- get(x)
-    #
-    #       #TODO: check this before running the sim
-    #       tryCatch({
-    #         out_df <- cbind(out_df, sim_df[v])
-    #       }, error = function(e) {
-    #         print("ERROR:")
-    #         print(x)
-    #         s <- names(sim_df)
-    #         print(v[!v %in% s])
-    #       })
-    #     }
-    #
-    #     df <- output[[x]]
-    #     if (is.null(df)) {
-    #       df <- out_df
-    #     } else {
-    #       #TODO: put all on the list firs, then combine at once
-    #       df <- rbindlist(list(df, out_df))
-    #     }
-    #     return(df)
-    #   })
-    #   names(output) <- arr_out
-    #
-    # }
-    # return(output)
-    
-    
-    arr_out <- unique(ov_df[["arr"]])
-    output <- lapply(arr_out, function(x)
-    {
-      v <- ov_df[ov_df[["arr"]] == x, "var"]
-      out_df <- arr_init[[x]]
-      out_df["time"] <- time
-      if (x == "single_df")
-      {
-        val <- sapply(v, get, envir = sys.frame(sys.parent(0)))
-        out_df <- cbind(out_df, t(val))
-        # out_df[v] <- t(val)
+    val <- mget(output_vars, ifnotfound = list(NULL))
+    valnull <- sapply(val, is.null)
+    sval <- as.data.frame(val[!valnull])
+    arrvar <- names(val[valnull])
+    if(length(output) == 0) {
+      arrnames <- names(wanulcas_def_arr)
+    } else {
+      arrnames <- names(output)
+    }
+    for(arr in arrnames){
+      outvars <- NULL
+      
+      if(arr == "single_df") {
+        if(nrow(sval) > 0)  outvars <- sval
       } else {
-        sim_df <- get(x)
+        # TODO: this should be only for the first loop
+        df <- get(arr)
+        cdf <- colnames(df)
+        vars <- arrvar[arrvar %in% cdf]
         
-        #TODO: check this before running the sim
-        tryCatch({
-          out_df <- cbind(out_df, sim_df[v])
-          # out_df[v] <- sim_df[v]
-        }, error = function(e) {
-          print("ERROR:")
-          print(x)
-          s <- names(sim_df)
-          print(v[!v %in% s])
-        })
+        if(length(vars) > 0) outvars <- df[vars]
       }
-      ol <- output[[x]]
-      if (is.null(df)) {
-        ol <- list()
+      if(!is.null(outvars)) {
+        out_df <- wanulcas_def_arr[[arr]]
+        out_df["time"] <- time
+        out_df <- cbind(out_df, outvars)
+        if(is.null(output[[arr]])) {
+          output[[arr]] <- list()
+        }
+        output[[arr]][[time + 1]] <- out_df
       }
-      ol[[time]] <- out_df
-      return(ol)
-    })
-    names(output) <- arr_out
-    
+    }
   }
-  #return(output)
+  
   output_dt <- lapply(output, rbindlist)
   names(output_dt) <- names(output)
   return(output_dt)
-  
 }

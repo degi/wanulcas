@@ -1,90 +1,42 @@
 ### WANULCAS FUNCTION AND DATA LIBRARY ###########
-
+library(yaml)
+library(openxlsx2)
 
 maxval <- 1e+308
 
+# set the active folder similar with this file
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 
+### Defaul Parameters ###############
 
-### Graph Data #############
+yaml_handler <- list(
+  seq = unlist,
+  'bool#no' = function(x)
+    ifelse(x == "N", x, T)
+)
 
-wgraph_file <- read_yaml("wanulcas_graph.yaml")
+default_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
 
-to_df <- function(x, is_print = F) {
-  n <- unlist(regmatches(x, gregexpr("[0-9.]+", x)))
-  n <- as.numeric(n)
-  ix <- seq(1, length(n), 2)
-  iy <- seq(2, length(n), 2)
-  if (is_print) {
-    print(paste0("c(", paste(n[ix], collapse = ","), ")"))
-    print(paste0("c(", paste(n[iy], collapse = ","), ")"))
-  }
-  data.frame(x = n[ix], y = n[iy])
-}
+### Functions ###############
 
-#TODO: mungkin nanti bisa  di hapus? modif?
-wgraph <- lapply(wgraph_file, function(x) {
-  if (length(x$y_col) == 1) {
-    df <- to_df(x$data)
-    names(df) <- c(x$x_col, x$y_col)
-  } else {
-    df <- to_df(x$data[1])
-    for (i in 2:length(x$data)) {
-      idf <- to_df(x$data[i])
-      df <- cbind(df, idf[2])
+generate_graph_functions <- function(graphs) {
+  sapply(graphs, function(x) {
+    method = "linear"
+    if (x$type == "discrete") {
+      method <- "constant"
     }
-    names(df) <- c(x$x_col, x$y_col)
-  }
-  return(df)
-})
-
-names(wgraph) <- unlist(lapply(wgraph_file, function(x) {
-  if (length(x$y_col) == 1) {
-    x$y_col
-  } else {
-    v <- unlist(strsplit(x$y_col[1], "_", fixed = T))
-    paste(head(v, -1), collapse = "_")
-  }
-}))
-
-
-fgraph <- lapply(wgraph_file, function(x) {
-  flist <- list()
-  for (i in 1:length(x$data)) {
-    df <- to_df(x$data[i])
-    flist <- c(flist, approxfun(df$x, df$y, rule = 2))
-  }
-  names(flist) <- x$y_col
-  flist
-})
-names(fgraph) <- names(wgraph)
-
-### FUNCTIONS ####################
-
-get_y <- function(x, graph_name, f_idx = NULL) {
-  as.numeric(sapply(fgraph[[graph_name]], function(f)
-    f(x)))
+    sapply(x$xy_data, function(d, m) {
+      approxfun(
+        unlist(d$x_val),
+        unlist(d$y_val),
+        rule = 2,
+        ties = list("ordered", mean),
+        method = m
+      )
+    }, m = method, simplify = FALSE, USE.NAMES = TRUE)
+  }, simplify = FALSE, USE.NAMES = TRUE)
 }
-
-get_var <- function(df, var, colnames) {
-  # df[df$vars == var, colname]
-  unlist(lapply(colnames, function(x) {
-    # get_var(plant_data$tree_pars_df, "T_LAIMax", x)
-    df[df$vars == var, x]
-  }))
-}
-
-order_soil <- function(df) {
-  df[order(df$layer, df$zone), ]
-}
-
-as_var_list <- function(df) {
-  l <- as.list(df[[2]])
-  names(l) <- df[[1]]
-  return(l)
-}
-
-
 
 delay_timer <- list()
 delay_value <- list()
@@ -161,8 +113,6 @@ reset_delay_memory <- function() {
 }
 
 
-
-
 ### ARRAY def #########################
 
 wanulcas_arr_dim <- list(
@@ -223,14 +173,14 @@ wanulcas_arr_dim <- list(
   Tree_Stage = c("VegGen", "LeafAge"),
   BufValues = 1:10,
   ExtOrgInputs = 1:2,
-  soil_water_id = c("MS", "MW", "S", "W")
+  soil_water_id = c("MS", "MW", "S", "W"),
+  Calender = 1:12
 )
 
 get_wanulcas_def_arr <- function() {
   for (v in names(wanulcas_arr_dim)) {
     assign(v, wanulcas_arr_dim[[v]])
   }
-  
   
   zone_df <- data.frame(zone = c(1:nzone))
   layer_df <- data.frame(layer = c(1:nlayer))
@@ -392,12 +342,26 @@ get_wanulcas_def_arr <- function() {
   zonecropprice_df <- zonecrop_df[rep(seq_len(nrow(zonecrop_df)), length(PriceType)), ]
   zonecropprice_df$PriceType <- rep(PriceType, each = nrow(zonecrop_df))
   
+  cropnut_df <- data.frame(crop_id = rep(crop_df$crop_id, nnut))
+  cropnut_df$SlNut <- rep(SlNut, each = ncrop)
+  
+  croplayer_df <- data.frame(crop_id = rep(crop_df$crop_id, nlayer))
+  croplayer_df$layer <- rep(layer_df$layer, each = ncrop)
+  
+  cropanimal_df <- data.frame(crop_id = rep(crop_df$crop_id, nanimals))
+  cropanimal_df$Animals <- rep(Animals, each = ncrop)
+  
+  calender_df <- data.frame(Calender = Calender)
+  
   arr_init <- list(
     angle_df = angle_df,
     animal_df = animal_df,
     buf_df = buf_df,
     cpools_df = cpools_df,
     crop_df = crop_df,
+    cropanimal_df = cropanimal_df,
+    croplayer_df = croplayer_df,
+    cropnut_df = cropnut_df,
     cropprice_df = cropprice_df,
     fruit_df = fruit_df,
     inp_df = inp_df,
@@ -447,711 +411,18 @@ get_wanulcas_def_arr <- function() {
     zonetreenut_df = zonetreenut_df,
     zonelayerwater_df = zonelayerwater_df,
     zonetreewater_df = zonetreewater_df,
-    zonelayertreewater_df = zonelayertreewater_df
+    zonelayertreewater_df = zonelayertreewater_df,
+    calender_df = calender_df
   )
   
   return(arr_init)
 }
 
+wanulcas_def_arr <- get_wanulcas_def_arr()
 
-get_wanulcas_def_inp <- function() {
-  a <- get_wanulcas_def_arr()
-  
-  ### PAR def #########################
-  pars <- list(
-    AF_par = list(
-      single_vars = list(
-        AF_AnyTrees_is = 1,
-        AF_Crop_is = 1,
-        AF_DeepSubSoil = 3,
-        AF_DepthDynamic_is = 0,
-        AF_DepthGroundWater_Table = 0,
-        AF_DynPestImpacts_is = 0,
-        AF_PlotNumberUphill = 0,
-        AF_RunOnFrac = 0,
-        AF_RunWatLim_is = 1,
-        AF_SimulateWeeds_is = 0,
-        AF_SlopeSoilHoriz = 0,
-        AF_SlopeSurfInit = 0,
-        AF_TreeCircleWeedFree_is = 0
-      ),
-      zone_df = cbind(
-        a$zone_df,
-        data.frame(
-          AF_LitLayerDepth = 2,
-          AF_WeedZn_is = 0,
-          AF_ZoneTree = 1:nrow(a$zone_df)
-        )
-      ),
-      zonelayer_df = cbind(a$zonelayer_df, data.frame(AF_StoneFrac = 0)),
-      nut_df = cbind(a$nut_df, data.frame(AF_RunNutLim_is = 1))
-    ),
-    
-    ASH_par = list(
-      single_vars = list(
-        ASH_init_BD = 0.3,
-        ASH_Init_Water = 0,
-        ASH_SOM_pools = 0,
-        ASH_Time = 10000
-      ),
-      zone_df = cbind(a$zone_df, data.frame(ASH_layer_depth = 0))
-    ),
-    
-    C_par = list(
-      single_vars = list(
-        C_ApplyMaintResp_is = 0,
-        C_DailyWeedSeedDecayFrac = 0.02,
-        C_GroResMobFrac = 0.95,
-        C_RelRespGroRes = 0.5,
-        C_RelRespRt = 0.3,
-        C_RelRespStLv = 0.5,
-        C_RelRespYieldCurr = 1,
-        C_ResidRemovalFrac = 0,
-        C_RespperBiom = 0.01,
-        C_StressAccLim = 0.9,
-        C_TMax = 40,
-        C_TMin = 20,
-        C_TOpt = 21,
-        C_WeedGermFrac = 0.1,
-        C_WeedSeedBankInit = 0.01,
-        C_WeedSeedExtInflux = 1e-05,
-        CA_DOYStart = 1,
-        CQ_CropGraze = 0,
-        CQ_StageAfterGraze = 0.4,
-        CQ_WeedType = 5
-      ),
-      zone_df = cbind(
-        a$zone_df,
-        data.frame(
-          C_CanLow = 0,
-          CA_ComplCrop = 0,
-          CQ_CropWeedSwitch = 0,
-          CQ_Stage = 0
-        )
-      ),
-      pcomp_df = cbind(a$pcomp_df, data.frame(
-        C_SeedConc = c(1, 0.05, 0.005),
-        C_UnitConv = c(1, 1000, 1000)
-      )),
-      crop_df = cbind(a$crop_df, data.frame(C_HostEffForT1 = 0))
-    ),
-    
-    CW_par = list(
-      single_vars = list(
-        CW_Alpha = 0.1,
-        CW_DryFactRangeChange = 0.2,
-        CW_DryFactRangePowerStart = 1,
-        CW_DryPowerMax = 4,
-        CW_DryPowerMin = 0.1,
-        CW_EnergyDrivenEpot_is = 1
-      ),
-      buf_df = cbind(a$buf_df, data.frame(
-        CW_DryFactRangeInit = c(0.1, 0.3, 0.5, 0.8, 0.9, 1, 1.3, 1.5, 1.7, 2)
-      ))
-    ),
-    
-    E_par = list(
-      single_vars = list(
-        E_CovEffLitter = 0.002,
-        E_EntrailmentCoeffBarePlot = 0.002,
-        E_ErosiType = 0,
-        E_IntvPloughPlant = 10,
-        E_PloughBefPlant_is = 0,
-        E_RainFac = 1,
-        E_RelSedConcRunOn = 1,
-        E_SoilMovperPlou = 0,
-        E_SoilType = 1
-      ),
-      zone_df = cbind(a$zone_df, data.frame(E_TillZone_is = c(0, 1, 1, 1)))
-    ),
-    
-    EVAP_par = list(
-      single_vars = list(
-        EVAP_InitSlashM = 0.4,
-        EVAP_InitWoodM = 0.25,
-        EVAP_MulchEffSurfLit = 1,
-        EVAP_Pot_Thornthwaite_is = 1,
-        EVAP_SlashDryFact = 0.5,
-        EVAP_TranspRedFractrionBy_Can_Intercepted_Water = 0.5,
-        EVAP_WoodDryFact = 0.25
-      )
-    ),
-    
-    #### G_par ########
-    G_par = list(
-      single_vars = list(
-        G_Graze_Offseason_is = 1,
-        G_Grazing_Cycle = 10,
-        G_LivestWeightGain = 0,
-        G_SLU = 450,
-        G_StockingRate_per_ha = 0.3
-      ),
-      zone_df = cbind(a$zone_df, data.frame(G_Graze_Zn_is = c(0, 0, 0, 0))),
-      pcomp_df = cbind(
-        a$pcomp_df,
-        data.frame(
-          G_DayDempKgDay = c(0.025, 5e-04, 5e-05),
-          G_AnimRespFrac = c(0.5, 0, 0),
-          G_AnmWGfrac = 0.05
-        )
-      )
-    ),
-    
-    GHG_par = list(
-      single_vars = list(
-        GHG_AnaerobMem = 0.5,
-        GHG_AnaeroThresh = 0.95,
-        GHG_CH4_Km = 0.05,
-        GHG_GWP_CH4 = 15,
-        GHG_GWP_N2O = 310,
-        GHG_LittMinMultiplier = 1,
-        GHG_PotCH4Em = 0.0011,
-        GHG_PotCH4oxid = -0.0011,
-        GHG_SatTimeDuringVDrainDay = 0.8
-      ),
-      layer_df = cbind(a$layer_df, data.frame(
-        GHG_AnaerobLayerW = c(0.6, 0.2, 0.15, 0.05)
-      ))
-    ),
-    
-    LF_par = list(
-      single_vars = list(
-        LF_FracGWReleaseAsInflow = 0,
-        LF_GW_ReleaseFraction = 0.05,
-        LF_SubSurfInflowAdd4 = 0
-      )
-    ),
-    
-    LIGHT_par = list(
-      single_vars = list(
-        Ligh1tPerAngleUniform = 0.05,
-        LIGHT_TBAI = 0,
-        LIGHT_TBAI1 = 0,
-        Light2PerAngleSkewed = 0.05,
-        Light3PerAngleVertical = c(rep(0, 17), 1, rep(0, 17)),
-        LightSwitch = 3
-      ),
-      tree_df = cbind(a$tree_df, data.frame(LIGHT_kTB = 0.8)),
-      angle_df = cbind(a$angle_df, data.frame(LightAngles = seq(-85, 85, 5)))
-    ),
-    
-    #### MC_par ########
-    MC_par = list(
-      single_vars = list(
-        MC_Carbon = 0.42,
-        MC_EffMetab = 0.45,
-        MC_EffPass = 0.45,
-        MC_EffSlwAct = 0.42,
-        MC_EffSlwPass = 0.03,
-        MC_EffStrucAct = 0.45,
-        MC_EffStrucSlw = 0.7,
-        MC_EffStrucSlwSOM = 0.7,
-        MC_RelKActLit = 1,
-        MC_RelKMetabLit = 0.8,
-        MC_RelKPassLit = 1,
-        MC_RelKSlwLit = 1,
-        MC_RelKStrucLit = 0.808511,
-        MC_TextLitLayer = 0.01,
-        MC2_ClayCoeffCref = 0.94,
-        MC2_CorgInitMeth3 = 2,
-        MC2_CorgpCref = 0.8,
-        MC2_CrefMeth3 = 3,
-        MC2_CrefOffset = 1.256,
-        MC2_EffPass = 0.45,
-        MC2_EffSlwAct = 0.42,
-        MC2_EffStrucAc = 0.45,
-        MC2_kAct = 0.02,
-        MC2_kMetab = 0.05,
-        MC2_kPass = 1.86e-05,
-        MC2_kRelLayer = c(1, 0.8, 0.7, 0.6),
-        MC2_kSlw = 0.000543,
-        MC2_kStruc = 0.013429,
-        MC2_pH = 5,
-        MC2_pHCoeffCref = -0.156,
-        MC2_SiltClayCoeffCref = 0.699 / 0.994,
-        MC2_SomInitType = 1
-      ),
-      zone_df = cbind(
-        a$zone_df,
-        data.frame(MC_CNRatInitMet = 8, MC2_CNRatInitMet = 8)
-      ),
-      layer_df = cbind(a$layer_df, data.frame(MC2_SOMDist = c(1, 0.2, 0.1, 0.05))),
-      inp_df = cbind(
-        a$inp_df,
-        data.frame(
-          MC_CExtOrg = 0.4,
-          MC_LignExtOrg = 0.2,
-          MC_PolypExtOrg = 0
-        )
-      ),
-      cpools_df = cbind(
-        a$cpools_df,
-        data.frame(
-          MC2_RainTransfer = c(0.0001, 0.001, 0.001, 0.001, 0.001),
-          MC2_SoilTillTransfer = 1,
-          MC2_WormTransfer = c(0.03, 0.03, 0.03, 0.01, 0.003)
-        )
-      )
-    ),
-    
-    #### MN_par ########
-    MN_par = list(
-      single_vars = list(
-        MN_CNAct = 8,
-        MN_CNPass = 61,
-        MN_CNSlw = 11,
-        MN_CNStruc = 150,
-        MN_LatFlowFertKm = 10,
-        MN2_NSOMMinExch = 0.5,
-        MP2_SomMinExchBuffer = 0.1
-      ),
-      zone_df = cbind(
-        a$zone_df,
-        data.frame(
-          MN_InitAct = 2e-05,
-          MN_InitMetab = 0,
-          MN_InitPass = 1e-04,
-          MN_InitSlw = 1e-06,
-          MN_InitStruc = 0,
-          MN2_InitAct = 0.091,
-          MN2_InitMetab = 0,
-          MN2_InitPassx = 0.728,
-          MN2_InitSlw = 1.01,
-          MN2_InitStruc = 0,
-          MP2_InitStruc = 0
-        )
-      ),
-      nut_df = cbind(
-        a$nut_df,
-        data.frame(
-          MN_FertDissFrac = c(0.3, 0.5),
-          MN_NutRatAct = c(1, 10),
-          MN_NutRatMetab = c(1, 10),
-          MN_NutRatPas = c(1, 10),
-          MN_NutRatSlw = c(1, 10),
-          MN_NutRatStruc = c(1, 10)
-        )
-      ),
-      
-      layer_df = cbind(a$layer_df, data.frame(MN2_PassRelLayer = c(1, 1.2, 1.4, 1.6))),
-      nutinp_df = cbind(a$nutinp_df, data.frame(MN_ExtOrgN = c(
-        0.05, 0.005, 0.1, 0.01
-      )))
-    ),
-    
-    #### N_par #####################
-    N_par = list(
-      single_vars = list(
-        N_DiffCoef = 1,
-        N_Lat4InflowRelConc = 1,
-        N_LittNmin1exchfact = 0.1,
-        N_Use_NgassLossEst_is = 0
-      ),
-      layer_df = cbind(
-        a$layer_df,
-        data.frame(
-          N_KaNH4 = 5,
-          N_KaNO3 = 0.3,
-          # N_LossiCum = 0,
-          N_RtSynloc = 0.5
-        )
-      ),
-      tree_df = cbind(
-        a$tree_df,
-        data.frame(
-          N15_T_Can = 0,
-          N15_T_Fruit = 0,
-          N15_T_GroRes = 0,
-          N15_T_Rt = 0,
-          N15_T_Wd = 0
-        )
-      ),
-      zonelayer_df = cbind(
-        a$zonelayer_df,
-        data.frame(
-          N_BypassMatrix = 0.2,
-          N_FracNO3 = 0.4,
-          N15_Add = 0,
-          N15_Stock = 0,
-          N_BypassMacro = 1
-        )
-      ),
-      zonelayernut_df =
-        cbind(a$zonelayernut_df, data.frame(
-          N_ImInit = c(rep(0.05, nrow(a$zonelayer_df)), rep(0.01, nrow(a$zonelayer_df))), N_LossiCum = 0
-        )),
-      nut_df = cbind(
-        a$nut_df,
-        data.frame(
-          N_AtmosphDepos = 0,
-          N_N_is = c(1, 0),
-          N_DiffCoef = c(1, 0.89 * 10^-5 * 60 * 60 * 24)
-        )
-      ),
-      layernut_df = cbind(a$layernut_df, data.frame(N_Nutmob = 0))
-    ),
-    
-    P_par = list(
-      single_vars = list(
-        P_CNuFertAppperCropSeason = 1,
-        P_CropProfThreshold = 1e+05,
-        P_LabourforPestContrl_is = 0,
-        P_LabourforWeed_is = 0,
-        P_UseCropStopRule_is = 0
-      ),
-      tree_df = cbind(a$tree_df, data.frame(P_TNuFertAppperTreeAge = c(1, 1, 1)))
-    ),
-    
-    #### PD_par #####################
-    PD_par = list(
-      single_vars = list(
-        PD_FenceDecK = 0.02,
-        PD_FenceFullQual = 2,
-        PD_FenceMaint_is = 0,
-        PD_FenceMUnit = 0.25,
-        PD_FenceQThresh = 1.1,
-        PD_HalfFenceTime = 50
-      ),
-      tree_df = cbind(
-        a$tree_df,
-        data.frame(
-          PD_TFrugiv_Abort = 0,
-          PD_THerbivory = 0,
-          PD_TLignovory = 0,
-          PD_TRhizovory = 0
-        )
-      ),
-      crop_df = cbind(
-        a$crop_df,
-        data.frame(
-          PD_CFrugivory = 0,
-          PD_CHerbivory = 0,
-          PD_CRhizovory = 0
-          
-        )
-      ),
-      animal_df = cbind(
-        a$animal_df,
-        data.frame(
-          PD_CFrugivore_is = 0,
-          PD_CHerbivore_is = 0,
-          PD_CRhizovore_is = 0,
-          PD_JumptheFence_is = c(0, 1, 1, 1, 0, 0, 1),
-          PD_ResidenceinPlot_is = c(0, 0, 1, 1, 0, 0, 0),
-          PD_TFrugivore_is = 0,
-          PD_THerbivore_is = 0,
-          PD_TLignovore_is = 0,
-          PD_TRhizovore_is = 0,
-          PD_PopulOutside = 0
-        )
-      )
-    ),
-    
-    RAIN_par = list(
-      single_vars = list(
-        RAIN_AnMemory = 2,
-        RAIN_AType = 1,
-        RAIN_BoundHeaLi = 25,
-        RAIN_CoefVar3 = 0.05,
-        RAIN_CoefVar4 = 0.05,
-        RAIN_Cycle_is = 1,
-        RAIN_Gamma = 0.033621,
-        RAIN_GenSeed = 300,
-        RAIN_Heavy = 42,
-        RAIN_HeavyP = 0.5,
-        RAIN_I_Initial_Value = 1,
-        RAIN_IntensCoefVar = 0.3,
-        RAIN_IntensMean = 50,
-        RAIN_IntercDripRt = 10,
-        RAIN_IntMult = 3,
-        RAIN_Light = 9,
-        RAIN_Max_IntDripDur = 0.5,
-        RAIN_MonthlyMean_RainfallMax = 333,
-        RAIN_MonthlyMean_RainfallMin = 102,
-        RAIN_Months = c(1:12),
-        RAIN_Multiplier = 1,
-        RAIN_OffsetValue = -0.5,
-        RAIN_Pattern1_Max = 0.06,
-        RAIN_Pattern1_Min = -0.01,
-        RAIN_Peakines_Season1 = 1,
-        RAIN_Peakines_Season2 = 12,
-        RAIN_PondFlwRt = 10,
-        RAIN_PondStoreCp = 5,
-        RAIN_Probability = 0.5,
-        RAIN_Shape_Max = 1.5,
-        RAIN_Shape_Min = -0.5,
-        RAIN_UniorBimodial_is = 2,
-        RAIN_UniorBimodial_is = 2,
-        RAIN_Weibull_Param = 0.93,
-        RAIN_WettestMonth_Season1 = 1,
-        RAIN_WettestMonth_Season2 = 7,
-        RAIN_YearStart = 0
-      ),
-      zone_df = cbind(a$zone_df, data.frame(RAIN_Weight = 1))
-    ),
-    
-    #### RT_par ###############
-    RT_par = list(
-      single_vars = list(
-        RT_ACType = 0,
-        RT_CLrvPlatDep = 0,
-        RT_CMultiplier = 1,
-        RT_CRhizExt = 1,
-        RT_MCHypDiam = 0.01,
-        RT_MCHypL = 100,
-        RT_T_FixedSRL = 20,
-        # RT_T_HostEffForT1 = c(0, 0, 0),
-        RT_T_UseFBASRL_is = 0,
-        RT_THalfRtAllocStage = 0.05,
-        RT_TMultiplier = 1,
-        RT_TRhizExt = 1,
-        RT_StopGap = 10^-12,
-        RT3_PowerAllocRtL = 0.005,
-        RT3_TempRespforRtD = 0.5
-      ),
-      zone_df = cbind(a$zone_df, data.frame(RT_CDecDepthAct = 0)),
-      zonelayer_df =  cbind(a$zonelayer_df, data.frame(RT3_SoilT = 20)),
-      zonelayertree_df = cbind(a$zonelayertree_df, data.frame(RT3_TFRInit = c(
-        10, rep(0, nrow(a$zonelayertree_df) - 1)
-      ))),
-      tree_df = cbind(
-        a$tree_df,
-        data.frame(
-          RT_ATType = 0,
-          RT_MTHypDiam = 0.01,
-          RT_MTHypL = 100,
-          RT_TRhizExt = 1,
-          RT_T_HostEffForT1 = 0,
-          RT3_AlphaLrv = 1e-15,
-          RT3_Beta0 = 0.2,
-          RT3_CoarseRtDecayCoeff = 0,
-          RT3_LamGeotrop = 0.7,
-          RT3_LamHor0 = 0.5,
-          RT3_CR_TargFac = 8.5 * (10^-7)
-        )
-      ),
-      layer_df = cbind(a$layer_df, data.frame(
-        RT_MTInfFrac = 0,
-        RT_MCInfFrac = c(0.5, 0.25, 0.05, 0)
-      ))
-    ),
-    
-    #### SB_par ###############
-    SB_par = list(
-      single_vars = list(
-        SB_2ndFireafterPileUp = 5,
-        SB_CritMoist = 0.05,
-        SB_DailyDeadWoodLitTransfer = 0.005,
-        SB_DailyNecromLitTransfer = 0.01,
-        SB_DeadWoodFuelFact = 0.1,
-        SB_FuelloadFactor = 10,
-        SB_InitialpH = 4,
-        SB_LeafAshCont = 50,
-        SB_MaxDryingPer = 30,
-        SB_MinDryingPer = 20,
-        SB_pHChangePerCationInput = 0.005,
-        SB_pHRecFrac = 0.01,
-        SB_PileUpFrac = 0.7,
-        SB_PsorpRecFrac = 0.01,
-        SB_ScorchWRemFra = 0.3,
-        SB_TimetoPileUp = 15,
-        SB_TimeToWoodRemoval = 10,
-        SB_WatRetRecFrac = 0.005,
-        SB_WetnessTempImp = 0.5,
-        SB_WindEffect = 1,
-        SB_WoodAshCont = 20
-      ),
-      zone_df = cbind(a$zone_df, data.frame(SB_PileUpWgt = c(0, 0, 0, 1))),
-      pcomp_df = cbind(a$pcomp_df, data.frame(SB_DW_is = c(1, 0, 0)))
-    ),
-    
-    S_par = list(
-      single_vars = list(
-        S_BDBDRefDecay = 1e-04,
-        S_BDEqPower = 0.5,
-        S_C_RT_StrucFormFrac = 0.1,
-        S_KsatVDeepSub = 20,
-        S_RelWormLit = c(1, 0.6, 0.3, 0.1),
-        S_RelWormSurf = 1,
-        S_SoilStructDyn_is = 0,
-        S_WormsLikeLitMetab = 1e-05,
-        S_WormsLikeLitStruc = 5e-07,
-        S_WormsLikeSOMMetab = 1e-06,
-        S_WormsLikeSOMStruc = 5e-08
-      ),
-      zone_df = cbind(
-        a$zone_df,
-        data.frame(
-          S_RelSurfInfiltrInit = 4,
-          S_SurfInfiltrPerKsatDef = 0.0825
-        )
-      ),
-      zonelayer_df = cbind(a$zonelayer_df, data.frame(S_KSatHperV = 1)),
-      tree_df = cbind(a$tree_df, data.frame(S_T_RT_StrucFormFrac = 0.3))
-    ),
-    
-    TEMP_par = list(
-      single_vars = list(
-        TEMP_AType = 1,
-        TEMP_Cons = 28,
-        TEMP_PotEvapConst = 4,
-        TEMP_PotEvapConst_is = 0
-      )
-    ),
-    
-    #### T_par ####
-    T_par = list(
-      single_vars = list(
-        T_BrownBast_is = 1,
-        T_CanMaintResp = 1e-04,
-        T_DCanWidthMax = 22,
-        T_ExpRetThresh = 30,
-        T_GrowthResp = 1,
-        T_HeartWoodAllocAftPruned_is = 0,
-        T_LatexFormResp = 0.01,
-        T_LatexMaintResp = 1e-05,
-        T_LatexRecoveryTime = 7,
-        T_LifallDelay = 0.5,
-        T_MaxBarkLatexContent = 0.3,
-        T_MaxGrowthUtFrac = 0.2,
-        T_MaxUseFrac = 0.07,
-        T_MemExpY = 1,
-        T_MinDiamforTappingcm = 15,
-        T_PanelRecoveryTime = 7300,
-        T_PrunLimit = 100,
-        T_PrunStageLimit = 1.8,
-        T_RecoveryExp = 0.01,
-        T_RelLatexFormPriority = 0.7,
-        T_SapWoodScalingRule = 1,
-        T_StressAccLim = 0.9,
-        T_StressRatio = 4,
-        T_Tapatall_is = 1,
-        T_TapGirthFraction = 0.5,
-        T_TappableHeight = 100,
-        T_TappDOW = 380,
-        T_TappingFrac = 0.55,
-        T_TappingFracMultiplier = 1,
-        T_TappingSlice = 0.15,
-        T_TranspRatioConstant_is = 1,
-        T_WatStressMem = 0.75,
-        T_WoodMaintResp = 1e-07,
-        TF_FruitMoistContent = 0.36,
-        TF_LiFall_ResWithdrawl = 0.01,
-        TF_StreesUpdateFraction = 0.4,
-        TP_IncludeTreeParasites_is = 0,
-        TP_MaxSizePerparasite = 0.5,
-        TP_ParasitesPerM2ofBranch = 3,
-        TP_SLA_LWR = 1,
-        TP_TimeToReachMaxSize = 730,
-        TP_WaterDemandperLeafArea = 0.6,
-        TW_Alpha = 0.1,
-        TW_DryFactPowerRangeChange = 0.5,
-        TW_EnergyDrivenEpot_is = 0
-      ),
-      zone_df = cbind(a$zone_df, data.frame(TW_Water_Limited_is = 0)),
-      zonelayertreepcomp_df = cbind(a$zonelayertreepcomp_df, data.frame(T_Root = 0)),
-      zonelayertree_df = cbind(a$zonelayertree_df, data.frame(T_RelRtIncrTyp2 = 1 /
-                                                                16)),
-      tree_df = cbind(
-        a$tree_df,
-        data.frame(
-          T_CanBiomInit = 0,
-          T_DiamTreshHarv = 100,
-          T_DOY_1_LfFlush = -1,
-          T_DOY_2_LfFlush = 400,
-          T_DOY_Compl_1_LfFall = 400,
-          T_DOY_Compl_2_LfFall = 400,
-          T_DOY_SeaLitFall_1_Start = 400,
-          T_DOY_SeaLitFall_2_Start = 400,
-          T_FracSeasLitFll_1 = 1,
-          T_FruitHarvFrac = 1,
-          T_FruitLossHeight = 35,
-          T_FruitMoistFrac = 0.14,
-          T_GenLitFracMax = 0.05,
-          T_GraphPhenol_is = 0,
-          T_GroResInit = 0.25,
-          T_GrowResMobFrac = 0.2,
-          T_GrowResStorFrac = 0.2,
-          T_Kill2DOY = 1,
-          T_Kill2Y = 1000,
-          T_Kill3DOY = 1,
-          T_Kill3Y = 1000,
-          T_KillDOY = 1,
-          T_KillY = 1000,
-          T_LatexMoistFrac = 0.14,
-          T_LeafHalfLife = 0.5,
-          T_NDemandFrac = 0.2,
-          T_PanelQuality1 = 1,
-          T_PanelQuality2 = 1,
-          T_PrunHarvFracC = 0,
-          T_PrunMoistFrac = 0.14,
-          T_PrunRecov = 14,
-          T_RtAllocInit = 0.1,
-          T_SlashSellWoodFrac = 0,
-          T_SRLfineroots = 0.8,
-          T_Stage = 0,
-          T_WoodBiomInit = 0,
-          T_WoodFracHRemain = 100,
-          T_WoodHarvFrac = 0.95,
-          T_WoodHInit = 0,
-          T_WoodMoistFrac = 0.25,
-          TF_FruitLossHeight = 5,
-          TW_DryFactPowerInit = 1,
-          TW_PosgroMin = 1e-05,
-          TW_ResistFact = 50,
-          T_PrunFracC = 1
-        )
-      ),
-      zonetree_df = cbind(a$zonetree_df, data.frame(T_PrunWeight = 1)),
-      treestage_df = cbind(a$treestage_df, data.frame(T_StageAftPrun_is = 1)),
-      pcomp_df = cbind(
-        a$pcomp_df,
-        data.frame(
-          T_UnitConv = c(1, 1000, 1000),
-          TF_LitFallRedFac = c(1, 0.5, 0.5),
-          TP_BiomNutrContent = c(0, 0.2, 0.02)
-          
-        )
-      ),
-      treepcomp_df = cbind(
-        a$treepcomp_df,
-        data.frame(T_RootIncFix = 10, TP_ParasiteRemoval = 0)
-      ),
-      buf_df = cbind(
-        a$buf_df,
-        data.frame(
-          TW_DemActSubtract = c(9e-06, 8e-06, 7e-06, 6e-06, 5e-06, 4e-06, 3e-06, 2e-06, 1e-06, 0),
-          TW_OffSetRel = c(-0.5, -0.4, -0.3, -0.2, -0.1, 0.1, 0.2, 0.3, 0.4, 0.5),
-          TW_RangeToppingUp = c(1.05, 1.02, 1, 1, 1, 1, 1, 1, 1, 1)
-        )
-      ),
-      treenut_df = cbind(a$treenut_df, data.frame(T_NPosgroMin = 1e-05)),
-      fruit_df = cbind(a$fruit_df, data.frame(TF_PollinationStage = c(
-        rep(0, 14), 1, rep(0, 7)
-      )))
-    ),
-    
-    W_par = list(
-      single_vars = list(
-        W_Hyd_is = 0,
-        W_HydEqFraction = 0.1,
-        W_PMax = 0,
-        W_SeepScalar = 0,
-        W_WaterLog_is = 0
-      ),
-      zone_df = cbind(a$zone_df, data.frame(W_WaterLimited_is = 0)),
-      zonelayer_df = cbind(a$zonelayer_df, data.frame(W_ThetaInit = rep(
-        c(1, 0.9, 0.8, 0.7), each = nrow(a$zone_df)
-      )))
-    )
-  )
-  
-  return(pars)
-}
-
-### Stock Vars ##########################
+# ### Stock Vars ##########################
 get_wanulcas_stock_vars <- function() {
-  a <- get_wanulcas_def_arr()
+  a <- wanulcas_def_arr
   
   stock_vars = list(
     single_vars = list(
@@ -1238,7 +509,7 @@ get_wanulcas_stock_vars <- function() {
         W_UptCCum = 0
       )
     ),
-    zonetree_df = cbind(a$zonetree_df, data.frame(T_LifallWeight = 1)),
+    # zonetree_df = cbind(a$zonetree_df, data.frame(T_LifallWeight = 1)),
     zonepcomp_df = cbind(
       a$zonepcomp_df,
       data.frame(
@@ -1403,6 +674,52 @@ get_wanulcas_stock_vars <- function() {
   )
 }
 
+CQ_Curr_Vars <- data.frame(
+  var = c(
+    "CQ_CRelLUECurr",
+    "CQ_CLWRCurr",
+    "CQ_CHarvAllocCurr",
+    "CQ_CSLACurr",
+    "CQ_CRtAllocCurr"
+  ),
+  graph = c(
+    "CQ_CRelLUE",
+    "CQ_CLWR",
+    "CQ_CHarvAlloc",
+    "CQ_CSLA",
+    "CQ_CRtAlloc"
+  )
+)
+
+CQ_CType_params <- c(
+  "Type1_Zn1",
+  "Type1_Zn2",
+  "Type1_Zn3",
+  "Type1_Zn4",
+  "Type2_Zn1",
+  "Type2_Zn2",
+  "Type2_Zn3",
+  "Type2_Zn4",
+  "Type3_Zn1",
+  "Type3_Zn2",
+  "Type3_Zn3",
+  "Type3_Zn4",
+  "Type4_Zn1",
+  "Type4_Zn2",
+  "Type4_Zn3",
+  "Type4_Zn4",
+  "Type5_Zn1",
+  "Type5_Zn2",
+  "Type5_Zn3",
+  "Type5_Zn4"
+)
+
+zone_stage_col_df <- data.frame(
+  CQ_CType = rep(1:5, each = 4),
+  zone = rep(1:4, 5),
+  coln = CQ_CType_params
+)
+
 ### XLS input params ###############
 
 AF_Unit <- c(
@@ -1485,7 +802,7 @@ CQ_Unit <- c(
   "AgronYMoist"
 )
 
-CQ_var <- c(
+CQ_vars <- c(
   "CQ_CTimeGenCurr",
   "CQ_CTimeVegCurr",
   "CQ_SingleCycle_is_Cur",
@@ -1504,10 +821,10 @@ CQ_var <- c(
   "CQ_PotSuctAlphMaxCurr",
   "CQ_PotSuctAlphMinCurr",
   "CQ_ClosedCanCurr",
-  "",
-  "",
-  "",
-  "",
+  "ConcOldN",
+  "ConcOldP",
+  "ConcYN",
+  "ConcYP",
   "CQ_NRtConcCurr",
   "CQ_NFixVariable_is_Curr",
   "CQ_NFixDailyFracCurr",
@@ -1515,10 +832,10 @@ CQ_var <- c(
   "CQ_NFixDWMaxFracCurr",
   "CQ_NFixDWUnitCostCurr",
   "CQ_RtDiam",
-  "",
-  "",
-  "",
-  "",
+  "Lrvm1",
+  "Lrvm2",
+  "Lrvm3",
+  "Lrvm4",
   "RT_CLraC",
   "RT_CDecDepthC",
   "RT_CSRLCurr",
@@ -1527,23 +844,78 @@ CQ_var <- c(
   "RT_CDistResp",
   "CQ_MaxMycInf",
   "N_CRhizKaPMod",
-  "",
-  "",
+  "NutMobN",
+  "NutMobP",
   "CQ_LignResidCurr",
   "CQ_LignRootResCurr",
   "CQ_PolyResid",
   "CQ_PolyRt",
   "CQ_CovEffCurr",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "CQ_AgronYieldMoistFrac"
+  "EatenbyPigs?",
+  "EatenbyMonkeys?",
+  "EatenbyLocusts?",
+  "EatenbyNematode?",
+  "EatenbyGoat?",
+  "EatenbyBuffalo?",
+  "EatenbyBirds?",
+  "CQ_AgronYieldMoistFrac",
+  "P_CPlantLab",
+  "P_CWeedLab",
+  "P_CPestConLab",
+  "P_CHarvLab",
+  "P_CFertLab",
+  "SeedS",
+  "SeedP",
+  "YieldS",
+  "YieldP"
 )
 
+crop_df_vars <- c(
+  "CQ_CTimeGenCurr",
+  "CQ_CTimeVegCurr",
+  "CQ_SingleCycle_is_Cur",
+  "CQ_DOYFlwDOYBegin",
+  "CQ_DOYFlwEnd",
+  "CQ_GroMaxCurr",
+  "CQ_GSeedCurr",
+  "CQ_TranspRatioCurr",
+  "CQ_HBiomConvCurr",
+  "CQ_RemobFrac",
+  "CQ_kLightCurr",
+  "CQ_RelLightMaxCurr",
+  "C_LAIMax",
+  "CQ_RainWStorCapCurr",
+  "CQ_ConductivityCurr",
+  "CQ_PotSuctAlphMaxCurr",
+  "CQ_PotSuctAlphMinCurr",
+  "CQ_ClosedCanCurr",
+  "CQ_NRtConcCurr",
+  "CQ_NFixVariable_is_Curr",
+  "CQ_NFixDailyFracCurr",
+  "CQ_NFixRespCurr",
+  "CQ_NFixDWMaxFracCurr",
+  "CQ_NFixDWUnitCostCurr",
+  "CQ_RtDiam",
+  "RT_CLraC",
+  "RT_CDecDepthC",
+  "RT_CSRLCurr",
+  "RT_CHalfLifeCurr",
+  "RT_CRtAllocRespCurr",
+  "RT_CDistResp",
+  "CQ_MaxMycInf",
+  "N_CRhizKaPMod",
+  "CQ_LignResidCurr",
+  "CQ_LignRootResCurr",
+  "CQ_PolyResid",
+  "CQ_PolyRt",
+  "CQ_CovEffCurr",
+  "CQ_AgronYieldMoistFrac",
+  "P_CPlantLab",
+  "P_CWeedLab",
+  "P_CPestConLab",
+  "P_CHarvLab",
+  "P_CFertLab"
+)
 
 PF_UnitAll <- c(
   "Discrate",
@@ -1562,37 +934,6 @@ PF_UnitAll <- c(
   "PestP",
   "FenceP",
   "UnitLabP"
-)
-
-PF_UnitCrop <- c(
-  "PlantLab",
-  "WeedLab",
-  "PestLab",
-  "HarvLab",
-  "FertLab",
-  "SeedS",
-  "SeedP",
-  "YieldS",
-  "YieldP"
-)
-
-PF_UnitTree <- c(
-  "Plantlab",
-  "PrunLab",
-  "FruitLab",
-  "Woodlab",
-  "LatexLab",
-  "FertLab",
-  "SeedS",
-  "SeedP",
-  "WoodS",
-  "FruitS",
-  "LatexS",
-  "PrunS",
-  "WoodP",
-  "FruitP",
-  "LatexP",
-  "PrunP"
 )
 
 S_Unit <- c(
@@ -1856,7 +1197,116 @@ T_params <- c(
   "TF_StageAbortSens_Anthesis6",
   "TF_WatStressAbortFrac",
   "TF_AbRelSizePow"
-  
+)
+
+zonelayertree_df_params <- c(
+  'RT_TLrvL1_Zn1',
+  'RT_TLrvL1_Zn2',
+  'RT_TLrvL1_Zn3',
+  'RT_TLrvL1_Zn4',
+  'RT_TLrvL2_Zn1',
+  'RT_TLrvL2_Zn2',
+  'RT_TLrvL2_Zn3',
+  'RT_TLrvL2_Zn4',
+  'RT_TLrvL3_Zn1',
+  'RT_TLrvL3_Zn2',
+  'RT_TLrvL3_Zn3',
+  'RT_TLrvL3_Zn4',
+  'RT_TLrvL4_Zn1',
+  'RT_TLrvL4_Zn2',
+  'RT_TLrvL4_Zn3',
+  'RT_TLrvL4_Zn4'
+)
+
+tree_df_params <- c(
+  'T_TimeVeg',
+  'T_TimeGenCycle',
+  'T_DOYFlwBeg',
+  'T_DOYFlwEnd',
+  'T_InitStage',
+  'T_StageAftPrun',
+  'T_GroMax',
+  'T_GroResFrac',
+  'T_LWR',
+  'T_SLA',
+  'T_TranspRatio',
+  'T_Rubber_is',
+  'T_ApplyPalm_is',
+  'T_RelFruitAllocMax',
+  'T_CanHMax',
+  'T_CanShape',
+  'T_CanWidthMax',
+  'T_LAIMax',
+  'T_LAIMinMaxRatio',
+  'T_RelLightMaxGr',
+  'T_klight',
+  'T_RainWStorCap',
+  'T_RootConductivity',
+  'TW_PotSuctAlphMax',
+  'TW_PotSuctAlphMin',
+  'T_NFixVariable_is',
+  'T_NFixDayFrac',
+  'T_NFixDWMaxFrac',
+  'T_NFixDWUnitCost',
+  'T_NFixResp',
+  'T_LifallDroughtFrac',
+  'T_LiFallThreshWStress',
+  'T_LignLifall',
+  'T_LignPrun',
+  'T_LignRt',
+  'T_PolypLifall',
+  'T_PolypPrun',
+  'T_PolypRt',
+  'T_ApplyFBA_is',
+  'T_DiamBiom1',
+  'T_DiamSlopeBiom',
+  'T_DiamBranch1',
+  'T_DiamSlopeBranch',
+  'T_DiamLfTwig1',
+  'T_DiamSlopeLfTwig',
+  'T_DiamCumLit1',
+  'T_DiamSlopeCumLit',
+  'T_WoodDens',
+  'RT_TDiam',
+  'RT_TLraX0',
+  'RT_TDistShapeC',
+  'RT_TDecDepthC',
+  'RT_THalfLife',
+  'RT_TDistResp',
+  'RT_TAllocResp',
+  'RT_TAlloc',
+  'T_DiamRtLeng1',
+  'T_DiamSlopeRtLeng',
+  'T_DiamRtWght1',
+  'T_DiamSlopeRtWght',
+  'RT_TProxGini',
+  'T_MycMaxInf',
+  'N_TRhizKaPMod',
+  'SB_TTempTol',
+  'E_CovEffT',
+  "TF_PalmTrunkInternode",
+  "TF_PalmTrunkIntercept",
+  "TF_TrunkHIncStressFac",
+  "TF_StemDHistFrac",
+  "TF_StemDStressFactor",
+  "TF_FrondHistFrac",
+  "TF_FrondLengthStressFac",
+  "TF_FrondWDpetInterc",
+  "TF_FrondWDpetPower",
+  "TF_FrondLDpetInterc",
+  "TF_FrondLDpetPower",
+  "TF_RadiometricFraction",
+  "TF_ForgetStress",
+  "TF_PhyllochronStressFac",
+  "TF_LeafCumInit",
+  "TF_MaleThresh",
+  "TF_MThreshtoWatStress",
+  "TF_FirstBudtoFlowerInit",
+  "TF_DWCostUOil",
+  "TF_FruitWaterPot",
+  "TF_CritFruitWaterPot",
+  "TF_WatStressAbortFrac",
+  "TF_AbRelSizePow"
 )
 
 TF_TargetOilperBunch_params <- c(
@@ -1934,29 +1384,6 @@ Pinit_params <- c(
   "PStMax2",
   "PStMax3",
   "PStMax4"
-)
-
-CQ_CType_params <- c(
-  "Type1_Zn1",
-  "Type1_Zn2",
-  "Type1_Zn3",
-  "Type1_Zn4",
-  "Type2_Zn1",
-  "Type2_Zn2",
-  "Type2_Zn3",
-  "Type2_Zn4",
-  "Type3_Zn1",
-  "Type3_Zn2",
-  "Type3_Zn3",
-  "Type3_Zn4",
-  "Type4_Zn1",
-  "Type4_Zn2",
-  "Type4_Zn3",
-  "Type4_Zn4",
-  "Type5_Zn1",
-  "Type5_Zn2",
-  "Type5_Zn3",
-  "Type5_Zn4"
 )
 
 Eatenby_params <- c(
@@ -2050,35 +1477,16 @@ TF_MaleSinkperBunch_params <- c(
   "TF_MaleSinkperBunch_Anthesis6"
 )
 
-### XLS input ###########
-
-generate_fun <- function(x, df) {
-  y_lab <- names(df)
-  f <- lapply(y_lab, function(y) {
-    approxfun(x, df[[y]], rule = 2)
-  })
-  names(f) <- y_lab
-  return(f)
-}
-
-CQ_Curr_Vars <- c(
-  "CQ_CRelLUECurr",
-  "CQ_CLWRCurr",
-  "CQ_CHarvAllocCurr",
-  "CQ_CSLACurr",
-  "CQ_CRtAllocCurr"
-)
-
-zone_stage_col_df <- data.frame(
-  CQ_CType = rep(1:5, each = 4),
-  zone = rep(1:4, 5),
-  coln = CQ_CType_params
-)
-
-# xls_input_file <- "Wanulcas.xlsm"
-get_xls_params <- function(xls_input_file) {
+apply_xls_params <- function(xls_input_file, wanulcas_params = NULL) {
+  if (is.null(wanulcas_params)) {
+    wpars <- default_params
+  } else {
+    wpars <- wanulcas_params
+  }
+  
   parxls_df <- wb_to_df(xls_input_file, "LinkToStella")
   par_names <- names(parxls_df)
+  xls_df <- read.csv("xls_param_config.csv")
   
   get_par_xls_list <- function(unit_labels, coluMN_names) {
     l <- as.list(parxls_df[1:length(unit_labels), coluMN_names])
@@ -2086,149 +1494,179 @@ get_xls_params <- function(xls_input_file) {
     return(l)
   }
   
-  AF_System_par <- get_par_xls_list(AF_Unit, "AF_System")
+  ### vars ################
   
-  CQ_df <- parxls_df[1:length(CQ_Unit), c(
+  AF_System_par <- get_par_xls_list(AF_Unit, "AF_System")
+  wpars$vars$AF_Circ <- AF_System_par$`Parkland?`
+  wpars$vars$AF_ZoneTot <- AF_System_par[["AFTotZn"]]
+  
+  T_PrunOption_var <- c("T_PrunPlant_is", "T_PrunType_is", "C_BiomHarv_is")
+  wpars$vars[T_PrunOption_var] <- get_par_xls_list(T_PrunOption_var, "T_PrunOption")
+  
+  PFAll <- get_par_xls_list(PF_UnitAll, "P_ParamAll")
+  wpars$vars$P_BurnLab <- PFAll[["BurnLab"]]
+  wpars$vars$P_DiscountRate <- PFAll[["Discrate"]]
+  
+  ### arrays ################
+  
+  zw <- as.vector(unlist(AF_System_par[c("AFZn1", "AFZn2", "AFZn3")]))
+  wpars$arrays$zone_df$vars$AF_ZoneWidth <- c(zw, wpars$vars$AF_ZoneTot - sum(zw))
+  if (wpars$vars$AF_Circ == 0) {
+    wpars$arrays$zone_df$vars$AF_ZoneFrac <- wpars$arrays$zone_df$vars$AF_ZoneWidth / wpars$vars$AF_ZoneTot
+  } else {
+    AF_ZWcum <- cumsum(arrays$zone_df$vars$AF_ZoneWidth)
+    AF_ZWcum_0 <- c(0, head(AF_ZWcum, -1))
+    wpars$arrays$zone_df$vars$AF_ZoneFrac <- (AF_ZWcum^2 -  AF_ZWcum_0^2) / wpars$vars$AF_ZoneTot^2
+  }
+  
+  wpars$arrays$layer_df$vars$AF_DepthLay <- as.numeric(AF_System_par[c("SL1", "SL2", "SL3", "SL4")])
+  wpars$arrays$tree_df$vars$AF_TreePosit <- as.numeric(AF_System_par[c("TSp1", "TSp2", "TSp3")])
+  wpars$arrays$tree_df$vars$T_RelPosinZone <- as.numeric(AF_System_par[c("TRelSp1", "TRelSp2", "TRelSp3")])
+  wpars$arrays$tree_df$vars$T_Treesperha <- as.numeric(AF_System_par[c("TDensSp1", "TDensSp2", "TDensSp3")])
+  wpars$arrays$zonelayer_df$vars$N_Init <- parxls_df[1:16, "N_Init"]
+  
+  N_PStParam <- get_par_xls_list(Pinit_params, "N_PStParam")
+  wpars$arrays$zonelayer_df$vars$N_PStParam <- as.numeric(N_PStParam[c(
+    "Pinit11",
+    "Pinit21",
+    "Pinit31",
+    "Pinit41",
+    "Pinit12",
+    "Pinit22",
+    "Pinit32",
+    "Pinit42",
+    "Pinit13",
+    "Pinit23",
+    "Pinit33",
+    "Pinit43",
+    "Pinit14",
+    "Pinit24",
+    "Pinit34",
+    "Pinit44"
+  )])
+  wpars$arrays$layer_df$vars$PStMin <- as.numeric(N_PStParam[c("PStMin_1", "PStMin_2", "PStMin_3", "PStMin_4")])
+  wpars$arrays$layer_df$vars$PStMax <- as.numeric(N_PStParam[c("PStMax1", "PStMax2", "PStMax3", "PStMax4")])
+  
+  #### crop params ###############
+  P_ParamC <- c("P_ParamC1",
+                "P_ParamC2",
+                "P_ParamC3",
+                "P_ParamC4",
+                "P_ParamC5")
+  P_ParamC_df <- parxls_df[1:9, P_ParamC]
+  
+  cq_pars <- c(
     "Cq_Parameters1",
     "Cq_Parameters2",
     "Cq_Parameters3",
     "Cq_Parameters4",
     "Cq_Parameters5"
-  )]
-  CQ_df$CQ_Unit <- CQ_Unit
-  CQ_df$CQ_var <- CQ_var
-  
-  get_df_fun <- function(v, x, cnames) {
-    i <- which(par_names == v)
-    nr <- length(x)
-    nc <- length(cnames)
-    df <- parxls_df[1:nr, i:(i + nc - 1)]
-    names(df) <- cnames
-    generate_fun(x, df)
-  }
-  
-  ### Cq_C ######
-  cq_df_v <- c("Cq_CRelLUE", "Cq_CLWR", "Cq_CHarvAlloc", "Cq_CSLA")
-  zone_stage_fun <- sapply(
-    cq_df_v,
-    get_df_fun,
-    x = seq(0, 2, 0.1),
-    cnames = CQ_CType_params,
-    simplify = FALSE,
-    USE.NAMES = TRUE
   )
-  zone_stage_fun[["Cq_CRtAlloc"]] <- get_df_fun("Cq_CRtAlloc", seq(0, 2, 0.2), CQ_CType_params)
-  names(zone_stage_fun) <- CQ_Curr_Vars
+  CQ_df <- parxls_df[1:length(CQ_Unit), cq_pars]
+  names(P_ParamC_df) <- names(CQ_df)
+  CQ_df <- rbind(CQ_df, P_ParamC_df)
+  tCQ_df <- as.data.frame(t(CQ_df))
+  colnames(tCQ_df) <- CQ_vars
   
-  ### T_Prun ######
-  T_Prun_fun <- list()
-  T_PrunFracD_cols <- c("T_PrunFracD_1", "T_PrunFracD_2", "T_PrunFracD_3")
-  T_Prun_fun[["T_PrunFracD"]] <- get_df_fun("T_PrunFracD", 0:40, T_PrunFracD_cols)
-  T_PrunHarvFracD_cols <- c("T_PrunHarvFracD_1",
-                            "T_PrunHarvFracD_2",
-                            "T_PrunHarvFracD_3")
-  T_Prun_fun[["T_PrunHarvFracD"]] <- get_df_fun("T_PrunHarvFracD", 0:40, T_PrunHarvFracD_cols)
-  T_Prun_fun[["T_PrunY"]] <- generate_fun(c(0:40), list(T_PrunY = parxls_df[1:41, "T_PrunY"]))[[1]]
-  T_Prun_fun[["T_PrunDoY"]] <- generate_fun(c(0:40), list(T_PrunDoY = parxls_df[1:41, "T_PrunDoY"]))[[1]]
+  pCQ_df <- tCQ_df[, crop_df_vars]
+  CQ_list <- as.list(pCQ_df)
+  wpars$arrays$crop_df$vars[names(CQ_list)] <- CQ_list
   
-  ### TW_PhiPot ######
-  ntree <- 3
-  nlayer <- 4
-  TW_pFPotRhizOpt_x <- seq(0, 5, 0.2)
-  TW_PhiPot_cols = c(
-    "TW_PhiPotT1L1",
-    "TW_PhiPotT2L1",
-    "TW_PhiPotT3L1",
-    "TW_PhiPotT1L2",
-    "TW_PhiPotT2L2",
-    "TW_PhiPotT3L2",
-    "TW_PhiPotT1L3",
-    "TW_PhiPotT2L3",
-    "TW_PhiPotT3L3",
-    "TW_PhiPotT1L4",
-    "TW_PhiPotT2L4",
-    "TW_PhiPotT3L4"
-  )
-  TW_PhiPot_meta_df <- data.frame(
-    varcol = TW_PhiPot_cols,
-    tree_id = rep(1:ntree, nlayer),
-    layer = rep(1:nlayer, each = ntree)
-  )
-  TW_PhiPot_meta_df <- TW_PhiPot_meta_df[order(TW_PhiPot_meta_df$tree_id), ]
-  TW_funs <- get_df_fun("TW_PhiPotT1L1", seq(0, 5, 0.2), TW_PhiPot_meta_df[["varcol"]])
-  TW_PhiPot_fun <- function(xs) {
-    mapply(function(f, x) {
-      f(x)
-    }, TW_funs, xs)
-  }
+  wpars$arrays$cropnut_df$vars$CQ_NConcYoungCurr <- c(tCQ_df$ConcYN, tCQ_df$ConcYP)
+  wpars$arrays$cropnut_df$vars$CQ_NConcOldCurr <- c(tCQ_df$ConcOldN, tCQ_df$ConcOldP)
+  wpars$arrays$cropnut_df$vars$N_CNutMob <- c(tCQ_df$NutMobN, tCQ_df$NutMobP)
+  wpars$arrays$cropanimal_df$vars$PD_CropsEaten_is <-  unlist(tCQ_df[c(
+    "EatenbyPigs?",
+    "EatenbyMonkeys?",
+    "EatenbyLocusts?",
+    "EatenbyNematode?",
+    "EatenbyGoat?",
+    "EatenbyBuffalo?",
+    "EatenbyBirds?"
+  )])
+  wpars$arrays$croplayer_df$vars$Lrvm <-  unlist(tCQ_df[c("Lrvm1", "Lrvm2", "Lrvm3", "Lrvm4")])
+  wpars$arrays$cropprice_df$vars$P_PriceCSeed <- c(tCQ_df$SeedP, tCQ_df$SeedS)
+  wpars$arrays$cropprice_df$vars$P_CYieldPrice <- c(tCQ_df$YieldP, tCQ_df$YieldS)
   
-  generate_vec_fun <- function(funs) {
-    function(xs) {
-      mapply(function(f, x) {
-        f(x)
-      }, funs, xs)
-    }
-  }
-  
-  ### W_fun ######
-  
-  W_PhiTheta_cols <- c("W_PhiTheta1", "W_PhiTheta2", "W_PhiTheta3", "W_PhiTheta4")
-  W_PTheta_cols <- c("W_PTheta1", "W_PTheta2", "W_PTheta3", "W_PTheta4")
-  W_ThetaP_cols <- c("W_ThetaP1", "W_ThetaP2", "W_ThetaP3", "W_ThetaP4")
-  
-  graph_fun <- list()
-  Theta_x <- seq(0.01, 0.6, 0.59 / 50)
-  graph_fun[["W_PhiTheta"]] <- generate_vec_fun(get_df_fun(W_PhiTheta_cols[1], Theta_x, W_PhiTheta_cols))
-  graph_fun[["W_PTheta"]] <- generate_vec_fun(get_df_fun(W_PTheta_cols[1], Theta_x, W_PTheta_cols))
-  graph_fun[["W_ThetaP"]] <- generate_vec_fun(get_df_fun(W_ThetaP_cols[1], seq(-250, 0, 10), W_ThetaP_cols))
-  
-  T_PlantY_cols <- c("T_PlantY_1", "T_PlantY_2", "T_PlantY_3")
-  T_PlantDoY_cols <- c("T_PlantDoY_1", "T_PlantDoY_2", "T_PlantDoY_3")
-  graph_fun[["T_PlantY"]] <- generate_vec_fun(get_df_fun("T_PlantY", 0:20, T_PlantY_cols))
-  graph_fun[["T_PlantDoY"]] <- generate_vec_fun(get_df_fun("T_PlantDoY", 0:20, T_PlantDoY_cols))
-  graph_fun[["TEMP_DailyPotEvap"]] <- generate_fun(c(1:365), list(y = parxls_df[1:365, "Temp_DailyPotEvap"]))[[1]]
-  
-  
-  CA_PlantDoY_i <- which(par_names == "Ca_PlantDoY")
-  CA_PlantDoY_df <- parxls_df[1:21, CA_PlantDoY_i:(CA_PlantDoY_i + 3)]
-  names(CA_PlantDoY_df) <- c("CA_PlantDoY1",
-                             "CA_PlantDoY2",
-                             "CA_PlantDoY3",
-                             "CA_PlantDoY4")
-  CA_PlantDoY_df$CA_ComplCrop <- c(0:20)
-  
-  CA_PlantYear_i <- which(par_names == "Ca_PlantYear")
-  CA_PlantYear_df <- parxls_df[1:21, CA_PlantYear_i:(CA_PlantYear_i + 3)]
-  names(CA_PlantYear_df) <- c("CA_PlantYear1",
-                              "CA_PlantYear2",
-                              "CA_PlantYear3",
-                              "CA_PlantYear4")
-  CA_PlantYear_df$CA_ComplCrop <- c(0:20)
-  
-  CQ_CropType_i <- which(par_names == "Cq_CropType")
-  CQ_CropType_df <- parxls_df[1:21, CQ_CropType_i:(CQ_CropType_i + 3)]
-  names(CQ_CropType_df) <- c("CQ_CropType1",
-                             "CQ_CropType2",
-                             "CQ_CropType3",
-                             "CQ_CropType4")
-  CQ_CropType_df$CA_ComplCrop <- c(0:20)
-  
+  #### tree params ###############
   T_df <- parxls_df[1:length(T_params), c("T_Par1", "T_Par2", "T_Par3")]
-  T_df$T_params <- T_params
-  # T_df$T_var <- T_var
-  tree_par_df <- as.data.frame(t(T_df[1:3]))
-  # names(tree_par_df) <- T_var
+  tree_par_df <- as.data.frame(t(T_df))
   names(tree_par_df) <- T_params
   
+  T_par_list <- as.list(tree_par_df[tree_df_params])
+  wpars$arrays$tree_df$vars[names(T_par_list)] <- T_par_list
   
-  T_PrunOption_par <- get_par_xls_list(T_PrunUnit, "T_PrunOption")
+  wpars$arrays$treefruit_df$vars$TF_StageAbortSens <- as.numeric(unlist(tree_par_df[TF_StageAbortSens_params]))
+  wpars$arrays$treefruit_df$vars$TF_TargetOilperBunch <- as.numeric(unlist(tree_par_df[TF_TargetOilperBunch_params]))
+  wpars$arrays$treefruit_df$vars$TF_FemSinkperFruit <- as.numeric(unlist(tree_par_df[TF_FemSinkperFruit_params]))
+  wpars$arrays$treefruit_df$vars$TF_MaleSinkperBunch <- as.numeric(unlist(tree_par_df[TF_MaleSinkperBunch_params]))
+  wpars$arrays$treeanimal_df$vars$PD_TEatenBy_is <- as.numeric(unlist(tree_par_df[PD_TEatenBy_params]))
   
+  RT_TLrvL_df <- tree_par_df[RT_TLrvL_params]
+  wpars$arrays$zonelayertree_df$vars$RT_TLrvL_par <- as.numeric(unlist(c(
+    RT_TLrvL_df[1, ], RT_TLrvL_df[2, ], RT_TLrvL_df[3, ]
+  )))
+  
+  wpars$arrays$treenut_df$vars$T_NutMob <- c(tree_par_df$T_NutMobT_N, tree_par_df$T_NutMobT_P)
+  wpars$arrays$treepcomp_df$vars$T_LfConc <- c(1, 1, 1, tree_par_df$T_LfConc_N, tree_par_df$T_LfConc_P)
+  wpars$arrays$treepcomp_df$vars$T_TwigConc <- c(1, 1, 1, tree_par_df$T_ConcTwig_N, tree_par_df$T_ConcTwig_N)
+  wpars$arrays$treepcomp_df$vars$T_FruitConc <- c(1,
+                                                  1,
+                                                  1,
+                                                  tree_par_df$T_ConcFruit_N,
+                                                  tree_par_df$T_ConcFruit_P)
+  wpars$arrays$treepcomp_df$vars$T_GroResConc <- c(1,
+                                                   1,
+                                                   1,
+                                                   tree_par_df$T_ConcGroRes_N,
+                                                   tree_par_df$T_ConcGroRes_P)
+  wpars$arrays$treepcomp_df$vars$T_RtConc <- c(1, 1, 1, tree_par_df$T_ConcRT_N, tree_par_df$T_ConcRT_P)
+  wpars$arrays$treepcomp_df$vars$T_WoodConc <- c(1, 1, 1, tree_par_df$T_ConcWood_N, tree_par_df$T_ConcWood_P)
+  wpars$arrays$treepcomp_df$vars$T_LifallRed <- c(0,
+                                                  0,
+                                                  0,
+                                                  tree_par_df$T_NLifallRed_N,
+                                                  tree_par_df$T_NLifallRed_P)
+  
+  
+  PF_UnitTree_var <- c(
+    "P_TPlantLab",
+    "P_TPrunLab",
+    "P_TFruitHarvLab",
+    "P_TWoodHarvLab",
+    "P_TLatexHarvLab",
+    "P_TFertLab",
+    "SeedS",
+    "SeedP",
+    "WoodS",
+    "FruitS",
+    "LatexS",
+    "PrunS",
+    "WoodP",
+    "FruitP",
+    "LatexP",
+    "PrunP"
+  )
+  P_ParamT <- c("P_ParamT1", "P_ParamT2", "P_ParamT3")
+  a <- parxls_df[1:length(PF_UnitTree_var), P_ParamT]
+  
+  PT_df <- parxls_df[1:length(PF_UnitTree_var), c("P_ParamT1", "P_ParamT2", "P_ParamT3")]
+  P_ParamT_df <- as.data.frame(t(PT_df))
+  names(P_ParamT_df) <- PF_UnitTree_var
+  
+  wpars$arrays$tree_df$vars[PF_UnitTree_var[1:6]] <- P_ParamT_df[1:6]
+  wpars$arrays$treeprice_df$vars$P_TFruitPrice <- c(P_ParamT_df$FruitP, P_ParamT_df$FruitS)
+  wpars$arrays$treeprice_df$vars$P_TLatexPrice <- c(P_ParamT_df$LatexP, P_ParamT_df$LatexS)
+  wpars$arrays$treeprice_df$vars$P_TPrunPrice <- c(P_ParamT_df$PrunP, P_ParamT_df$PrunS)
+  wpars$arrays$treeprice_df$vars$P_TWoodPrice <- c(P_ParamT_df$WoodP, P_ParamT_df$WoodS)
+  wpars$arrays$treeprice_df$vars$P_TSeedPrice <- c(P_ParamT_df$SeedP, P_ParamT_df$SeedS)
+  
+  #### soil params ###############
   S_SoilProp_par <- get_par_xls_list(S_Unit, "S_SoilProp")
-  
   S_SoilProp_var <- list(
     S_KsatInitV = c("Ksat1", "Ksat2", "Ksat3", "Ksat4"),
     S_KsatDefV = c("KsatD1", "KsatD2", "KsatD3", "KsatD4"),
-    W_FieldCapKcrit = c("FieldC1", "FieldC1", "FieldC1", "FieldC1"),
+    W_FieldCapKcrit = c("FieldC1", "FieldC2", "FieldC3", "FieldC4"),
     W_ThetaInacc = c("Inacc1", "Inacc2", "Inacc3", "Inacc4"),
     W_BDLayer = c("BDLayer1", "BDLayer2", "BDLayer3", "BDLayer4"),
     SiltLayer = c("SiltLayer1", "SiltLayer2", "SiltLayer3", "SiltLayer4"),
@@ -2237,36 +1675,240 @@ get_xls_params <- function(xls_input_file) {
     W_Alpha = c("Alpha1", "Alpha2", "Alpha3", "Alpha4"),
     W_n = c("n1", "n2", "n3", "n4")
   )
+  wpars$arrays$layer_df$vars[names(S_SoilProp_var)] <- lapply(S_SoilProp_var, function(x)
+    as.numeric(S_SoilProp_par[x]))
   
-  soil_df <- as.data.frame(lapply(S_SoilProp_var, function(x) {
-    unlist(S_SoilProp_par[x])
-  }))
+  #### price params ###############
+  wpars$arrays$nutprice_df$vars$P_PriceFert <- c(PFAll[["FertNP"]], PFAll[["FertPP"]], PFAll[["FertNS"]], PFAll[["FertPS"]])
+  wpars$arrays$price_df$vars$P_CPestContPrice <- c(PFAll[["PestP"]], PFAll[["PestS"]])
+  wpars$arrays$price_df$vars$P_UnitLabCost <- c(PFAll[["UnitLabP"]], PFAll[["LabUnitS"]])
+  wpars$arrays$price_df$vars$P_FenceMatCost <- c(PFAll[["FenceP"]], PFAll[["FenceS"]])
   
-  rain_df <- data.frame(time = 1:365)
-  rain_df$Rain_Data <- parxls_df[1:365, c("Rain_Data")]
+  ### graphs ################
   
+  for (i in 1:nrow(xls_df)) {
+    r <- xls_df[i, ]
+    if (r$width == 1) {
+      wpars$graphs[[r$group]]$xy_data[[r$var]]$y_val <- parxls_df[1:r$n, r$xls]
+    } else {
+      vi <- which(par_names == r$xls)
+      df <- parxls_df[1:r$n, vi:(vi + r$width - 1)]
+      for (j in 1:r$width) {
+        wpars$graphs[[r$group]]$xy_data[[j]]$y_val <- df[[j]]
+      }
+    }
+  }
   
-  pars <- list(
-    AF_System_par = AF_System_par,
-    CQ_df = CQ_df,
-    zone_stage_fun = zone_stage_fun,
-    T_Prun_fun = T_Prun_fun,
-    TW_PhiPot_fun = TW_PhiPot_fun,
-    graph_fun = graph_fun,
-    
-    CA_PlantDoY_df = CA_PlantDoY_df,
-    CA_PlantYear_df = CA_PlantYear_df,
-    CQ_CropType_df = CQ_CropType_df,
-    
-    tree_par_df = tree_par_df,
-    T_PrunOption_par = T_PrunOption_par,
-    soil_df = soil_df,
-    rain_df = rain_df
-  )
-  
-  return(pars)
+  return(wpars)
 }
 
+
+write_params <- function(wanulcas_params, filename) {
+  s <- "  "
+  t <- c("vars:")
+  p <- wanulcas_params$vars
+  p <- p[order(names(p))]
+  t <- c(t, paste0(s, names(p), ": ", p))
+  
+  pa <- wanulcas_params$arrays
+  t <- c(t, "arrays:")
+  for (a in sort(names(pa))) {
+    t <- c(t, paste0(s, a, ":"))
+    t <- c(t, paste0(s, s, "keys:"))
+    for (k in names(pa[[a]]$keys)) {
+      t <- c(t, paste0(s, s, s, k, ": [", paste(pa[[a]]$keys[[k]], collapse = ", "), "]"))
+    }
+    t <- c(t, paste0(s, s, "vars:"))
+    for (v in sort(names(pa[[a]]$vars))) {
+      t <- c(t, paste0(s, s, s, v, ": [", paste(pa[[a]]$vars[[v]], collapse = ", "), "]"))
+    }
+  }
+  
+  gx <- wanulcas_params$graphs
+  t <- c(t, "graphs:")
+  for (g in sort(names(gx))) {
+    t <- c(t, paste0(s, g, ":"))
+    t <- c(t, paste0(s, s, "type: ", gx[[g]]$type))
+    t <- c(t, paste0(s, s, "x_var: ", gx[[g]]$x_var))
+    t <- c(t, paste0(s, s, "xy_data: "))
+    for (d in names(gx[[g]]$xy_data)) {
+      t <- c(t, paste0(s, s, s, d, ": "))
+      x <- gx[[g]]$xy_data[[d]]$x_val
+      y <- gx[[g]]$xy_data[[d]]$y_val
+      t <- c(t, paste0(s, s, s, s, "x_val: [", paste0(x, collapse = ", "), "]"))
+      t <- c(t, paste0(s, s, s, s, "y_val: [", paste0(y, collapse = ", "), "]"))
+    }
+  }
+  write(t, filename)
+}
+
+
+
+### Rain ###########################
+
+
+# Rain Type 2
+get_simulated_rain <- function(RAIN_DoY, p, RAIN_Yesterday_is) {
+  #TODO: some of codes can be initiated outside the function, so it wouldn't executed inside the loop!
+  
+  DoY <- c(31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365)
+  
+  RAIN_Random1 <- runif(1)
+  RAIN_Random2 <- runif(1)
+  
+  RAIN_Pattern_MonthlyMean <- (p$vars$RAIN_MonthlyMean_RainfallMin / p$vars$RAIN_MonthlyMean_RainfallMax) *
+    p$vars$RAIN_Shape_Max
+  RAIN_PatternMonthlyMean_minusShapeMin <- RAIN_Pattern_MonthlyMean - p$vars$RAIN_Shape_Min
+  
+  RAIN_CumWet_Season1 <- p$graphs$RAIN_CumDay$xy_data$RAIN_CumDay1$y_val[p$vars$RAIN_WettestMonth_Season1]
+  RAIN_CumWet_Season2 <- p$graphs$RAIN_CumDay$xy_data$RAIN_CumDay2$y_val[p$vars$RAIN_WettestMonth_Season2]
+  
+  
+  # RAIN_Pattern2 = IF
+  # RAIN_UniorBimodial?= 2
+  # THEN
+  # RAIN_Probability*
+  #   MAX(RAIN_OffsetValue,
+  #       (RAIN_Shape_Max-RAIN_Pattern1_Max+
+  #          (1-RAIN_PatternMonthlyMean_minusShapeMin)*
+  #          (SIN(22/7*(((RAIN_DoY-RAIN_CumWet_Season1)/182.5)+182.5/365))^RAIN_Peakines_Season1)-RAIN_OffsetValue)+
+  #         (1-RAIN_Probability)*
+  #         (RAIN_Pattern_MonthlyMean-RAIN_Pattern1_Min)*
+  #         (1-RAIN_PatternMonthlyMean_minusShapeMin)*
+  #         MAX(RAIN_OffsetValue,SIN(22/7*(((RAIN_DoY+RAIN_CumWet_Season2)/182.5)+182.5/365))^RAIN_Peakines_Season2-RAIN_OffsetValue))
+  # ELSE
+  # RAIN_Probability*
+  #   MAX(RAIN_OffsetValue,
+  #       (RAIN_Shape_Max-RAIN_Pattern1_Max+
+  #          (1-RAIN_PatternMonthlyMean_minusShapeMin)*
+  #          (SIN(22/7*(((RAIN_DoY-RAIN_CumWet_Season1)/182.5)+182.5/365))^RAIN_Peakines_Season1)-RAIN_OffsetValue))
+  RAIN_season_f <- function(RAIN_CumWet_Season,
+                            RAIN_Peakines_Season) {
+    sin(22 / 7 * (((RAIN_DoY + RAIN_CumWet_Season) / 182.5
+    ) + 182.5 / 365))^RAIN_Peakines_Season
+  }
+  
+  RAIN_pattern_s1 <- p$vars$RAIN_Shape_Max - p$vars$RAIN_Pattern1_Max +
+    (1 - RAIN_PatternMonthlyMean_minusShapeMin) *
+    RAIN_season_f(RAIN_CumWet_Season1, p$vars$RAIN_Peakines_Season1) -
+    p$vars$RAIN_OffsetValue
+  
+  RAIN_Pattern2 <- NULL
+  if (p$vars$RAIN_UniorBimodial_is == 2) {
+    RAIN_Pattern2 <- max(
+      p$vars$RAIN_OffsetValue,
+      RAIN_pattern_s1  +
+        (1 - p$vars$RAIN_Probability) *
+        (RAIN_Pattern_MonthlyMean - p$vars$RAIN_Pattern1_Min) *
+        (1 - RAIN_PatternMonthlyMean_minusShapeMin) *
+        max(
+          p$vars$RAIN_OffsetValue,
+          RAIN_season_f(RAIN_CumWet_Season2, p$vars$RAIN_Peakines_Season2) - p$vars$RAIN_OffsetValue
+        )
+    )
+  } else {
+    RAIN_Pattern2 <- p$vars$RAIN_Probability *
+      max(p$vars$RAIN_OffsetValue, RAIN_pattern_s1)
+  }
+  # RAIN_Numberof_WetDaypD = if RAIN_DoY <= 31 then RAIN_Numberof_WetDaypM[january]else
+  #   if RAIN_DoY <= 59 then RAIN_Numberof_WetDaypM[february] else
+  
+  imonth <- min(which(DoY >= RAIN_DoY, arr.ind = TRUE))
+  RAIN_Numberof_WetDaypD <- p$arrays$calender_df$vars$RAIN_Numberof_WetDaypM[imonth]
+  RAIN_Numberof_DaysperMonth <- p$arrays$calender_df$vars$RAIN_Numberof_DaysperMonth[imonth]
+  RAIN_RelWet_PersistencepD <- p$arrays$calender_df$vars$RAIN_RelWet_PersistencepM[imonth]
+  RAIN_MonthlyMean_TotalRainfall <- p$arrays$calender_df$vars$RAIN_MonthlyMean_TotalRainfall[imonth]
+  RAIN_DaysIn_Order <- RAIN_Numberof_DaysperMonth
+  
+  # Rain_MeanDailyon_WetDayspM[Calender] = IF Rain_Numberof_WetDaypM[Calender]=0 then 0 else Rain_MonthlyMean_TotalRainfall[Calender]/Rain_Numberof_WetDaypM[Calender]
+  RAIN_MeanDailyon_WetDayspM <- ifelse(
+    RAIN_Numberof_WetDaypM == 0,
+    0,
+    RAIN_MonthlyMean_TotalRainfall / RAIN_Numberof_WetDaypM
+  )
+  RAIN_MeanDailyon_WetDayspD <- RAIN_MeanDailyon_WetDayspM
+  
+  # RAIN_Wet_Fraction = (RAIN_Numberof_WetDaypD/RAIN_DaysIn_Order)*(RAIN_Pattern2/RAIN_Shape_Max)
+  RAIN_Wet_Fraction <- (RAIN_Numberof_WetDaypD / RAIN_DaysIn_Order) * (RAIN_Pattern2 / p$vars$RAIN_Shape_Max)
+  
+  # RAIN_ProbabilityofDry = IF RAIN_Wet_Fraction=1 then 0 else (RAIN_Wet_Fraction*(1-RAIN_RelWet_PersistencepD*RAIN_Wet_Fraction)/(1-RAIN_Wet_Fraction))
+  RAIN_ProbabilityofDry <- ifelse(
+    RAIN_Wet_Fraction == 1,
+    0,
+    RAIN_Wet_Fraction * (1 - RAIN_RelWet_PersistencepD * RAIN_Wet_Fraction) /
+      (1 - RAIN_Wet_Fraction)
+  )
+  
+  # Rain? = IF (RAIN_Yesterday?=1 and RAIN_Random1<RAIN_Wet_Fraction*RAIN_RelWet_PersistencepD) or (RAIN_Yesterday?=0 and RAIN_Random1<RAIN_ProbabilityofDry) then 1 else 0
+  is_Rain <- 0
+  if ((RAIN_Yesterday_is &&
+       RAIN_Random1 < RAIN_Wet_Fraction * RAIN_RelWet_PersistencepD) ||
+      (!RAIN_Yesterday_is &&
+       RAIN_Random1 < RAIN_ProbabilityofDry)) {
+    is_Rain <- 1
+  }
+  
+  # if is_Rain == 1 then tommorow RAIN_Yesterday_is == 1, else 0
+  # RAIN_YesterdayF = -RAIN_Yesterday?+Rain?
+  # RAIN_YesterdayF <- -RAIN_Yesterday_is + is_Rain
+  # RAIN_Yesterday?(t) = RAIN_Yesterday?(t - dt) + (RAIN_YesterdayF) * dt
+  # RAIN_Yesterday_is <- RAIN_Yesterday_is + RAIN_YesterdayF
+  
+  # RAIN_Type2 = if EXP(RAIN_Gamma)*(-LOGN(1-RAIN_Random2)^(1/RAIN_Weibull_Param))+1 > 0
+  # then Rain?*(((RAIN_MeanDailyon_WetDayspD-1)/EXP(RAIN_Gamma))*(-LOGN(1-RAIN_Random2)^(1/RAIN_Weibull_Param))+1)
+  # else 0
+  RAIN_Type2 <- 0
+  if (exp(p$vars$RAIN_Gamma) * ((-log(1 - RAIN_Random2))^(1 / p$vars$RAIN_Weibull_Param)) +
+      1 > 0) {
+    RAIN_Type2 <- is_Rain * (((RAIN_MeanDailyon_WetDayspD - 1) / exp(p$vars$RAIN_Gamma)) * ((-log(1 - RAIN_Random2))^(1 / p$vars$RAIN_Weibull_Param)) + 1)
+  }
+  return(RAIN_Type2)
+}
+
+# Rain Type 3
+get_random_rain <- function(RAIN_DoY, p) {
+  # RAIN_Today? = IF(Time=int(time)AND(Random(0,1,(RAIN_GenSeed+1))<RAIN_DayProp))THEN(1) ELSE(0)
+  RAIN_DayProp <- p$graph_functions$RAIN_DayProp$RAIN_DayProp(RAIN_DoY)
+  RAIN_Today <- runif(1) < RAIN_DayProp
+  if (!RAIN_Today)
+    return(0)
+  
+  # RAIN_fRandom = IF(Random(0,1,(RAIN_GenSeed+2))<RAIN_HeavyP)THEN(MAX(RAIN_BoundHeaLi,
+  # NORMAL(RAIN_Heavy ,RAIN_CoefVar3*RAIN_Heavy,(RAIN_GenSeed+3))))ELSE (MIN(MAX(0.5,NORMAL(RAIN_Light,5,RAIN_GenSeed+3 )),RAIN_BoundHeaLi))
+  RAIN_fRandom <- ifelse(
+    runif(1) < p$vars$RAIN_HeavyP,
+    max(
+      p$vars$RAIN_BoundHeaLi,
+      rnorm(
+        1,
+        p$vars$RAIN_Heavy ,
+        p$vars$RAIN_CoefVar3 * p$vars$RAIN_Heavy
+      )
+    ),
+    min(max(0.5, rnorm(
+      1, p$vars$RAIN_Light, 5
+    )), p$vars$RAIN_BoundHeaLi)
+  )
+  return(RAIN_fRandom)
+}
+
+# Rain Type 4
+get_monthly_avg_rain <- function(RAIN_DoY, p) {
+  # RAIN_Today? = IF(Time=int(time)AND(Random(0,1,(RAIN_GenSeed+1))<RAIN_DayProp))THEN(1) ELSE(0)
+  RAIN_DayProp <- p$graph_functions$RAIN_DayProp$RAIN_DayProp(RAIN_DoY)
+  RAIN_Today <- runif(1) < RAIN_DayProp
+  if (!RAIN_Today)
+    return(0)
+  
+  RAIN_MonthTot <- p$graph_functions$RAIN_MonthTot$RAIN_MonthTot(RAIN_DoY)
+  # RAIN_fTable = NORMAL(RAIN_MonthTot/(30*RAIN_DayProp),RAIN_CoefVar4*RAIN_MonthTot/(30*RAIN_DayProp),RAIN_GenSeed+3)
+  RAIN_fTable <- rnorm(
+    1,
+    RAIN_MonthTot / (30 * RAIN_DayProp),
+    p$vars$RAIN_CoefVar4 * RAIN_MonthTot / (30 * RAIN_DayProp)
+  )
+  return(max(0, RAIN_fTable))
+}
 
 
 ### Output var default ##############
