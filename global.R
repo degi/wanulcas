@@ -1,4 +1,5 @@
 
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 install_load <- function (package1, ...)  {
   # convert arguments to vector
@@ -26,8 +27,13 @@ libs <- c(
   "paletteer",
   
   "yaml",
-  "zip"
+  "zip",
+  "openxlsx2",
+  "progress",
+  "data.table",
+  "lubridate"
 )
+
 
 install_load(libs)
 
@@ -39,6 +45,7 @@ library("plotly")
 #table UI
 library("reactable")
 library("excelR")
+# library(data.table)
 #file IO
 library("yaml")
 library("zip")
@@ -46,8 +53,13 @@ library("zip")
 library("paletteer")
 library("RColorBrewer")
 #utiliy
+library("openxlsx2")
+library("progress")
+library(lubridate)
 
-plan(multisession)
+# plan(multisession)
+
+
 
 theme_color <- list(
   primary = "#8B3E04",
@@ -66,6 +78,60 @@ default_wd <- getwd()
 tooltip_custom <- function(...) {
   tooltip(..., options = list(customClass = "custom-tooltip"))
 }
+
+source("R/wanulcas.R")
+
+### GUI ######################
+
+tab_df <- read.csv("config/input_tabs.csv")
+subtab_df <- read.csv("config/input_subtabs.csv")
+subsubtab_df <- read.csv("config/input_subsubtabs.csv")
+inputvars_pos_df <- read.csv("config/input_vars.csv")
+inputvars_pos_df[is.na(inputvars_pos_df)] <- ""
+wanulcas_params <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
+
+inputvars_df <- data.frame(
+  var = names(wanulcas_params$vars),
+  label = names(wanulcas_params$vars),
+  value = as.numeric(wanulcas_params$vars),
+  min = NA,
+  max = NA,
+  step = NA
+)
+
+input_array <- wanulcas_def_arr
+
+# assign array parameter
+for (a in names(wanulcas_params$arrays)) {
+  df <- input_array[[a]]
+  v_df <- as.data.frame(wanulcas_params$arrays[[a]]$vars)
+  df[names(v_df)] <- v_df
+  input_array[[a]] <- df
+}
+
+# par_df <- data.frame(
+#   var = names(defaul_params$vars),
+#   type = "vars",
+#   stype = ""
+# )
+# 
+# for(a in names(defaul_params$arrays)){
+#   df <- data.frame(
+#     var = names(defaul_params$arrays[[a]]$vars),
+#     type = "arrays",
+#     stype = a
+#   )
+#   # print(df)
+#   par_df <- rbind(par_df, df)
+# }
+# 
+# df <- data.frame(
+#   var = names(defaul_params$graphs),
+#   type = "graphs",
+#   stype = ""
+# )
+# par_df <- rbind(par_df, df)
+# write.csv(par_df, "input_vars.csv",row.names = F)
 
 ### variable def ################
 

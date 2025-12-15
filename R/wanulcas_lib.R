@@ -16,7 +16,7 @@ yaml_handler <- list(
     ifelse(x == "N", x, T)
 )
 
-default_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
+default_params <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
 
 ### Functions ###############
 

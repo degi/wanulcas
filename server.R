@@ -88,16 +88,7 @@ server <- function(input, output, session) {
   
   ### INPUT PARAMETES AND DATA
   
-  io_file_df <- data.frame(
-    var = c(
-      "genriver_cfg"
-      
-    ),
-    file = c(
-      "genriver"
-    )
-  )
-  
+
   
   
  
