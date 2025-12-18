@@ -2,8 +2,8 @@
 # tambah tombol stop simulasi <- gak bisa, restart aja
 
 server <- function(input, output, session) {
-  options(shiny.maxRequestSize = 1000 * 1024 ^ 2)
-  options(future.globals.maxSize = 5000 * 1024 ^ 2)
+  options(shiny.maxRequestSize = 1000 * 1024^2)
+  options(future.globals.maxSize = 5000 * 1024^2)
   
   data_dir <- paste0(tempdir(), "/data_temp")
   
@@ -76,30 +76,71 @@ server <- function(input, output, session) {
   #   outputOptions(output, id, suspendWhenHidden = FALSE)
   # }, conditional_id, conditional_v)
   
-
   
-  ### VARIABLES #############################################
   
-  v <- reactiveValues(
-    wanulcas_cfg = list(),
-    
-  )
+  ### reactiveValues #############################################
+  
+  rv_arr <- do.call(reactiveValues, arr_inp)
+  
+  v <- reactiveValues(wanulcas_cfg = list(), )
+  
+  
+  
   
   
   ### INPUT PARAMETES AND DATA
   
-  io_file_df <- data.frame(
-    var = c(
-      "genriver_cfg"
-      
-    ),
-    file = c(
-      "genriver"
-    )
-  )
+  rv_arr_edit <- reactiveValues()
+  react_arr <- reactive({
+    react_arr <- lapply(names(rv_arr), function(x) {
+      rv_arr_edit[[x]] <- table_edit_server(x, reactive(rv_arr[[x]]))
+    })
+  })
+  
+  observe(react_arr())
+
+  observe({
+    lapply(names(rv_arr_edit), function(x) {
+      df <- rv_arr_edit[[x]]()
+      if (!is.null(df)) {
+        rv_arr[[x]] <- df
+      }
+    })
+  })
+  
+  observe({
+    # tes
+    # print(rv_arr[["input_array_layer_1"]])
+  })
   
   
   
- 
+  # soil_type_table_edit <- table_edit_server(
+  #   "soil_type_table",
+  #   reactive(v$soil_type_df),
+  #   col_title = soil_type_h,
+  #   col_type = c("numeric", "character", "character", rep("numeric", 16)),
+  #   allowRowModif = T,
+  #   nrow = 10,
+  #   digits = 2,
+  #   nestedHeaders = list(data.frame(
+  #     title = paste0(
+  #       div_h_style,
+  #       c(
+  #         "Soil Type</div>",
+  #         "Top Soil Properties</div>",
+  #         "Sub Soil Properties</div>"
+  #       )
+  #     ),
+  #     colspan = c(3, 8, 8)
+  #   ))
+  # )
+  #
+  # observe({
+  #   v$soil_type_df <- soil_type_table_edit()
+  # })
+  
+  
+  
   
 }

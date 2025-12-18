@@ -1,7 +1,88 @@
 
 
 
+### INPUT GUI ###############
 
+get_input_content <- function(id) {
+  idf <- input_vars_conf_df[input_vars_conf_df$id == id, ]
+  content <- NULL
+  if (nrow(idf) > 0) {
+    v <- idf[idf$type == "vars", "var"]
+    if (length(v) > 0) {
+      par_df <- inputvars_df[inputvars_df$var %in% v, ]
+      if (nrow(par_df) > 0) {
+        content <- numeric_input_ui(paste("input_var", id, sep = "_"), par_df)
+      }
+    }
+    
+    adf <- idf[idf$type == "arrays", ]
+    if (nrow(adf) > 0) {
+      a <- unique(adf$subtype)
+      a_id <- paste("input_array", a, id, sep = "_")
+      a_tab <- lapply(a_id, function(x) {
+        tab_title <- unlist(strsplit(x, "_", fixed = TRUE))[3]
+        nav_panel(paste("By", tab_title),
+                  table_edit_ui(x, is_upload_button = F))
+      })
+      if (!is.null(content)) {
+        a_tab <- c(list(nav_panel("Variables", content)), a_tab)
+      }
+      content <- card_body(
+        class = "bordercard",
+        padding = 10,
+        height = "100%",
+        navset_card_tab(!!!a_tab)
+      )
+    }
+  }
+  return(content)
+}
+
+input_subtab <- function(st) {
+  row.names(st) <- NULL
+  apply(st, 1, function(x) {
+    sst <- input_gui_tabs_df[input_gui_tabs_df$parent_id == x["id"], ]
+    if (nrow(sst) > 0) {
+      nav_panel(x["title"],
+                card_body(
+                  class = "subpanel",
+                  padding = 0,
+                  navset_card_pill(!!!input_subtab(sst))
+                ))
+    } else {
+      content <- get_input_content(x["id"])
+      desc <- card_body(
+        padding = 10,
+        fillable = F,
+        fill = F,
+        x["desc"],
+        div(paste("id:", x["id"]))
+      )
+      nav_panel(x["title"], desc, content)
+    }
+  })
+}
+
+input_tab <- function() {
+  tab_df <- input_gui_tabs_df[input_gui_tabs_df$parent_id == 0, ]
+  row.names(tab_df) <- NULL
+  apply(tab_df, 1, function(x) {
+    st <- input_gui_tabs_df[input_gui_tabs_df$parent_id == x["id"], ]
+    if (nrow(st) > 0) {
+      nav_panel(x["title"],
+                card_body(
+                  class = "subpanel",
+                  padding = 0,
+                  navset_card_underline(!!!input_subtab(st))
+                ))
+    } else {
+      nav_panel(x["title"], x["desc"], p(paste("id:", x["id"])))
+    }
+  })
+}
+
+
+### TOOLS ################
 
 menu_button <- function(id,
                         label,
@@ -28,6 +109,7 @@ download_link <- function(id, filename = NULL) {
 }
 
 
+### MAIN GUI ####################
 
 ui <-
   page_navbar(
@@ -41,9 +123,9 @@ ui <-
       warning = theme_color$warning,
       danger = theme_color$danger,
       font_scale = 0.9
-      
+      # navbar_bg = theme_color$primary
     ),
-    bg = theme_color$primary,
+    navbar_options = navbar_options(bg = theme_color$primary),
     header =
       tags$head(
         tags$style(
@@ -99,23 +181,7 @@ ui <-
 
             }
 
-/*
-            #input_panel, #sim_panel, #info_panel {
-              --bs-nav-link-color: #219ebc;
-              --bs-nav-tabs-border-radius:10px;
-              --bs-nav-tabs-link-active-color:#fb8500;
-            }
 
-            .card-header {
-              background-color: #ECF9FC
-            }
-
-
-            .inline label{ display: table-cell; text-align: left; vertical-align: middle; padding: 0px 10px}
-            .inline .form-group{display: table-row;}
-
-
-*/
           "
           )
         ),
@@ -124,23 +190,6 @@ ui <-
         tags$script(src = "jsuites.js"),
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
-        
-        
-        # tags$head(
-        #   tags$script(src = "https://www.googletagmanager.com/gtag/js?id=G-KJN0VTGXHG")
-        # ),
-        # tags$head(tags$script(
-        #   HTML(
-        #     "window.dataLayer = window.dataLayer || [];
-        # function gtag(){dataLayer.push(arguments);}
-        # gtag('js', new Date());
-        #
-        # gtag('config', 'G-KJN0VTGXHG');
-        # "
-        #   )
-        # ))
-        
-        
         
       ),
     window_title = "WaNuLCAS 5.0",
@@ -166,40 +215,33 @@ ui <-
         
         p("WaNuLCAS", span("5.0", style = "color:#EADEBD;"), style = "font-size:5em;font-family:'Arial black';"),
         
-        p(span("Wa", style = "color:#8ECAE6;font-family:'Arial black';", .noWS = c('before', "after")), "ter, ",
-          span("Nu", style = "color:#E4A4A0;font-family:'Arial black';", .noWS = c('before', "after")), "trient and ",
-          span("L", style = "color:#FFD15C;font-family:'Arial black';", .noWS = c('before', "after")), "ight ",
-          span("C", style = "color:#FFD15C;font-family:'Arial black';", .noWS = c('before', "after")),"apture in ",
-          span("A", style = "color:#ADC178;font-family:'Arial black';", .noWS = c('before', "after")),"groforestry ",
-          span("S", style = "color:#ADC178;font-family:'Arial black';", .noWS = c('before', "after")),"ystem", 
-          style = "font-size:3em;width:50%;margin-left: auto; 
-margin-right:0;"),
+        p(
+          span("Wa", style = "color:#8ECAE6;font-family:'Arial black';", .noWS = c('before', "after")),
+          "ter, ",
+          span("Nu", style = "color:#E4A4A0;font-family:'Arial black';", .noWS = c('before', "after")),
+          "trient and ",
+          span("L", style = "color:#FFD15C;font-family:'Arial black';", .noWS = c('before', "after")),
+          "ight ",
+          span("C", style = "color:#FFD15C;font-family:'Arial black';", .noWS = c('before', "after")),
+          "apture in ",
+          span("A", style = "color:#ADC178;font-family:'Arial black';", .noWS = c('before', "after")),
+          "groforestry ",
+          span("S", style = "color:#ADC178;font-family:'Arial black';", .noWS = c('before', "after")),
+          "ystem",
+          style = "font-size:3em;width:50%;margin-left: auto;margin-right:0;"
+        ),
         p(HTML("&copy; World Agroforestry (ICRAF) - 2025"), style = "position:fixed;right:50px;bottom:0px;")
         
       ),
       
     ),
     nav_panel(
-      #### INPUT OPTIONS ####
       title = "Input",
       icon = icon("arrow-down"),
-      
       navset_card_tab(
-        title = div("Input data and parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
+        title = div("Input Parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
         id = "input_panel",
-        nav_panel(
-          title = "AFSystem",
-          icon = icon("tree"),
-          card_body(class = "subpanel", padding = 0, )
-        ),
-        
-        ### WATERSHED ###################
-        
-        nav_panel(
-          title = "Watershed",
-          icon = icon("water"),
-          card_body(class = "subpanel", padding = 0, )
-        )
+        !!!input_tab()
       )
     ),
     
@@ -209,7 +251,7 @@ margin-right:0;"),
     
     nav_panel(title = "Simulation", icon = icon("gears")),
     
-   
+    
     
     ### ABOUT ##########################
     
@@ -220,23 +262,23 @@ margin-right:0;"),
         id = "info_panel",
         nav_panel(
           title = "About",
-          icon = icon("circle-info"),
-          card_body(includeMarkdown("docs/about.md"))
+          icon = icon("circle-info")
+          # card_body(includeMarkdown("docs/about.md"))
         ),
         nav_panel(
           title = "Tutorial",
-          icon = icon("book"),
-          card_body(includeMarkdown("docs/manual.md"))
+          icon = icon("book")
+          # card_body(includeMarkdown("docs/manual.md"))
         ),
         nav_panel(
           title = "References",
-          icon = icon("bookmark"),
-          card_body(includeMarkdown("docs/references.md"))
+          icon = icon("bookmark")
+          # card_body(includeMarkdown("docs/references.md"))
         ),
         nav_panel(
           title = "Software Library",
-          icon = icon("screwdriver-wrench"),
-          card_body(includeMarkdown("docs/library.md"))
+          icon = icon("screwdriver-wrench")
+          # card_body(includeMarkdown("docs/library.md"))
         )
       )
     )

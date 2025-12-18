@@ -5,7 +5,7 @@ library(openxlsx2)
 maxval <- 1e+308
 
 # set the active folder similar with this file
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 
 ### Defaul Parameters ###############
@@ -16,7 +16,11 @@ yaml_handler <- list(
     ifelse(x == "N", x, T)
 )
 
-default_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
+# default_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
+
+read_params <- function(params_file) {
+  read_yaml(params_file, handlers = yaml_handler)
+}
 
 ### Functions ###############
 
@@ -1477,13 +1481,14 @@ TF_MaleSinkperBunch_params <- c(
   "TF_MaleSinkperBunch_Anthesis6"
 )
 
-apply_xls_params <- function(xls_input_file, wanulcas_params = NULL) {
-  if (is.null(wanulcas_params)) {
-    wpars <- default_params
-  } else {
-    wpars <- wanulcas_params
-  }
+apply_xls_params <- function(xls_input_file, wanulcas_params) {
+  # if (is.null(wanulcas_params)) {
+  #   wpars <- default_params
+  # } else {
+  #   wpars <- wanulcas_params
+  # }
   
+  wpars <- wanulcas_params
   parxls_df <- wb_to_df(xls_input_file, "LinkToStella")
   par_names <- names(parxls_df)
   xls_df <- read.csv("xls_param_config.csv")

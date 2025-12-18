@@ -1,0 +1,50 @@
+id,level,parent_id,title,desc
+1,1,0,Agroforestry System,"tree planting density and tree spacing, soil depth and tree position accross zone  "
+2,1,0,Soil,
+3,1,0,Weather,"Weather parameters rainfall, soil temperature and potential evapotranspiration"
+4,1,0,Plant Management,Crop planting schedule/cropping calendar
+5,1,0,Economy,
+38,2,1,Simulation,
+6,2,1,Plantations,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
+7,2,1,Crop Parameters,Crop Parameters
+8,2,1,Tree Parameters,Tree Parameters
+9,2,2,Soil Water,
+10,2,2,Soil Nutrient,
+11,2,2,Soil Surface,
+12,2,2,Roots,
+13,2,2,SOM,
+14,2,3,Rainfall,
+15,2,3,Temperature,
+16,2,3,Light Capture,
+17,2,4,Crop Management,Crop planting schedule/cropping calendar
+18,2,4,Tree Management,Tree planting and management schedule
+19,2,4,Slash & Burn,"The table below contains default values for the slashing schedule and parameters for the impacts of a burning event, depending on the surface temperature during the burn.  Values shown in blue font are default values.  "
+20,2,4,Pest & Diseases,
+21,2,4,Maintenance Respiration,
+22,2,5,Profitability,Profitability
+23,3,9,Pedotransfer,"Pedotransfer functions for hydraulic properties of soil (adapted from Wosten et al., 1998 and Tomasella-Hodnett)"
+24,3,9,Pedo SOM,The Bulk Density pedotransfer and Soil Organic Matter pedotransfer for generating C organic per C reference value in Soil Organic Matter module
+25,3,9,Soil Hydraulic,Generated hydraulic properties  For all zones per each soil layer
+26,3,10,Phosphorus,Initialize P soil and to generate adsorption constant for phosphorous.  It calculates a P sorption isotherm based on a two term Langmuir equation
+27,3,10,Nitrogen,The 'Nitrogen' sheet contains initial soil nitrogen for each soil layer and zone
+28,3,10,Soil Water & Nutrient,
+29,3,11,Sloping Land,
+30,3,11,Soil Erosion,
+31,3,11,Soil Evaporation,
+32,3,12,Roots & Mycorrhiza,
+33,3,12,Root Parasitism,
+34,3,13,Soil Structure,
+35,3,13,Litterfall,
+36,3,13,Soil Organic Matter & Litter Quality,
+37,2,4,Grazing,
+39,3,19,Slash & Burn,
+40,3,19,Burning Time,
+41,3,19,Burning Impacts,
+42,3,19,Slashing Calendar,
+43,3,8,Tree,
+44,3,8,Moisture Content,
+45,3,14,Rain ,
+46,3,14,Type 1,
+47,3,14,Type 2,
+48,3,14,Type 3,
+49,3,14,Type 4,

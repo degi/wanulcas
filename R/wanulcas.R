@@ -21,17 +21,15 @@ library(yaml)
 library(progress)
 library(data.table)
 
-# source("utils.R")
-source("wanulcas_lib.R")
+# source("wanulcas_lib.R")
 
-outvars_df <- read.csv("output_vars.csv")
-outvars_df[outvars_df[["arr"]] == "", "arr"] <- "single_df"
+# outvars_df <- read.csv("output_vars.csv")
+# outvars_df[outvars_df[["arr"]] == "", "arr"] <- "single_df"
 
-
-n_iteration <- 1
-xls_input_file <- "Wanulcas_danny.xlsx"
+# n_iteration <- 1
+# xls_input_file <- "Wanulcas_danny.xlsx"
 # wanulcas_params <- danny_params
-output_vars <- NULL
+# output_vars <- NULL
 
 
 ## RUN #####################
@@ -45,7 +43,7 @@ run_wanulcas <- function(n_iteration,
   if (is.null(output_vars)) {
     output_vars <- default_output_vars
   }
-  ov_df <- outvars_df[outvars_df[["var"]] %in% output_vars, ]
+  # ov_df <- outvars_df[outvars_df[["var"]] %in% output_vars, ]
   
   output <- list()
   class(output) <- "wanulcas"
