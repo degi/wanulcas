@@ -1,0 +1,15 @@
+subsubtab_id,subtab_id,title,desc
+1,4,Pedotransfer,"Pedotransfer functions for hydraulic properties of soil (adapted from Wosten et al., 1998 and Tomasella-Hodnett)"
+2,4,Pedo SOM,The Bulk Density pedotransfer and Soil Organic Matter pedotransfer for generating C organic per C reference value in Soil Organic Matter module
+3,4,Soil Hydraulic,Generated hydraulic properties  For all zones per each soil layer
+4,5,Phosphorus,Initialize P soil and to generate adsorption constant for phosphorous.  It calculates a P sorption isotherm based on a two term Langmuir equation
+5,5,Nitrogen,The 'Nitrogen' sheet contains initial soil nitrogen for each soil layer and zone
+6,5,Soil Water & Nutrient,
+7,6,Sloping Land,
+8,6,Soil Erosion,
+9,6,Soil Evaporation,
+10,7,Roots & Mycorrhiza,
+11,7,Root Parasitism,
+12,8,Soil Structure,
+13,8,Litterfall,
+14,8,Soil Organic Matter & Litter Quality,
