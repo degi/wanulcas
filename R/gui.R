@@ -141,7 +141,6 @@ table_edit_ui <- function(id,
 }
 
 table_edit_server <- function(id,
-                              # data,
                               reactive_data,
                               col_title = NULL,
                               col_type = NULL,
@@ -208,7 +207,7 @@ table_edit_server <- function(id,
       }
       
       data_column <- data.frame(
-        title = col_title,
+        # title = col_title,
         type = col_type,
         render = col_render,
         align = col_align,
@@ -223,6 +222,7 @@ table_edit_server <- function(id,
       excelR::excelTable(
         data = data,
         columns = data_column,
+        colHeaders = col_title,
         tableOverflow = T,
         tableWidth = "100%",
         tableHeight = "100%",
@@ -361,7 +361,7 @@ reactable_edit_server <- function(id,
       } else {
         col_type_data <<- col_type
       }
-      print(col_type_data)
+      # print(col_type_data)
       reactable(
         df,
         columns = columns,
@@ -408,9 +408,20 @@ reactable_edit_server <- function(id,
 }
 
 
-numeric_input_ui <- function(id, df, ...) {
+numeric_input_ui <- function(id, df, tooltip_class = NULL, ...) {
   ns <- NS(id)
-  apply(df, 1, function(x) {
+  n_ui <- apply(df, 1, function(x) {
+    if(!is.null(x[["info"]]) && x[["info"]] != "") {
+      numericInput(
+        ns(x[["var"]]),
+        markdown(x[["label"]]),
+        as.numeric(x[["value"]]),
+        as.numeric(x[["min"]]),
+        as.numeric(x[["max"]]),
+        as.numeric(x[["step"]]), 
+        ...
+      ) |> tooltip(x[["info"]], options = list(customClass = tooltip_class))  
+    } else {
     numericInput(
       ns(x[["var"]]),
       markdown(x[["label"]]),
@@ -420,7 +431,10 @@ numeric_input_ui <- function(id, df, ...) {
       as.numeric(x[["step"]]), 
       ...
     )
+    }
   })
+  names(n_ui) <- NULL
+  return(n_ui)
 }
 
 numeric_input_server <- function(id, df) {

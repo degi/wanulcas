@@ -1,50 +1,114 @@
-id,level,parent_id,title,desc
-1,1,0,Agroforestry System,"tree planting density and tree spacing, soil depth and tree position accross zone  "
-2,1,0,Soil,
-3,1,0,Weather,"Weather parameters rainfall, soil temperature and potential evapotranspiration"
-4,1,0,Plant Management,Crop planting schedule/cropping calendar
-5,1,0,Economy,
-38,2,1,Simulation,
-6,2,1,Plantations,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
-7,2,1,Crop Parameters,Crop Parameters
-8,2,1,Tree Parameters,Tree Parameters
-9,2,2,Soil Water,
-10,2,2,Soil Nutrient,
-11,2,2,Soil Surface,
-12,2,2,Roots,
-13,2,2,SOM,
-14,2,3,Rainfall,
-15,2,3,Temperature,
-16,2,3,Light Capture,
-17,2,4,Crop Management,Crop planting schedule/cropping calendar
-18,2,4,Tree Management,Tree planting and management schedule
-19,2,4,Slash & Burn,"The table below contains default values for the slashing schedule and parameters for the impacts of a burning event, depending on the surface temperature during the burn.  Values shown in blue font are default values.  "
-20,2,4,Pest & Diseases,
-21,2,4,Maintenance Respiration,
-22,2,5,Profitability,Profitability
-23,3,9,Pedotransfer,"Pedotransfer functions for hydraulic properties of soil (adapted from Wosten et al., 1998 and Tomasella-Hodnett)"
-24,3,9,Pedo SOM,The Bulk Density pedotransfer and Soil Organic Matter pedotransfer for generating C organic per C reference value in Soil Organic Matter module
-25,3,9,Soil Hydraulic,Generated hydraulic properties  For all zones per each soil layer
-26,3,10,Phosphorus,Initialize P soil and to generate adsorption constant for phosphorous.  It calculates a P sorption isotherm based on a two term Langmuir equation
-27,3,10,Nitrogen,The 'Nitrogen' sheet contains initial soil nitrogen for each soil layer and zone
-28,3,10,Soil Water & Nutrient,
-29,3,11,Sloping Land,
-30,3,11,Soil Erosion,
-31,3,11,Soil Evaporation,
-32,3,12,Roots & Mycorrhiza,
-33,3,12,Root Parasitism,
-34,3,13,Soil Structure,
-35,3,13,Litterfall,
-36,3,13,Soil Organic Matter & Litter Quality,
-37,2,4,Grazing,
-39,3,19,Slash & Burn,
-40,3,19,Burning Time,
-41,3,19,Burning Impacts,
-42,3,19,Slashing Calendar,
-43,3,8,Tree,
-44,3,8,Moisture Content,
-45,3,14,Rain ,
-46,3,14,Type 1,
-47,3,14,Type 2,
-48,3,14,Type 3,
-49,3,14,Type 4,
+id,parent_id,title,desc
+1,0,Agroforestry System,"tree planting density and tree spacing, soil depth and tree position accross zone  "
+2,0,Soil & Belowground,
+3,0,Weather & Environment,"Weather parameters rainfall, soil temperature and potential evapotranspiration"
+4,0,Plant & Plot Management,
+5,0,Economy,
+38,1,Simulation,
+6,1,Plantations,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
+7,1,Crop Parameters,Crop Parameters
+8,1,Tree Parameters,Tree Parameters
+9,2,Soil Water,
+10,2,Soil Nutrient,
+11,2,Soil Surface,
+12,2,Roots,
+13,2,SOM,
+14,3,Rainfall,
+15,3,Temperature,
+16,3,Light Capture,
+17,4,Crop Management,Crop planting schedule/cropping calendar
+18,4,Tree Management,Tree planting and management schedule
+19,4,Slash & Burn,"The table below contains default values for the slashing schedule and parameters for the impacts of a burning event, depending on the surface temperature during the burn.  Values shown in blue font are default values.  "
+20,4,Pest & Diseases,
+21,4,Maintenance Respiration,
+22,5,Profitability,Profitability
+23,9,Pedotransfer & Soil Hydraulic,"Pedotransfer functions for hydraulic properties of soil (adapted from Wosten et al., 1998 and Tomasella-Hodnett)"
+24,9,Pedo SOM,The Bulk Density pedotransfer and Soil Organic Matter pedotransfer for generating C organic per C reference value in Soil Organic Matter module
+29,11,Sloping Land,
+30,11,Soil Erosion,
+31,11,Soil Evaporation,
+32,12,Roots & Mycorrhiza,"Root Type (Rt_ATType or Rt_ACType): 0 = Lrv data, 1 = constant exponential/elliptical function, 2 = dynamic exponential/elliptical function"
+33,12,Root Parasitism,"An option is provided for simulating root parasitism by Tree 1 on roots of Tree2, Tree3 or any of the crop (or weed) types. The 'effectiveness' parameter specified here is multiplied with the product of the root length densities (in layer 1 and 2) of the host and the parasite to derive the fraction of roots that is parasitized (in all soil layers) and effectively belongs to (contributes to water and nutrient uptake) of the parasite in stead of the host."
+34,13,Soil Structure,
+35,13,Litterfall,
+36,13,Soil Organic Matter & Litter Quality,
+37,4,Grazing,"If G Graze[Zn] = 1, grazers have access to that zone regardless of crop stage; otherwise only if G_Graze Offseason? = 1 and crop stage = 0; The G_GrazingCycle determines the cycle in days at which animals graze the simulated patch, with G_GrazingCycle*Stockingrate as number, SLU as weight and G DayDemp[Comp] as daily requirement for DW, N and P, respectively"
+39,19,Slash & Burn,
+40,19,Burning Time,
+41,19,Burning Impacts,
+42,19,Slashing Calendar,
+43,8,Tree,
+44,8,Moisture Content,
+45,14,Rain Variables,
+46,14,Rain Type 1,Daily precipitation data
+47,14,Rain Type 2,
+48,14,Rain Type 3,
+49,14,Rain Type 4,
+50,15,Soil Temperature,
+51,15,Air Temperature,
+52,15,Soil Evaporation,
+53,18,Fertilizer,
+54,18,Killing Trees,
+55,4,Soil Tillage,"Soil tillage will move organic inputs from the soil surface to the soil organic matter pools. You can specify the years and day-of-year's that this will happen, as well as the zones to which it will apply. There is also an option to plough a fixed number of days before each new crop is planted."
+56,18,Tree Calendar,
+57,18,Prunning Event,"Pruning event determined by tree LAI. Trees will be pruned if TotalTreeLAI >T_PrunLimit
+ total tree LAI in crop zones >PrunLimit  and crop stage is < Prun_StageLimit "
+58,18,Fruit Harvesting,
+59,18,Timber Harvesting,
+60,18,Latex Production,
+61,13,Initial C & N in Litter Pool,
+62,13,Initial C & N in SOM Pool,"Three methods are provided for initializing the soil organic matter pools: for MC_SOMInitType = 1 the user can specify all pool sizes for all zones, for MC_SOMInitType = 2 the user can specify the size of all pools relative to those for a forest soil ](Cref) that is calculated from soil texture data, for MC_SOMInitType = 3 the user specifies the Corg and Cref directly, but otherwise follows the procedure of  Type 2"
+63,13,SOM Distribution,SOM distribution by layer (relative)
+64,13,C:N Ratio of Litter Pool,
+65,13,N:P Ratio of Litter Pool,
+66,13,Litter Quality,"Organic inputs, including tree and cropp lignin  and polyphenol content"
+67,13,Quality of external organic input,
+68,13,Litter->SOM transfer,
+69,13,Other factors affecting decomposition,Other factors affecting decomposition and soil texture. Clay and Silt content are also affecting decomposition.  Their value are automatically the same as initial value for pedotransfer. 
+70,8,Growth Stage,
+71,8,Growth,
+72,8,Fruit,
+73,8,Canopy,
+74,8,Light capture,
+75,8,Rain interception,
+76,8,Tree Water,
+77,8,N Fixation,
+78,8,N & P Concentration,
+80,8,Litterfall,
+81,8,Litter quality,
+82,8,Allometric Branching (Above Ground),
+83,8,Roots,
+84,8,Slash and Burn,
+85,8,Erosion Protection,
+86,8,Pest impacts,
+87,1,Oil Palm Parameters,
+88,87,Trunk height increment,
+89,87,Trunk diameter,
+90,87,Frond length,
+91,87,Target Frond biomassa,
+92,87,Crown Radius,
+93,87,Phyllocron time,
+94,87,Sex determination,
+95,87,Dry weight bunch increment,
+96,87,Oil Production,
+97,87,Number of fruit per bunch,
+98,5,Labour ,
+99,5,Input costs,
+100,5,Tree Products (social cost),
+101,7,Crop Stage,
+102,7,Annual or Perennial,
+103,7,Crop Growth,
+104,7,Light Capture,
+105,7,Canopy,
+106,7,Rain Interception,
+107,7,Water Uptake,
+108,7,Nutrient Uptake,
+109,7,N Fixation,
+110,7,Root,
+111,7,Mycorrhizal fraction,
+112,7,Crop effects on nutrient mobility,
+113,7,Litter Quality,
+114,7,Soil Erosion,
+115,7,Sensitivity to pest damage,
+116,7,Agronomic Yield,
+117,2,GHG,

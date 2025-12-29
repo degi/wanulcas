@@ -1,4 +1,6 @@
 
+
+
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 install_load <- function (package1, ...)  {
@@ -94,9 +96,14 @@ setwd(default_wd)
 
 input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
+input_group_df <- read.csv("config/input_group.csv")
+
 input_gui_tabs_df[is.na(input_gui_tabs_df)] <- ""
 input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
+input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
 wanulcas_params <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
+
+# preparing variable input parameters
 
 inputvars_df <- data.frame(
   var = names(wanulcas_params$vars),
@@ -106,10 +113,31 @@ inputvars_df <- data.frame(
   max = NA,
   step = NA
 )
+input_vars_conf_df$var_label <- paste0(
+  ifelse(
+    input_vars_conf_df$label == "",
+    input_vars_conf_df$var,
+    input_vars_conf_df$label
+  ),
+  ifelse(input_vars_conf_df$unit == "", "", paste0(
+    " [", trimws(input_vars_conf_df$unit), "]"
+  ))
+)
+input_vars_conf_df$var_desc <- paste0(input_vars_conf_df$desc,
+                                      ifelse(input_vars_conf_df$label == "", "", paste0(" [", trimws(
+                                        input_vars_conf_df$var
+                                      ), "]")))
+inputvars_df <- merge(inputvars_df,
+                      input_vars_conf_df[c("var", "var_label", "var_desc")],
+                      by = "var",
+                      all.x = T)
+inputvars_df$label <- inputvars_df$var_label
+inputvars_df$info <- inputvars_df$var_desc
 
 input_array <- wanulcas_def_arr
 
-# assign array parameter
+# preparing array input parameters
+
 for (a in names(wanulcas_params$arrays)) {
   df <- input_array[[a]]
   v_df <- as.data.frame(wanulcas_params$arrays[[a]]$vars)
@@ -117,42 +145,59 @@ for (a in names(wanulcas_params$arrays)) {
   input_array[[a]] <- df
 }
 
-a_df <- unique(input_vars_conf_df[input_vars_conf_df$type == "arrays" & input_vars_conf_df$id != "", c("subtype", "id")])
-a_ids <- paste("input_array", a_df$subtype, a_df$id, sep = "_")
+a_df <- unique(input_vars_conf_df[input_vars_conf_df$type == "arrays" &
+                                    input_vars_conf_df$id != "", c("subtype", "id", "group_id")])
+a_ids <- paste("input_array", a_df$subtype, a_df$id, a_df$group_id, sep = "_")
 
-arr_inp <- apply(a_df, 1, function(x){
+arr_inp <- apply(a_df, 1, function(x) {
   ndf <- paste0(x["subtype"], "_df")
   df <- input_array[[ndf]]
   def_df <- wanulcas_def_arr[[ndf]]
-  v <- input_vars_conf_df[input_vars_conf_df$type == "arrays" & input_vars_conf_df$subtype == x["subtype"] & input_vars_conf_df$id == as.numeric(x["id"]), "var"]
+  v <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
+                            input_vars_conf_df$subtype == x["subtype"] &
+                            input_vars_conf_df$id == as.numeric(x["id"]) &
+                            input_vars_conf_df$group_id == as.numeric(x["group_id"]), "var"]
   cbind(def_df, df[v])
 })
 names(arr_inp) <- a_ids
 
+arr_conf <- apply(a_df, 1, function(x) {
+  keys <- names(wanulcas_def_arr[[paste0(x["subtype"], "_df")]])
+  lab_df <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
+                                 input_vars_conf_df$subtype == x["subtype"] &
+                                 input_vars_conf_df$id == as.numeric(x["id"]) &
+                                 input_vars_conf_df$group_id == as.numeric(x["group_id"]), c("var_label", "var_desc")]
+  desc <- ifelse(lab_df$var_desc == "",
+                 "",
+                 paste(" <!--", lab_df$var_desc, "-->"))
+  title_desc <- paste0(lab_df$var_label, desc)
+  list(keys = keys, title_desc = c(keys, title_desc))
+})
+names(arr_conf) <- a_ids
 
-# par_df <- data.frame(
-#   var = names(defaul_params$vars),
-#   type = "vars",
-#   stype = ""
-# )
-# 
-# for(a in names(defaul_params$arrays)){
-#   df <- data.frame(
-#     var = names(defaul_params$arrays[[a]]$vars),
-#     type = "arrays",
-#     stype = a
-#   )
-#   # print(df)
-#   par_df <- rbind(par_df, df)
-# }
-# 
-# df <- data.frame(
-#   var = names(defaul_params$graphs),
-#   type = "graphs",
-#   stype = ""
-# )
-# par_df <- rbind(par_df, df)
-# write.csv(par_df, "input_vars.csv",row.names = F)
+
+# preparing graph input parameters
+
+graph_vars <- names(wanulcas_params$graphs)
+graph_subvars <- sapply(graph_vars, function(a){
+  subvars <- names(wanulcas_params$graphs[[a]]$xy_data)
+  paste("input_graph", a, subvars, sep = "-")
+})
+graph_allvars <- unlist(graph_subvars, recursive = F, use.names = F)
+graphplot_ids <- paste("input_graph_plot", graph_vars, sep = "-")
+
+graph_inp <- unlist(lapply(wanulcas_params$graphs, function(a) {
+  gv <- names(a$xy_data)
+  df_list <- lapply(gv, function(b){
+    df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
+    colnames(df) <- c(a$x_var, b)
+    df
+  })
+}), recursive = FALSE)
+names(graph_inp) <- graph_allvars
+
+
+
 
 ### variable def ################
 
@@ -212,8 +257,7 @@ zone_df <- data.frame(
   zone = c(1:4),
   AF_Zone = c(0.5, 1, 1, 1),
   T_TreesperHa = c(400, 0, 0, NA),
-  AF_TreePosit = c(1,1,1,NA),
-  T_RelPosinZone = c(1,1,1,NA),
+  AF_TreePosit = c(1, 1, 1, NA),
+  T_RelPosinZone = c(1, 1, 1, NA),
   stringsAsFactors = FALSE
 )
-

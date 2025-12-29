@@ -200,8 +200,9 @@ run_wanulcas <- function(n_iteration,
   # RT3_DepthZone[Zn2,4] = AF_Depth4[Zn2]+0*(AF_DepthAct1[Zn4]+AF_Depth2[Zn4]+AF_Depth3[Zn4])
   zonelayer_df["RT3_DepthZone"] <- zonelayer_df[["AF_Depth"]]
   
-  zonelayer_df["AF_ZoneWidth"] <- rep(zone_df[["AF_ZoneWidth"]], nlayer)
+  
   # RT3_VoxVol[Zone,SoilLayer] = AF_ZoneWidth[Zone]*100*RT3_DepthZone[Zone,SoilLayer]*100
+  zonelayer_df["AF_ZoneWidth"] <- rep(zone_df[["AF_ZoneWidth"]], nlayer)
   zonelayer_df["RT3_VoxVol"] <- zonelayer_df[["AF_ZoneWidth"]] * 100 * zonelayer_df[["RT3_DepthZone"]] *
     100
   

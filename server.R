@@ -40,48 +40,14 @@ server <- function(input, output, session) {
   }
   
   
-  ### Conditional panel UI logic ###
-  
-  conditional_id <-
-    c(
-      "is_dem_map",
-      "is_stream_map",
-      "is_lc_df",
-      "is_subcatchment",
-      "is_lake_df",
-      "is_dam_df"
-    )
-  conditional_v <-
-    c(
-      "dem_map_stars",
-      "dem_stream_sf",
-      "lc_df",
-      "subcatchment_map_sf",
-      "lake_df",
-      "dam_df"
-    )
-  
-  # mapply(function(id, val) {
-  #   output[[id]] <- reactive({
-  #     type <- suffix(val)
-  #     if (is.null(v[[val]])) {
-  #       return(FALSE)
-  #     }
-  #     if (type == "df") {
-  #       if (nrow(v[[val]]) == 0)
-  #         return(F)
-  #     }
-  #     TRUE
-  #   })
-  #   outputOptions(output, id, suspendWhenHidden = FALSE)
-  # }, conditional_id, conditional_v)
-  
+
   
   
   ### reactiveValues #############################################
   
   rv_arr <- do.call(reactiveValues, arr_inp)
-  
+  rv_graph <- do.call(reactiveValues, graph_inp)
+
   v <- reactiveValues(wanulcas_cfg = list(), )
   
   
@@ -90,10 +56,17 @@ server <- function(input, output, session) {
   
   ### INPUT PARAMETES AND DATA
   
+  
+  ### array input UI ######################
+  
   rv_arr_edit <- reactiveValues()
   react_arr <- reactive({
     react_arr <- lapply(names(rv_arr), function(x) {
-      rv_arr_edit[[x]] <- table_edit_server(x, reactive(rv_arr[[x]]))
+      nkeys <- length(arr_conf[[x]]$keys)
+      nvar <- length(arr_conf[[x]]$title_desc) - nkeys
+      rv_arr_edit[[x]] <- table_edit_server(x, reactive(rv_arr[[x]]), 
+                                            col_title = arr_conf[[x]]$title_desc,
+                                            col_disable = c(rep(T, nkeys), rep(F, nvar)))
     })
   })
   
@@ -108,39 +81,75 @@ server <- function(input, output, session) {
     })
   })
   
+  
+  ### graph input UI ######################
+  
+  rv_graph_edit <- reactiveValues()
+  react_graph <- reactive({
+    react_graph <- lapply(names(rv_graph), function(x) {
+      rv_graph_edit[[x]] <- table_edit_server(x, reactive(rv_graph[[x]]))
+    })
+  })
+  
+  observe(react_graph())
+  
   observe({
-    # tes
-    # print(rv_arr[["input_array_layer_1"]])
+    lapply(names(rv_graph_edit), function(x) {
+      # print(x)
+      df <- rv_graph_edit[[x]]()
+      if (!is.null(df)) {
+        rv_graph[[x]] <- df
+      }
+    })
+  })
+  
+  # test
+  observe({
+    print(rv_arr[["input_array_layer_6_0"]])
   })
   
   
+  generate_graph_plot <- function(var) {
+    g_ids <- graph_subvars[[var]]
+    
+    if (is.null(g_ids)) return(NULL)
+    
   
-  # soil_type_table_edit <- table_edit_server(
-  #   "soil_type_table",
-  #   reactive(v$soil_type_df),
-  #   col_title = soil_type_h,
-  #   col_type = c("numeric", "character", "character", rep("numeric", 16)),
-  #   allowRowModif = T,
-  #   nrow = 10,
-  #   digits = 2,
-  #   nestedHeaders = list(data.frame(
-  #     title = paste0(
-  #       div_h_style,
-  #       c(
-  #         "Soil Type</div>",
-  #         "Top Soil Properties</div>",
-  #         "Sub Soil Properties</div>"
-  #       )
-  #     ),
-  #     colspan = c(3, 8, 8)
-  #   ))
-  # )
-  #
-  # observe({
-  #   v$soil_type_df <- soil_type_table_edit()
-  # })
+    fig <- plot_ly()
+    for (g_id in g_ids) {
+      df <- rv_graph[[g_id]]
+      
+      fig <- fig |> add_trace(
+        x = df[[1]],
+        y = df[[2]],
+        type = "scatter",
+        mode = "lines+markers",
+        name = names(df)[2]
+      )
+    }
+    fig <- fig |>   layout(
+      legend = list(orientation = 'h'),
+      # showlegend = F,
+      yaxis = list(title = var),
+      xaxis = list(title = wanulcas_params$graphs[[var]]$x_var)
+    )
+    
+    fs_id <- paste0("input_graph_card-", var, "_full_screen")
+    if(input[[fs_id]]) {
+      fig <- fig |> layout(showlegend = T)
+    } else {
+      fig <- fig |> layout(showlegend = F)
+    }
+    return(fig)
+  }
   
+  lapply(graph_vars, function(x){
+    gp_id <- paste("input_graph_plot", x, sep = "-")
+    output[[gp_id]] <- renderPlotly(
+      generate_graph_plot(x)
+    )
+  })
   
-  
+
   
 }

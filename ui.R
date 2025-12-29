@@ -1,62 +1,148 @@
 
 
 
+
+
+
+
 ### INPUT GUI ###############
+
+get_input_graph <- function(title, v) {
+  card(
+    id = paste("input_graph_card", v, sep = "-"),
+    full_screen = TRUE,
+    height = 300,
+    card_body(
+      padding = 0,
+      navset_card_tab(
+        title = title,
+        nav_panel("Plot", plotlyOutput(paste(
+          "input_graph_plot", v, sep = "-"
+        ))),
+        nav_panel(
+          "Data",
+          layout_column_wrap(
+            width = "200px",
+            fill = F,
+            !!!lapply(graph_subvars[[v]], function(x) {
+              table_edit_ui(x, is_upload_button = F, vspace = "0px")
+            })
+          )
+        )
+      )
+    )
+  )
+}
+
+
+get_input_subcontent <- function(id, group_id) {
+  idf <- input_vars_conf_df[input_vars_conf_df$id == id &
+                              input_vars_conf_df$group_id == group_id, ]
+  if (nrow(idf) == 0)
+    return(NULL)
+  
+  # variable input
+  v_content <- NULL
+  v <- idf[idf$type == "vars", "var"]
+  if (length(v) > 0) {
+    par_df <- inputvars_df[inputvars_df$var %in% v, ]
+    if (nrow(par_df) > 0) {
+      n_ui <- numeric_input_ui(paste("input_var", id, sep = "_"), par_df, tooltip_class = "custom-tooltip")
+      v_content <- list(layout_column_wrap(
+        width = "200px",
+        fill = F,
+        heights_equal = "row",
+        !!!n_ui
+      ))
+    }
+  }
+  
+  # array input
+  a_content <- NULL
+  adf <- idf[idf$type == "arrays", ]
+  if (nrow(adf) > 0) {
+    a <- unique(adf$subtype)
+    a_id <- paste("input_array", a, id, group_id, sep = "_")
+    a_content <- lapply(a_id, function(x) {
+      table_edit_ui(x, is_upload_button = F, vspace = "0px")
+    })
+  }
+  
+  # graph input
+  g_content <- NULL
+  gdf <- idf[idf$type == "graphs", ]
+  if (nrow(gdf) > 0) {
+    g_content <- apply(gdf, 1, function(x) {
+      g_content <- get_input_graph(x[["var_label"]], x[["var"]])
+    })
+    names(g_content) <- NULL
+  }
+  
+  return(c(v_content, a_content, g_content))
+}
+
+
 
 get_input_content <- function(id) {
   idf <- input_vars_conf_df[input_vars_conf_df$id == id, ]
-  content <- NULL
-  if (nrow(idf) > 0) {
-    v <- idf[idf$type == "vars", "var"]
-    if (length(v) > 0) {
-      par_df <- inputvars_df[inputvars_df$var %in% v, ]
-      if (nrow(par_df) > 0) {
-        content <- numeric_input_ui(paste("input_var", id, sep = "_"), par_df)
-      }
-    }
-    
-    adf <- idf[idf$type == "arrays", ]
-    if (nrow(adf) > 0) {
-      a <- unique(adf$subtype)
-      a_id <- paste("input_array", a, id, sep = "_")
-      a_tab <- lapply(a_id, function(x) {
-        tab_title <- unlist(strsplit(x, "_", fixed = TRUE))[3]
-        nav_panel(paste("By", tab_title),
-                  table_edit_ui(x, is_upload_button = F))
-      })
-      if (!is.null(content)) {
-        a_tab <- c(list(nav_panel("Variables", content)), a_tab)
-      }
-      content <- card_body(
-        class = "bordercard",
-        padding = 10,
-        height = "100%",
-        navset_card_tab(!!!a_tab)
+  if (nrow(idf) == 0)
+    return(NULL)
+  # by group
+  g_id <- sort(unique(idf$group_id))
+  page_content <- lapply(g_id, function(x) {
+    content <- card_body(
+      padding = 10,
+      layout_column_wrap(
+        width = "280px",
+        fill = F,
+        gap = 10,
+        heights_equal = "row",
+        !!!get_input_subcontent(id, x)
       )
+    )
+    g_df <- input_group_df[input_group_df$group_id == x, ]
+    if (nrow(g_df) > 0) {
+      return (card(card_header(g_df$title), markdown(g_df$desc), content))
     }
-  }
-  return(content)
+    card(content)
+  })
+  card_body(
+    class = "bordercard",
+    height = "100%",
+    layout_column_wrap(
+      width = "600px",
+      fill = F,
+      heights_equal = "row",
+      !!!page_content
+    )
+  )
 }
 
 input_subtab <- function(st) {
   row.names(st) <- NULL
   apply(st, 1, function(x) {
-    sst <- input_gui_tabs_df[input_gui_tabs_df$parent_id == x["id"], ]
+    id <- as.numeric(x["id"])
+    sst <- input_gui_tabs_df[input_gui_tabs_df$parent_id == id, ]
     if (nrow(sst) > 0) {
+      sst_ui <- input_subtab(sst)
+      content <- get_input_content(id)
+      if (!is.null(content)) {
+        sst_ui <- c(list(nav_panel("Variables", content)), sst_ui)
+      }
       nav_panel(x["title"],
                 card_body(
                   class = "subpanel",
                   padding = 0,
-                  navset_card_pill(!!!input_subtab(sst))
+                  navset_card_pill(!!!sst_ui)
                 ))
     } else {
-      content <- get_input_content(x["id"])
+      content <- get_input_content(id)
       desc <- card_body(
         padding = 10,
         fillable = F,
         fill = F,
-        x["desc"],
-        div(paste("id:", x["id"]))
+        x["desc"]
+        # div(paste("id:", id))
       )
       nav_panel(x["title"], desc, content)
     }
@@ -67,16 +153,22 @@ input_tab <- function() {
   tab_df <- input_gui_tabs_df[input_gui_tabs_df$parent_id == 0, ]
   row.names(tab_df) <- NULL
   apply(tab_df, 1, function(x) {
-    st <- input_gui_tabs_df[input_gui_tabs_df$parent_id == x["id"], ]
+    id <- as.numeric(x["id"])
+    st <- input_gui_tabs_df[input_gui_tabs_df$parent_id == id, ]
     if (nrow(st) > 0) {
+      st_ui <- input_subtab(st)
+      content <- get_input_content(id)
+      if (!is.null(content)) {
+        st_ui <- c(list(nav_panel("Variables", content)), st_ui)
+      }
       nav_panel(x["title"],
                 card_body(
                   class = "subpanel",
                   padding = 0,
-                  navset_card_underline(!!!input_subtab(st))
+                  navset_card_underline(!!!st_ui)
                 ))
     } else {
-      nav_panel(x["title"], x["desc"], p(paste("id:", x["id"])))
+      nav_panel(x["title"], x["desc"])
     }
   })
 }
@@ -140,7 +232,7 @@ ui <-
             }
 
             .custom-tooltip {
-              --bs-tooltip-bg: #023047D9;
+              --bs-tooltip-bg: #8B3E04;
               --bs-tooltip-border-radius: 8px;
               --bs-tooltip-opacity: 1;
               --bs-tooltip-max-width: 300px;
@@ -181,12 +273,23 @@ ui <-
 
             }
 
+            .jexcel > tbody > tr > td.readonly {
+                color:#cc3d00;
+                font-weight: bold;
+            }
+
+
 
           "
           )
         ),
-        tags$script(src = "jexcel.js"),
-        tags$link(rel = "stylesheet", href = "jexcel.css", type = "text/css"),
+        # tags$script(src = "jexcel.js"),
+        # tags$link(rel = "stylesheet", href = "jexcel.css", type = "text/css"),
+        
+        tags$script(src = "jspreadsheet.js"),
+        tags$link(rel = "stylesheet", href = "jspreadsheet.css", type = "text/css"),
+        # tags$link(rel = "stylesheet", href = "jspreadsheet.themes.css", type = "text/css"),
+        
         tags$script(src = "jsuites.js"),
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
         tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
@@ -230,7 +333,7 @@ ui <-
           "ystem",
           style = "font-size:3em;width:50%;margin-left: auto;margin-right:0;"
         ),
-        p(HTML("&copy; World Agroforestry (ICRAF) - 2025"), style = "position:fixed;right:50px;bottom:0px;")
+        p(HTML("&copy; World Agroforestry (ICRAF) - 2026"), style = "position:fixed;right:50px;bottom:0px;")
         
       ),
       
