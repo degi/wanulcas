@@ -88,12 +88,6 @@ setwd(default_wd)
 
 ### GUI ######################
 
-# tab_df <- read.csv("config/input_tabs.csv")
-# subtab_df <- read.csv("config/input_subtabs.csv")
-# subsubtab_df <- read.csv("config/input_subsubtabs.csv")
-# inputvars_pos_df <- read.csv("config/input_vars.csv")
-# inputvars_pos_df[is.na(inputvars_pos_df)] <- ""
-
 input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
 input_group_df <- read.csv("config/input_group.csv")
@@ -103,16 +97,6 @@ input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
 input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
 wanulcas_params <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
 
-# preparing variable input parameters
-
-inputvars_df <- data.frame(
-  var = names(wanulcas_params$vars),
-  label = names(wanulcas_params$vars),
-  value = as.numeric(wanulcas_params$vars),
-  min = NA,
-  max = NA,
-  step = NA
-)
 input_vars_conf_df$var_label <- paste0(
   ifelse(
     input_vars_conf_df$label == "",
@@ -127,17 +111,29 @@ input_vars_conf_df$var_desc <- paste0(input_vars_conf_df$desc,
                                       ifelse(input_vars_conf_df$label == "", "", paste0(" [", trimws(
                                         input_vars_conf_df$var
                                       ), "]")))
+
+# preparing variable input parameters
+
+inputvars_df <- data.frame(
+  var = names(wanulcas_params$vars),
+  label = names(wanulcas_params$vars),
+  value = as.numeric(wanulcas_params$vars),
+  min = NA,
+  max = NA,
+  step = NA
+)
+
 inputvars_df <- merge(inputvars_df,
-                      input_vars_conf_df[c("var", "var_label", "var_desc")],
+                      input_vars_conf_df[c("var", "var_label", "var_desc", "id", "group_id")],
                       by = "var",
                       all.x = T)
 inputvars_df$label <- inputvars_df$var_label
 inputvars_df$info <- inputvars_df$var_desc
-
-input_array <- wanulcas_def_arr
+inputvars_df$ui_id <- paste("input_var", inputvars_df$id, inputvars_df$group_id, sep = "_")
 
 # preparing array input parameters
 
+input_array <- wanulcas_def_arr
 for (a in names(wanulcas_params$arrays)) {
   df <- input_array[[a]]
   v_df <- as.data.frame(wanulcas_params$arrays[[a]]$vars)
@@ -184,7 +180,6 @@ graph_subvars <- sapply(graph_vars, function(a){
   paste("input_graph", a, subvars, sep = "-")
 })
 graph_allvars <- unlist(graph_subvars, recursive = F, use.names = F)
-graphplot_ids <- paste("input_graph_plot", graph_vars, sep = "-")
 
 graph_inp <- unlist(lapply(wanulcas_params$graphs, function(a) {
   gv <- names(a$xy_data)

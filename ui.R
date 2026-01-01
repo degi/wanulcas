@@ -5,19 +5,26 @@
 
 
 
+
+
 ### INPUT GUI ###############
 
-get_input_graph <- function(title, v) {
+get_input_graph <- function(title, desc, v) {
+  title_tt <- div(title, style = "width:180px;")
+  if(desc != "") {
+    title_tt <- title_tt |> tooltip(desc, options = list(customClass = "custom-tooltip"))
+  }
   card(
     id = paste("input_graph_card", v, sep = "-"),
     full_screen = TRUE,
     height = 300,
+    
     card_body(
       padding = 0,
-      navset_card_tab(
-        title = title,
-        nav_panel("Plot", plotlyOutput(paste(
-          "input_graph_plot", v, sep = "-"
+      navset_card_underline(
+        title = title_tt,
+        nav_panel("Plot", card_body(padding = 5, plotlyOutput(
+          paste("input_graph_plot", v, sep = "-")
         ))),
         nav_panel(
           "Data",
@@ -47,7 +54,8 @@ get_input_subcontent <- function(id, group_id) {
   if (length(v) > 0) {
     par_df <- inputvars_df[inputvars_df$var %in% v, ]
     if (nrow(par_df) > 0) {
-      n_ui <- numeric_input_ui(paste("input_var", id, sep = "_"), par_df, tooltip_class = "custom-tooltip")
+      # n_ui <- numeric_input_ui(paste("input_var", id, group_id, sep = "_"), par_df, tooltip_class = "custom-tooltip")
+      n_ui <- numeric_input_ui(par_df$ui_id[1], par_df, tooltip_class = "custom-tooltip")
       v_content <- list(layout_column_wrap(
         width = "200px",
         fill = F,
@@ -73,7 +81,7 @@ get_input_subcontent <- function(id, group_id) {
   gdf <- idf[idf$type == "graphs", ]
   if (nrow(gdf) > 0) {
     g_content <- apply(gdf, 1, function(x) {
-      g_content <- get_input_graph(x[["var_label"]], x[["var"]])
+      g_content <- get_input_graph(x[["var_label"]], x[["var_desc"]], x[["var"]])
     })
     names(g_content) <- NULL
   }
@@ -215,7 +223,6 @@ ui <-
       warning = theme_color$warning,
       danger = theme_color$danger,
       font_scale = 0.9
-      # navbar_bg = theme_color$primary
     ),
     navbar_options = navbar_options(bg = theme_color$primary),
     header =

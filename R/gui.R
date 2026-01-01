@@ -437,10 +437,10 @@ numeric_input_ui <- function(id, df, tooltip_class = NULL, ...) {
   return(n_ui)
 }
 
-numeric_input_server <- function(id, df) {
+numeric_input_server <- function(id, var_ids) {
   moduleServer(id, function(input, output, session) {
     var_list <- reactiveVal(list())
-    lapply(df$var, function(x) {
+    lapply(var_ids, function(x) {
       observeEvent(input[[x]], {
         vl <- isolate(var_list())
         vl[[x]] <- input[[x]]
