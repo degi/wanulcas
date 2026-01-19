@@ -7,11 +7,23 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 ### INPUT GUI ###############
 
 get_input_graph <- function(title, desc, v) {
   title_tt <- div(title, style = "width:180px;")
-  if(desc != "") {
+  if (desc != "") {
     title_tt <- title_tt |> tooltip(desc, options = list(customClass = "custom-tooltip"))
   }
   card(
@@ -181,6 +193,9 @@ input_tab <- function() {
   })
 }
 
+### OUTPUT ##############
+
+
 
 ### TOOLS ################
 
@@ -222,7 +237,7 @@ ui <-
       info = theme_color$info,
       warning = theme_color$warning,
       danger = theme_color$danger,
-      font_scale = 0.9
+      font_scale = 0.8
     ),
     navbar_options = navbar_options(bg = theme_color$primary),
     header =
@@ -299,7 +314,7 @@ ui <-
         
         tags$script(src = "jsuites.js"),
         tags$link(rel = "stylesheet", href = "jsuites.css", type = "text/css"),
-        tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
+        tags$link(rel = "stylesheet", href = "table.css", type = "text/css")
         
       ),
     window_title = "WaNuLCAS 5.0",
@@ -346,22 +361,107 @@ ui <-
       
     ),
     nav_panel(
-      title = "Input",
+      title = "Input Parameters",
       icon = icon("arrow-down"),
       navset_card_tab(
-        title = div("Input Parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
+        # title = div("Input Parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
         id = "input_panel",
-        !!!input_tab()
+        !!!input_tab(),
+        nav_spacer(),
+        nav_menu(
+          title = "Options",
+          icon = icon("ellipsis-vertical"),
+          nav_item(
+            style = "margin: 0 20px",
+            fileInput(
+              "upload_parameter",
+              span(icon("upload"), "Upload input parameter file"),
+              accept = c("application/yaml", ".yaml", ".yml"),
+              width = "300px"
+            )
+          ),
+          nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
+          nav_item(span(
+            icon("download"),
+            downloadLink("download_parameter", "Download input parameters"),
+            style = "margin:0 20px"
+          ))
+        )
       )
     ),
     
-    
-    
     ### SIMULATION #############################
     
-    nav_panel(title = "Simulation", icon = icon("gears")),
-    
-    
+    nav_panel(
+      title = "Simulation",
+      icon = icon("gears"),
+      card_body(
+        padding = 0,
+        div(
+          style = "margin:16px 0 0 50px",
+          flowLayout(
+            cellArgs = list(style = "width:auto; margin:0px; height:30px;"),
+            div("Simulation Time (days):", style = "padding:5px 0;font-weight:bold"),
+            numericInput("n_iteration", NULL, value = 10, width = "150px"),
+            input_task_button(
+              "sim_run_button",
+              "Run Simulation",
+              icon = icon("play"),
+              style = compact_button_style
+            ),
+            conditionalPanel(
+              condition = "output.is_sim_output",
+              actionButton(
+                "reset_button",
+                "Reset Output",
+                icon = icon("arrows-rotate"),
+                style = compact_button_style
+              ),
+              downloadButton("download_output", "Download Output", style = compact_button_style)
+            ),
+            conditionalPanel(condition = "!output.is_sim_output", uiOutput("selected_vars_info"))
+          )
+        ),
+        card_body(
+          class = "subpanel",
+          padding = 0,
+          height = "100%",
+          fillable = F,
+          conditionalPanel(condition = "output.is_sim_output", uiOutput("sim_output_ui")),
+          conditionalPanel(
+            condition = "!output.is_sim_output",
+            card_body(
+              padding = 10,
+              height = "100%",
+              class = "bordercard",
+              navset_card_tab(
+                nav_panel(
+                  "All Output Variables",
+                  reactableOutput("output_var_selector")
+                ),
+                nav_panel("Selected Variables", reactableOutput("output_var_selected")),
+                nav_spacer(),
+                nav_menu(title = "Options", nav_item(
+                  actionLink(
+                    "clear_selected_output_vars",
+                    "Clear selections",
+                    icon = icon("square")
+                  )
+                ), nav_item(
+                  actionLink(
+                    "reset_default_output_vars",
+                    "Reset to default",
+                    icon = icon("arrows-rotate")
+                  )
+                ))
+                
+              )
+            )
+          )
+        )
+        
+      )
+    ),
     
     ### ABOUT ##########################
     

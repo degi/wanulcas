@@ -18,7 +18,7 @@ options(scipen = 999)
 library(lubridate)
 library(openxlsx2)
 library(yaml)
-library(progress)
+# library(progress)
 library(data.table)
 
 # source("wanulcas_lib.R")
@@ -34,8 +34,8 @@ library(data.table)
 
 ## RUN #####################
 run_wanulcas <- function(n_iteration,
-                         wanulcas_params = NULL,
-                         output_vars = NULL) {
+                         wanulcas_params,
+                         output_vars = NULL, progress = NULL) {
   
   
   
@@ -88,8 +88,7 @@ run_wanulcas <- function(n_iteration,
     df[names(v_df)] <- v_df
     assign(a, df)
   }
-  
-  
+
   vstock <- get_wanulcas_stock_vars()
   
   for (p in names(vstock)) {
@@ -106,9 +105,12 @@ run_wanulcas <- function(n_iteration,
       assign(p, df)
     }
   }
+  # print(zone_df)
+  
+  # print(tan(angle_df[["LightAngles"]] * pi / 180))
   
   angle_df["TanAngles"] <- tan(angle_df[["LightAngles"]] * pi / 180)
-  
+  # print(zone_df[["AF_ZoneWidth"]])
   zone_df["AF_SlopeSurfInit"] <- AF_SlopeSurfInit
   zone_df["AF_ZWcum"] <- cumsum(zone_df[["AF_ZoneWidth"]])
   zone_df["RT_ZoneRight"] <- ifelse(zone_df[["AF_ZoneWidth"]] > 0, zone_df[["AF_ZWcum"]], 0)
@@ -887,14 +889,11 @@ run_wanulcas <- function(n_iteration,
   
   ## LOOP ##########################
   time <- 0
-  pb <- progress_bar[["new"]](format = "Running WaNuLCAS [:bar] :percent in :elapsedfull [Eta::eta]",
-                              total = n_iteration+1,
-                              clear = F)
   out_check <- NULL
   
   for (time in 0:n_iteration) {
-    pb[["tick"]]()
-
+    R.utils::doCall(progress, i = time, n = n_iteration)
+    
     # RAIN_DoY = IF (RAIN_AType=1 AND RAIN_Cycle?= 0) THEN (TIME+CA_DOYStart-365*RAIN_YearStart) ELSE
     # if (MOD(TIME+CA_DOYStart-365*RAIN_YearStart,365)) = 0 then 365 else (MOD(TIME+CA_DOYStart-365*RAIN_YearStart,366))
     RAIN_DoY <- ifelse(
@@ -13666,7 +13665,9 @@ run_wanulcas <- function(n_iteration,
     }
   }
   
-  output_dt <- lapply(output, rbindlist)
+  # if(!is.null(progress)) progress$close()
+  
+  output_dt <- lapply(output, function(x) data.table::rbindlist(x) |> as.data.frame())
   names(output_dt) <- names(output)
   return(output_dt)
 }

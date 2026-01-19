@@ -16,6 +16,7 @@
     border-left: 1px solid transparent;
     border-right: 1px solid transparent;
     border-bottom: 2px solid #ccc;
+    font-size: 1em;
 }
 
 .jexcel>div>table>thead>tr>td {

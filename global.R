@@ -21,6 +21,8 @@ libs <- c(
   "bsicons",
   "htmltools",
   "plotly",
+  # "shinyalert",
+  # "shinyWidgets",
   
   "reactable",
   "excelR",
@@ -34,6 +36,12 @@ libs <- c(
   "progress",
   "data.table",
   "lubridate"
+  # "config",
+  # "shinyjs",
+  
+  # "future",
+  # "ipc"
+  # "promises"
 )
 
 
@@ -44,6 +52,9 @@ library("bslib")
 library("bsicons")
 library("htmltools")
 library("plotly")
+# library(shinyalert)
+# library(shinyWidgets)
+
 #table UI
 library("reactable")
 library("excelR")
@@ -58,9 +69,25 @@ library("RColorBrewer")
 library("openxlsx2")
 library("progress")
 library(lubridate)
+# library(later)
+
+# library(shinyjs)
+# library(config)
+#multisession
+# library(future)
+library(ipc) #AsyncProgress
+# library(promises)
+library(mirai)
 
 # plan(multisession)
 
+# Set the number of local daemons (e.g., 2)
+mirai::daemons(6L) 
+
+# Register a function to shut down daemons when the app stops
+onStop(function() {
+  mirai::daemons(0L)
+})
 
 
 theme_color <- list(
@@ -81,21 +108,39 @@ tooltip_custom <- function(...) {
   tooltip(..., options = list(customClass = "custom-tooltip"))
 }
 
-setwd("R")
-source("wanulcas.R")
-source("wanulcas_lib.R")
-setwd(default_wd)
+compact_button_style <- "width:auto;height:36px;padding:5px 20px;" #padding:0px 20px;
+
+
+
+# setwd("R")
+source("R/wanulcas.R")
+source("R/wanulcas_lib.R")
+# setwd(default_wd)
+
+# is_run_online <- config::get("is_online")
+# print(is_run_online)
+# print(config::get("data_path"))
+is_run_online <- Sys.getenv('SHINY_PORT') != ""
+print(paste("Run online:", is_run_online))
 
 ### GUI ######################
 
+wanulcas_params_def <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
 input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
 input_group_df <- read.csv("config/input_group.csv")
+output_vars_option_df <- read.csv("R/output_vars.csv")
+output_vars <- default_output_vars
 
 input_gui_tabs_df[is.na(input_gui_tabs_df)] <- ""
 input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
 input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
-wanulcas_params <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
+
+
+
+
+  
+  
 
 input_vars_conf_df$var_label <- paste0(
   ifelse(
@@ -115,9 +160,9 @@ input_vars_conf_df$var_desc <- paste0(input_vars_conf_df$desc,
 # preparing variable input parameters
 
 inputvars_df <- data.frame(
-  var = names(wanulcas_params$vars),
-  label = names(wanulcas_params$vars),
-  value = as.numeric(wanulcas_params$vars),
+  var = names(wanulcas_params_def$vars),
+  label = names(wanulcas_params_def$vars),
+  value = as.numeric(wanulcas_params_def$vars),
   min = NA,
   max = NA,
   step = NA
@@ -131,34 +176,29 @@ inputvars_df$label <- inputvars_df$var_label
 inputvars_df$info <- inputvars_df$var_desc
 inputvars_df$ui_id <- paste("input_var", inputvars_df$id, inputvars_df$group_id, sep = "_")
 
-# preparing array input parameters
 
-input_array <- wanulcas_def_arr
-for (a in names(wanulcas_params$arrays)) {
-  df <- input_array[[a]]
-  v_df <- as.data.frame(wanulcas_params$arrays[[a]]$vars)
-  df[names(v_df)] <- v_df
-  input_array[[a]] <- df
+arr_ids_df <- unique(input_vars_conf_df[input_vars_conf_df$type == "arrays" &
+                                    input_vars_conf_df$id != "", c("subtype", "id", "group_id")])
+arr_ids_df$arr <- paste(arr_ids_df$subtype, "df", sep = "_")
+arr_ids_df$ui_id <- paste("input_array", arr_ids_df$subtype, arr_ids_df$id, arr_ids_df$group_id, sep = "_")
+
+array_params_to_ui_inp <- function(array_params) {
+  ui_inp <- apply(arr_ids_df, 1, function(x) {
+    df <- array_params[[x["arr"]]]$vars
+    v <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
+                              input_vars_conf_df$subtype == x["subtype"] &
+                              input_vars_conf_df$id == as.numeric(x["id"]) &
+                              input_vars_conf_df$group_id == as.numeric(x["group_id"]), "var"]
+    as.data.frame(c(array_params[[x["arr"]]]$keys, df[v]))
+  })
+  names(ui_inp) <- arr_ids_df$ui_id
+  return(ui_inp)
 }
 
-a_df <- unique(input_vars_conf_df[input_vars_conf_df$type == "arrays" &
-                                    input_vars_conf_df$id != "", c("subtype", "id", "group_id")])
-a_ids <- paste("input_array", a_df$subtype, a_df$id, a_df$group_id, sep = "_")
+arr_inp <- array_params_to_ui_inp(wanulcas_params_def$arrays)
 
-arr_inp <- apply(a_df, 1, function(x) {
-  ndf <- paste0(x["subtype"], "_df")
-  df <- input_array[[ndf]]
-  def_df <- wanulcas_def_arr[[ndf]]
-  v <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
-                            input_vars_conf_df$subtype == x["subtype"] &
-                            input_vars_conf_df$id == as.numeric(x["id"]) &
-                            input_vars_conf_df$group_id == as.numeric(x["group_id"]), "var"]
-  cbind(def_df, df[v])
-})
-names(arr_inp) <- a_ids
-
-arr_conf <- apply(a_df, 1, function(x) {
-  keys <- names(wanulcas_def_arr[[paste0(x["subtype"], "_df")]])
+arr_conf <- apply(arr_ids_df, 1, function(x) {
+  keys <- names(wanulcas_def_arr[[x["arr"]]])
   lab_df <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
                                  input_vars_conf_df$subtype == x["subtype"] &
                                  input_vars_conf_df$id == as.numeric(x["id"]) &
@@ -169,27 +209,44 @@ arr_conf <- apply(a_df, 1, function(x) {
   title_desc <- paste0(lab_df$var_label, desc)
   list(keys = keys, title_desc = c(keys, title_desc))
 })
-names(arr_conf) <- a_ids
+names(arr_conf) <- arr_ids_df$ui_id
 
 
 # preparing graph input parameters
 
-graph_vars <- names(wanulcas_params$graphs)
+graph_vars <- names(wanulcas_params_def$graphs)
 graph_subvars <- sapply(graph_vars, function(a){
-  subvars <- names(wanulcas_params$graphs[[a]]$xy_data)
+  subvars <- names(wanulcas_params_def$graphs[[a]]$xy_data)
   paste("input_graph", a, subvars, sep = "-")
 })
 graph_allvars <- unlist(graph_subvars, recursive = F, use.names = F)
 
-graph_inp <- unlist(lapply(wanulcas_params$graphs, function(a) {
-  gv <- names(a$xy_data)
-  df_list <- lapply(gv, function(b){
-    df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
-    colnames(df) <- c(a$x_var, b)
-    df
-  })
-}), recursive = FALSE)
-names(graph_inp) <- graph_allvars
+graph_params_to_ui_inp <- function(graph_params) {
+  graph_ui_inp <- unlist(lapply(graph_params, function(a) {
+    gv <- names(a$xy_data)
+    df_list <- lapply(gv, function(b){
+      df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
+      colnames(df) <- c(a$x_var, b)
+      df
+    })
+  }), recursive = FALSE)
+  names(graph_ui_inp) <- graph_allvars
+  return(graph_ui_inp)
+}
+
+graph_inp <- graph_params_to_ui_inp(wanulcas_params_def$graphs)
+
+# graph_inp <- unlist(lapply(wanulcas_params_def$graphs, function(a) {
+#   gv <- names(a$xy_data)
+#   df_list <- lapply(gv, function(b){
+#     df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
+#     colnames(df) <- c(a$x_var, b)
+#     df
+#   })
+# }), recursive = FALSE)
+# names(graph_inp) <- graph_allvars
+
+###
 
 
 

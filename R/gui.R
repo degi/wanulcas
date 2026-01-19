@@ -542,3 +542,13 @@ input_dialog <- function(title = "",
 show_input_dialog <- function(...) {
   showModal(input_dialog(...))
 }
+
+show_alert <- function(title, desc) {
+  showModal( 
+    modalDialog( 
+      desc, 
+      title = title, 
+      easy_close = TRUE
+    ) 
+  )
+}
