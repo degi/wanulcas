@@ -288,10 +288,10 @@ server <- function(input, output, session) {
   observe(rv$sim_output <- local_task())
   
   # observe(rv$sim_output <- task$result())
-  observe({
-    if (!is.null(data_result))
-      rv$sim_output <- data_result()
-  })
+  # observe({
+  #   if (!is.null(data_result))
+  #     rv$sim_output <- data_result()
+  # })
   
   output$sim_output_ui <- renderUI({
     result <- rv$sim_output
