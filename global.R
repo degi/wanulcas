@@ -35,13 +35,14 @@ libs <- c(
   "openxlsx2",
   "progress",
   "data.table",
-  "lubridate"
+  "lubridate",
   # "config",
   # "shinyjs",
   
   # "future",
   # "ipc"
   # "promises"
+  "mirai"
 )
 
 
@@ -77,7 +78,7 @@ library(lubridate)
 # library(future)
 library(ipc) #AsyncProgress
 # library(promises)
-library(mirai)
+# library(mirai)
 
 # plan(multisession)
 
