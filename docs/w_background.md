@@ -90,14 +90,14 @@ not if F \< C.
 Cannell *et al.* (1996) attempted to clarify the resource base of the
 production by both the crop and the tree. Part of the \'fertility\'
 effect of the tree is based on light, water and nutrient resources which
-the tree acquired in competition with the crop (F~comp~); another part
+the tree acquired in competition with the crop (F<sub>comp</sub>); another part
 may have been obtained in complement to resources available for the crop
-(F~noncomp~). Similarly, part of the resources acquired by the tree in
+(F<sub>noncomp</sub>). Similarly, part of the resources acquired by the tree in
 competition with the crop is recycled within the system and may thus be
-used by a future crop (C~recycl~). Tree products that are not recycled
-may have direct value for the farmer (C~nonrecycl~).
+used by a future crop (C<sub>recycl</sub>). Tree products that are not recycled
+may have direct value for the farmer (C<sub>nonrecycl</sub>).
 
-One may argue that F~comp~ is based on the same resources as C~recycl~
+One may argue that F<sub>comp</sub> is based on the same resources as C<sub>recycl</sub>
 and that in the longer run the two terms would cancel. The question
 whether or not a tree-crop combination gives yield benefits then depends
 on:
@@ -105,17 +105,17 @@ on:
 1.  the complementarity of the resource use,
 
 2.  the value of direct tree products, specifically those obtained in
-    competition, C~nonrecycl~, relative to the value of crop products
+    competition, C<sub>nonrecycl</sub>, relative to the value of crop products
     that could have been produced with these resources.
 
 3.  the efficiency of recycling tree resources into crop products,
     specifically for the resources obtained in competition with the
-    crop, C~recycl~.
+    crop, C<sub>recycl</sub>.
 
 **Table 1.1.** Three-step approach to analysis and synthesis of tree-soil-crop interactions in simultaneous agroforestry systems. A direct experimental separation of the terms in the equation is combined with quantification of key processes and followed by model synthesis to explore management options and system-site matching (van Noordwijk *et al.*, 1998a).
 
 +-------------------+-------------+----------------+------------+-------------+--------------+---------------+
-| Y~c~ =            | Y~0~ +      | F~1~ +         | F~ω~ +     | C~l~ +      | C~w+n~ +     | M             |
+| Y<sub>c</sub> =            | Y<sub>0</sub> +      | F<sub>1</sub> +         | F<sub>ω</sub> +     | C<sub>l</sub> +      | C<sub>w+n</sub> +     | M             |
 |                   |             |                |            |             |              |               |
 | Crop yield in     | Crop yield  | Direct         | Long term  | Competition | Competition  | Micro-climate |
 | interaction       | in          | fertility      | fertility  | for light   | for water    | effects       |
@@ -145,7 +145,7 @@ the *Grevillea* maize systems in Kenya (Ong; *pers. comm.*) and
 transforms these resources into valuable products, a considerable degree
 of competition during the temporal overlap may be acceptable to the
 farmer. If tree products have no direct value, agroforestry systems may
-only be justified if F~noncomp~ \> C~nonrecycl~. With increasing direct
+only be justified if F<sub>noncomp</sub> \> C<sub>nonrecycl</sub>. With increasing direct
 value of the tree products, the requirements for complementarity
 decrease.
 
@@ -186,18 +186,17 @@ and inside the plants and use these to calculate daily resource flows
 and daily resource capture.
 
 The tree-soil-crop interaction equation can be further analyzed by
-differentiating between short and long term fertility effects (F~1~ and
-F~ω~, respectively) and by separating the competition term in an above-
-and a belowground component (C~l~ and C~n+w~, respectively). Van
+differentiating between short and long term fertility effects (F<sub>1</sub> and
+F<sub>ω</sub>, respectively) and by separating the competition term in an above-
+and a belowground component (C<sub>l</sub> and C<sub>n+w</sub>, respectively). Van
 Noordwijk *et al.* (1998a) described a three-step approach to link these
 overall terms to experimental treatments, process research and WaNuLCAS
 as a synthesis model (Table 1.1). The total balance for belowground
 resources (water or nutrients) inputs into an agroforestry system is:
 
-$\mathrm{\Delta}Stored = Input + Recycle - {Upt}_{crop} - {Upt}_{tree,comp} - {Upt}_{tree,noncomp} - Loss$
-**\[1\]**
+$$\Delta Stored = Input + Recycle - {Upt}_{crop} - {Upt}_{tree,comp} - {Upt}_{tree,noncomp} - Loss$$
 
-The term Upt~tree,noncompetitive~ represents the safetynet function of
+The term Upt<sub>tree,noncompetitive</sub> represents the safetynet function of
 tree roots for nutrients and water leaching and percolating below the
 zone of crop roots and/or outside of the crop growing season (Van
 Noordwijk *et al.*, 1996*)*, as well as a nutrient pump role for
@@ -218,13 +217,13 @@ resources stored in the subsoil for longer periods of time (Young,
 |                          | into crop root     | prunings, crop     |                     |
 |                          | zone               | residues           |                     |
 +--------------------------+--------------------+--------------------+---------------------+
-| Uptake~Crop~             | ∑W_Uptakecrop      | N_fix(Crop) +      | ∑Lightcap_crop      |
+| Uptake<sub>Crop<sub>             | ∑W_Uptakecrop      | N_fix(Crop) +      | ∑Lightcap_crop      |
 |                          |                    | ∑N_Uptakecrop      |                     |
 +--------------------------+--------------------+--------------------+---------------------+
-| Uptake~Tree,Competitive~ | ∑~sub~W_Uptaketree | ∑~top~N_Uptaketree | ∑Lightcap_tree~1,2~ |
+| Uptake<sub>Tree,Competitive<sub> | ∑<sub>sub<sub>W_Uptaketree | ∑<sub>top<sub>N_Uptaketree | ∑Lightcap_tree<sub>1,2<sub> |
 +--------------------------+--------------------+--------------------+---------------------+
-| Uptake~Tree,Noncomp~     | ∑~sub~W_Uptaketree | N_fix(Tree) +      | Lightcap_tree~3~    |
-|                          |                    | ∑~sub~N_Uptaketree |                     |
+| Uptake<sub>Tree,Noncomp<sub>     | ∑<sub>sub<sub>W_Uptaketree | N_fix(Tree) +      | Lightcap_tree<sub>3<sub>    |
+|                          |                    | ∑<sub>sub<sub>N_Uptaketree |                     |
 +--------------------------+--------------------+--------------------+---------------------+
 | Losses                   | ∑Percolation from  | ∑Leaching from     | 1 - ∑Lightcap       |
 |                          | lowest zone        | lowest zone        |                     |
