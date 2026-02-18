@@ -1,30 +1,12 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### INPUT GUI ###############
 
 get_input_graph <- function(title, desc, v) {
   title_tt <- div(title, style = "width:180px;")
   if (desc != "") {
-    title_tt <- title_tt |> tooltip(desc, options = list(customClass = "custom-tooltip"))
+    title_tt <- title_tt |> bslib::tooltip(desc, options = list(customClass = "custom-tooltip"))
   }
   card(
     id = paste("input_graph_card", v, sep = "-"),
@@ -67,6 +49,9 @@ get_input_subcontent <- function(id, group_id) {
     par_df <- inputvars_df[inputvars_df$var %in% v, ]
     if (nrow(par_df) > 0) {
       # n_ui <- numeric_input_ui(paste("input_var", id, group_id, sep = "_"), par_df, tooltip_class = "custom-tooltip")
+      # print("*********")
+      # print(par_df$ui_id[1])
+      # print(par_df)
       n_ui <- numeric_input_ui(par_df$ui_id[1], par_df, tooltip_class = "custom-tooltip")
       v_content <- list(layout_column_wrap(
         width = "200px",
@@ -197,25 +182,7 @@ input_tab <- function() {
 
 
 
-### TOOLS ################
 
-menu_button <- function(id,
-                        label,
-                        icon = NULL,
-                        desc = NULL,
-                        placement = "auto") {
-  d <- actionButton(id, label, icon = icon, class = "menu_button")
-  if (is.null(desc)) {
-    return(d)
-  } else {
-    return(tooltip_blue(
-      d,
-      desc,
-      placement = placement,
-      id = paste0("tooltip_", id)
-    ))
-  }
-}
 
 download_link <- function(id, filename = NULL) {
   if (is.null(filename))
@@ -246,13 +213,6 @@ ui <-
           tags$link(rel = "shortcut icon", href = "favicon.ico"),
           HTML(
             "
-            .menu_button {
-              height: 26px;
-              padding: 2px 10px;
-              margin: 2px;
-              border-width: 0px;
-            }
-
             .custom-tooltip {
               --bs-tooltip-bg: #8B3E04;
               --bs-tooltip-border-radius: 8px;

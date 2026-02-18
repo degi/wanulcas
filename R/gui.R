@@ -409,6 +409,10 @@ reactable_edit_server <- function(id,
 
 
 numeric_input_ui <- function(id, df, tooltip_class = NULL, ...) {
+  # print(numeric_input_ui)
+  # print(id)
+  # print(df)
+  # print(tooltip_class)
   ns <- NS(id)
   n_ui <- apply(df, 1, function(x) {
     if(!is.null(x[["info"]]) && x[["info"]] != "") {
@@ -420,7 +424,7 @@ numeric_input_ui <- function(id, df, tooltip_class = NULL, ...) {
         as.numeric(x[["max"]]),
         as.numeric(x[["step"]]), 
         ...
-      ) |> tooltip(x[["info"]], options = list(customClass = tooltip_class))  
+      ) |> bslib::tooltip(x[["info"]], options = list(customClass = tooltip_class))  
     } else {
     numericInput(
       ns(x[["var"]]),

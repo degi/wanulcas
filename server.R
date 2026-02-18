@@ -218,42 +218,42 @@ server <- function(input, output, session) {
     return(params)
   }
   
-  # task <- ExtendedTask$new(
-  #   function(n, pars, outvars, progress)
-  #     mirai(
-  #       run_wanulcas(n, pars, outvars, progress),
-  #       run_wanulcas = run_wanulcas,
-  #       n = n,
-  #       pars = pars,
-  #       outvars = outvars,
-  #       progress = progress
-  #     )
-  # ) |> bind_task_button("sim_run_button")
-  # 
-  # if (is_run_online) {
-  #   observeEvent(input$sim_run_button, {
-  #     if (!is_simulation_ready())
-  #       return()
-  #     print("Starting simulation")
-  #     n_iteration <- input$n_iteration
-  #     pars <- isolate(get_input_parameters())
-  #     progress <- AsyncProgress$new(
-  #       session,
-  #       min = 1,
-  #       max = n_iteration,
-  #       message = "Processing the server",
-  #       detail = "Please wait while preparing the server session.."
-  #     )
-  #     on.exit(progress$close())
-  #     progress_trigger <- function(i, n) {
-  #       progress$set(i, "Running simulation", paste("Day", i, "of", n))
-  #     }
-  #     
-  #     task$invoke(n_iteration, pars, output_vars, progress)
-  #     
-  #     
-  #   })
-  # } else {
+  task <- ExtendedTask$new(
+    function(n, pars, outvars, progress)
+      mirai(
+        run_wanulcas(n, pars, outvars, progress),
+        run_wanulcas = run_wanulcas,
+        n = n,
+        pars = pars,
+        outvars = outvars,
+        progress = progress
+      )
+  ) |> bind_task_button("sim_run_button")
+
+  if (is_run_online) {
+    observeEvent(input$sim_run_button, {
+      if (!is_simulation_ready())
+        return()
+      print("Starting simulation")
+      n_iteration <- input$n_iteration
+      pars <- isolate(get_input_parameters())
+      progress <- AsyncProgress$new(
+        session,
+        min = 1,
+        max = n_iteration,
+        message = "Processing the server",
+        detail = "Please wait while preparing the server session.."
+      )
+      on.exit(progress$close())
+      progress_trigger <- function(i, n) {
+        progress$set(i, "Running simulation", paste("Day", i, "of", n))
+      }
+
+      task$invoke(n_iteration, pars, output_vars, progress)
+
+
+    })
+  } else {
     
     local_task <- eventReactive(input$sim_run_button, ignoreNULL = T, {
       if (!is_simulation_ready())
@@ -270,7 +270,7 @@ server <- function(input, output, session) {
       run_wanulcas(n_iteration, pars, output_vars, progress_trigger)
     })
     
-  # }
+  }
   
   is_simulation_ready <- function() {
     if (length(output_vars) == 0) {

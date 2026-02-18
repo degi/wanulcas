@@ -1,0 +1,7 @@
+default:
+  is_online: false
+  data_path: "local_data/"
+  
+production:
+  is_online: true
+  data_path: "cloud_storage/"

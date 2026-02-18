@@ -25,21 +25,21 @@ read_params <- function(params_file) {
 ### Functions ###############
 
 generate_graph_functions <- function(graphs) {
-  sapply(graphs, function(x) {
+  lapply(graphs, function(x) {
     method = "linear"
     if (x$type == "discrete") {
       method <- "constant"
     }
-    sapply(x$xy_data, function(d, m) {
-      approxfun(
+    lapply(x$xy_data, function(d, m) {
+      suppressWarnings(approxfun(
         unlist(d$x_val),
         unlist(d$y_val),
         rule = 2,
         ties = list("ordered", mean),
         method = m
-      )
-    }, m = method, simplify = FALSE, USE.NAMES = TRUE)
-  }, simplify = FALSE, USE.NAMES = TRUE)
+      ))
+    }, m = method)
+  })
 }
 
 delay_timer <- list()
@@ -1916,6 +1916,8 @@ get_monthly_avg_rain <- function(RAIN_DoY, p) {
 }
 
 
+
+
 ### Output var default ##############
 
 
@@ -2079,4 +2081,10 @@ default_output_vars <- c(
 
 plot.wanulcas <- function(x) {
   print("test")
+}
+
+console_progress_bar <- function(n) {
+  progress::progress_bar[["new"]](format = "Running WaNuLCAS [:bar] :percent in :elapsedfull [Eta::eta]",
+                                  total = n,
+                                  clear = F)
 }

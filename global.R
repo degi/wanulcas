@@ -25,6 +25,8 @@ libs <- c(
   # "shinyWidgets",
   
   "reactable",
+  "reactable.extras",
+  "reactablefmtr",
   "excelR",
   
   "RColorBrewer",
@@ -58,6 +60,8 @@ library("plotly")
 
 #table UI
 library("reactable")
+library(reactable.extras) #editable reactable
+library(reactablefmtr) #chart inside reactable
 library("excelR")
 # library(data.table)
 #file IO
@@ -78,7 +82,10 @@ library(lubridate)
 # library(future)
 library(ipc) #AsyncProgress
 # library(promises)
-# library(mirai)
+library(mirai)
+
+
+# shinyCyJS: flow chart
 
 # plan(multisession)
 
