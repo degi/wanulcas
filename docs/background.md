@@ -1,4 +1,4 @@
-# Background #
+# Background
 
 ## Balancing pattern and process
 
@@ -11,35 +11,37 @@ species is needed to evaluate both competition and complementarity
 (Sanchez, 1995; Ong and Huxley, 1996).
 
 Tree-soil-crop interactions occur both in space and time. In
-\'sequential\' agroforestry systems neighbourhood effects in a landscape
-mosaic still have a spatial element, while \'simultaneous\' systems
-often have at least an element of zonation. The dichotomy between
-sequential and simultaneous agroforestry systems may thus have been
-overstated in the past and a modelling framework is desirable in which
-they are endpoints of a continuum.
+'sequential' agroforestry systems neighbourhood effects in a landscape
+mosaic still have a spatial element, while 'simultaneous' systems often
+have at least an element of zonation. The dichotomy between sequential
+and simultaneous agroforestry systems may thus have been overstated in
+the past and a modelling framework is desirable in which they are
+endpoints of a continuum.
 
-[fig1_1] classification of the way crop growth models deal with spatial and temporal complexity;
-agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models.
+|  |  |
+|----|----|
+| <img src="./media/image1.jpeg" style="width:2.84792in;height:2.30417in"
+alt="fig1_1" /> | **Figure 1.1.** Schematic classification of the way crop growth models deal with spatial and temporal complexity; agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models. |
 
 In modelling agroforestry systems, a balance should be maintained
-between \'process\' and \'pattern\', between temporal and spatial
-aspects (Figure 1.1). Existing crop growth models tend to be detailed in
-\'processes\', but they usually do not take spatial patterns into
-account. They (implicitly) assume a homogeneous \'minimum
-representative\' area, with a one-dimensional variation between soil
-layers. Most GIS (geographical information systems) applications do not
-incorporate spatial interactions and estimate the total output of an
-area as the summation of area times output per unit area, for grid cells
-which are not dynamically interacting with their neighbours (similar to
-a \'stratified\' sampling approach). For representations of agroforestry
-we need both spatial and dynamic aspects, and should therefore aim at
+between 'process' and 'pattern', between temporal and spatial aspects
+(Figure 1.1). Existing crop growth models tend to be detailed in
+'processes', but they usually do not take spatial patterns into account.
+They (implicitly) assume a homogeneous 'minimum representative' area,
+with a one-dimensional variation between soil layers. Most GIS
+(geographical information systems) applications do not incorporate
+spatial interactions and estimate the total output of an area as the
+summation of area times output per unit area, for grid cells which are
+not dynamically interacting with their neighbours (similar to a
+'stratified' sampling approach). For representations of agroforestry we
+need both spatial and dynamic aspects, and should therefore aim at
 models along the diagonal line in Figure. 1.1. Full-scale detail on
 spatial interactions may not be achievable for any reasonable process
 description, however, and it may be best to start in the lower left
 corner with fairly simple process and spatial descriptions, only to move
 to the upper right corner where research questions require more detail.
 As a starting point on the spatial side, we have chosen for a system of
-\'zoning\', which can relate many types of spatial patterns to a model
+'zoning', which can relate many types of spatial patterns to a model
 still covering essential aspects of real-world behaviour. Spatial
 interactions, such as shading aboveground and competition for water and
 nutrients belowground may occur over a range of distances. Instead of a
@@ -88,66 +90,108 @@ term is positive and the combined system may make sense if F \> C, and
 not if F \< C.
 
 Cannell *et al.* (1996) attempted to clarify the resource base of the
-production by both the crop and the tree. Part of the \'fertility\'
-effect of the tree is based on light, water and nutrient resources which
-the tree acquired in competition with the crop (F<sub>comp</sub>); another part
-may have been obtained in complement to resources available for the crop
-(F<sub>noncomp</sub>). Similarly, part of the resources acquired by the tree in
-competition with the crop is recycled within the system and may thus be
-used by a future crop (C<sub>recycl</sub>). Tree products that are not recycled
-may have direct value for the farmer (C<sub>nonrecycl</sub>).
+production by both the crop and the tree. Part of the 'fertility' effect
+of the tree is based on light, water and nutrient resources which the
+tree acquired in competition with the crop (F<sub>comp</sub>); another
+part may have been obtained in complement to resources available for the
+crop (F<sub>noncomp</sub>). Similarly, part of the resources acquired by
+the tree in competition with the crop is recycled within the system and
+may thus be used by a future crop (C<sub>recycl</sub>). Tree products
+that are not recycled may have direct value for the farmer
+(C<sub>nonrecycl</sub>).
 
-One may argue that F<sub>comp</sub> is based on the same resources as C<sub>recycl</sub>
-and that in the longer run the two terms would cancel. The question
-whether or not a tree-crop combination gives yield benefits then depends
-on:
+One may argue that F<sub>comp</sub> is based on the same resources as
+C<sub>recycl</sub> and that in the longer run the two terms would
+cancel. The question whether or not a tree-crop combination gives yield
+benefits then depends on:
 
 1.  the complementarity of the resource use,
 
 2.  the value of direct tree products, specifically those obtained in
-    competition, C<sub>nonrecycl</sub>, relative to the value of crop products
-    that could have been produced with these resources.
+    competition, C<sub>nonrecycl</sub>, relative to the value of crop
+    products that could have been produced with these resources.
 
 3.  the efficiency of recycling tree resources into crop products,
     specifically for the resources obtained in competition with the
     crop, C<sub>recycl</sub>.
 
-**Table 1.1.** Three-step approach to analysis and synthesis of tree-soil-crop interactions in simultaneous agroforestry systems. A direct experimental separation of the terms in the equation is combined with quantification of key processes and followed by model synthesis to explore management options and system-site matching (van Noordwijk *et al.*, 1998a).
+### **Table 1.1.** Three-step approach to analysis and synthesis of tree-soil-crop interactions in simultaneous agroforestry systems. A direct experimental separation of the terms in the equation is combined with quantification of key processes and followed by model synthesis to explore management options and system-site matching (van Noordwijk *et al.*, 1998a).
 
-+-------------------+-------------+----------------+------------+-------------+--------------+---------------+
-| Y<sub>c</sub> =            | Y<sub>0</sub> +      | F<sub>1</sub> +         | F<sub>ω</sub> +     | C<sub>l</sub> +      | C<sub>w+n</sub> +     | M             |
-|                   |             |                |            |             |              |               |
-| Crop yield in     | Crop yield  | Direct         | Long term  | Competition | Competition  | Micro-climate |
-| interaction       | in          | fertility      | fertility  | for light   | for water    | effects       |
-|                   | monoculture | effect         | effect     |             | and          |               |
-|                   |             |                |            |             | nutrients    |               |
-+===================+:============+:===============+:===========+:============+:=============+:==============+
-| 1.  Experimental  |             | Mulch transfer | Residual   | Tree        | Root         |               |
-|                   |             |                | effect     | removal     | barriers     |               |
-+-------------------+-------------+----------------+------------+-------------+--------------+---------------+
-| 2.  Process-level |             | Litter         | Functional | Canopy      | Root         |               |
-|     understanding |             | quality,       | SOM        | shape,      | architecture |               |
-|                   |             | mineralization | fractions  | light       | (fractal     |               |
-|                   |             | rates          | (Ludox)    | profiles    | branching    |               |
-|                   |             |                |            |             | analysis)    |               |
-+-------------------+-------------+----------------+------------+-------------+--------------+---------------+
-| 3.  Synthesis     | W a N u L C A S                                                        |               |
-|     model         |                                                                        |               |
-+-------------------+------------------------------------------------------------------------+---------------+
+<table style="width:100%;">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 15%" />
+<col style="width: 13%" />
+<col style="width: 12%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: center;"><p>Y<sub>c</sub> =</p>
+<p>Crop yield in interaction</p></th>
+<th style="text-align: center;"><p>Y<sub>0</sub> +</p>
+<p>Crop yield in monoculture</p></th>
+<th style="text-align: center;"><p>F<sub>1</sub> +</p>
+<p>Direct fertility effect</p></th>
+<th style="text-align: center;"><p>F<sub>ω</sub> +</p>
+<p>Long term fertility effect</p></th>
+<th style="text-align: center;"><p>C<sub>l</sub> +</p>
+<p>Competition for light</p></th>
+<th style="text-align: center;"><p>C<sub>w+n</sub> +</p>
+<p>Competition for water and nutrients</p></th>
+<th style="text-align: center;"><p>M</p>
+<p>Micro-climate effects</p></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><ol type="1">
+<li><p>Experimental</p></li>
+</ol></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Mulch transfer</td>
+<td style="text-align: left;">Residual effect</td>
+<td style="text-align: left;">Tree removal</td>
+<td style="text-align: left;">Root barriers</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td><ol start="2" type="1">
+<li><p>Process-level understanding</p></li>
+</ol></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">Litter quality, mineralization rates</td>
+<td style="text-align: left;">Functional SOM fractions (Ludox)</td>
+<td style="text-align: left;">Canopy shape, light profiles</td>
+<td style="text-align: left;">Root architecture (fractal branching
+analysis)</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td><ol start="3" type="1">
+<li><p>Synthesis model</p></li>
+</ol></td>
+<td colspan="5" style="text-align: center;">W a N u L C A S</td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
 
 Apart from yield effects of agroforestry, labour requirements have a
 strong impact on profitability, and for this one should compare
 additional labour use (eg. tree pruning) and labour saving aspects (eg.
 weed control). Complementarity of resource use can be based on a
 difference in timing of tree and crop resource demand. If the tree picks
-up the \'left overs\' from the cropping period, as occurs with water in
+up the 'left overs' from the cropping period, as occurs with water in
 the *Grevillea* maize systems in Kenya (Ong; *pers. comm.*) and
 transforms these resources into valuable products, a considerable degree
 of competition during the temporal overlap may be acceptable to the
 farmer. If tree products have no direct value, agroforestry systems may
-only be justified if F<sub>noncomp</sub> \> C<sub>nonrecycl</sub>. With increasing direct
-value of the tree products, the requirements for complementarity
-decrease.
+only be justified if F<sub>noncomp</sub> \> C<sub>nonrecycl</sub>. With
+increasing direct value of the tree products, the requirements for
+complementarity decrease.
 
 The efficiency of recycling will depend on the degree of synchrony
 between mineralization from these organic residues and crop nutrient
@@ -157,7 +201,7 @@ Willigen and Van Noordwijk, 1989; Myers *et al.*, 1994, 1997).
 
 As light is not stored in ecosystems, complementarity in light use is
 easy to measure. For water and nutrients complementarity has to consider
-time scales linked to the \'residence\' times of the resources in the
+time scales linked to the 'residence' times of the resources in the
 ecosystem; residence times tend to increase from water, via nitrogen and
 potassium to phosphorus. For P resources used by the tree it will be
 difficult to measure whether or not this P might have become available
@@ -186,50 +230,90 @@ and inside the plants and use these to calculate daily resource flows
 and daily resource capture.
 
 The tree-soil-crop interaction equation can be further analyzed by
-differentiating between short and long term fertility effects (F<sub>1</sub> and
-F<sub>ω</sub>, respectively) and by separating the competition term in an above-
-and a belowground component (C<sub>l</sub> and C<sub>n+w</sub>, respectively). Van
-Noordwijk *et al.* (1998a) described a three-step approach to link these
-overall terms to experimental treatments, process research and WaNuLCAS
-as a synthesis model (Table 1.1). The total balance for belowground
-resources (water or nutrients) inputs into an agroforestry system is:
+differentiating between short and long term fertility effects
+(F<sub>1</sub> and F<sub>ω</sub>, respectively) and by separating the
+competition term in an above- and a belowground component (C<sub>l</sub>
+and C<sub>n+w</sub>, respectively). Van Noordwijk *et al.* (1998a)
+described a three-step approach to link these overall terms to
+experimental treatments, process research and WaNuLCAS as a synthesis
+model (Table 1.1). The total balance for belowground resources (water or
+nutrients) inputs into an agroforestry system is:
 
-$$\Delta Stored = Input + Recycle - {Upt}_{crop} - {Upt}_{tree,comp} - {Upt}_{tree,noncomp} - Loss$$
+$`\mathrm{\Delta}Stored = Input + Recycle - {Upt}_{crop} - {Upt}_{tree,comp} - {Upt}_{tree,noncomp} - Loss`$
+**\[1\]**
 
-The term Upt<sub>tree,noncompetitive</sub> represents the safetynet function of
-tree roots for nutrients and water leaching and percolating below the
-zone of crop roots and/or outside of the crop growing season (Van
-Noordwijk *et al.*, 1996*)*, as well as a nutrient pump role for
+The term Upt<sub>tree,noncompetitive</sub> represents the safetynet
+function of tree roots for nutrients and water leaching and percolating
+below the zone of crop roots and/or outside of the crop growing season
+(Van Noordwijk *et al.*, 1996*)*, as well as a nutrient pump role for
 resources stored in the subsoil for longer periods of time (Young,
 1997).
 
-**Table 1.2.** Representation of resource capture (equation 1) in a simple tree-crop agroforestry system, where the crop roots are confined to the \'topsoil\' and the tree roots explore the \'subsoil\' as well; the subscripts 1, 2 and 3 refer to crop zones with increasing distance to the tree.
+### **Table 1.2.** Representation of resource capture (equation 1) in a simple tree-crop agroforestry system, where the crop roots are confined to the 'topsoil' and the tree roots explore the 'subsoil' as well; the subscripts 1, 2 and 3 refer to crop zones with increasing distance to the tree.
 
-+--------------------------+--------------------+--------------------+---------------------+
-| Term in eq. 1            | Water              | Nitrogen           | Light               |
-+==========================+:===================+:===================+:====================+
-| Input                    | Rainfall,          | Fertilizer &       | Sum of daily        |
-|                          | irrigation         | organic imports    | radiation           |
-|                          |                    |                    |                     |
-|                          | runon-runoff       |                    |                     |
-+--------------------------+--------------------+--------------------+---------------------+
-| Recycle                  | Hydraulic lift     | Litterfall, tree   | \-                  |
-|                          | into crop root     | prunings, crop     |                     |
-|                          | zone               | residues           |                     |
-+--------------------------+--------------------+--------------------+---------------------+
-| Uptake<sub>Crop<sub>             | ∑W_Uptakecrop      | N_fix(Crop) +      | ∑Lightcap_crop      |
-|                          |                    | ∑N_Uptakecrop      |                     |
-+--------------------------+--------------------+--------------------+---------------------+
-| Uptake<sub>Tree,Competitive<sub> | ∑<sub>sub<sub>W_Uptaketree | ∑<sub>top<sub>N_Uptaketree | ∑Lightcap_tree<sub>1,2<sub> |
-+--------------------------+--------------------+--------------------+---------------------+
-| Uptake<sub>Tree,Noncomp<sub>     | ∑<sub>sub<sub>W_Uptaketree | N_fix(Tree) +      | Lightcap_tree<sub>3<sub>    |
-|                          |                    | ∑<sub>sub<sub>N_Uptaketree |                     |
-+--------------------------+--------------------+--------------------+---------------------+
-| Losses                   | ∑Percolation from  | ∑Leaching from     | 1 - ∑Lightcap       |
-|                          | lowest zone        | lowest zone        |                     |
-+--------------------------+--------------------+--------------------+---------------------+
-| ∆storage                 | ∆Water content     | ∆(Nmin & SOM)      | \-                  |
-+--------------------------+--------------------+--------------------+---------------------+
+<table style="width:96%;">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 24%" />
+<col style="width: 24%" />
+<col style="width: 24%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: center;">Term in eq. 1</th>
+<th style="text-align: center;">Water</th>
+<th style="text-align: center;">Nitrogen</th>
+<th style="text-align: center;">Light</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input</td>
+<td style="text-align: left;"><p>Rainfall, irrigation</p>
+<p>runon-runoff</p></td>
+<td style="text-align: left;">Fertilizer &amp; organic imports</td>
+<td style="text-align: left;">Sum of daily radiation</td>
+</tr>
+<tr>
+<td>Recycle</td>
+<td style="text-align: left;">Hydraulic lift into crop root zone</td>
+<td style="text-align: left;">Litterfall, tree prunings, crop
+residues</td>
+<td style="text-align: left;">-</td>
+</tr>
+<tr>
+<td>Uptake<sub>Crop</sub></td>
+<td style="text-align: left;">∑W_Uptakecrop</td>
+<td style="text-align: left;">N_fix(Crop) + ∑N_Uptakecrop</td>
+<td style="text-align: left;">∑Lightcap_crop</td>
+</tr>
+<tr>
+<td>Uptake<sub>Tree,Competitive</sub></td>
+<td style="text-align: left;">∑<sub>sub</sub>W_Uptaketree</td>
+<td style="text-align: left;">∑<sub>top</sub>N_Uptaketree</td>
+<td style="text-align: left;">∑Lightcap_tree<sub>1,2</sub></td>
+</tr>
+<tr>
+<td>Uptake<sub>Tree,Noncomp</sub></td>
+<td style="text-align: left;">∑<sub>sub</sub>W_Uptaketree</td>
+<td style="text-align: left;">N_fix(Tree) +
+∑<sub>sub</sub>N_Uptaketree</td>
+<td style="text-align: left;">Lightcap_tree<sub>3</sub></td>
+</tr>
+<tr>
+<td>Losses</td>
+<td style="text-align: left;">∑Percolation from lowest zone</td>
+<td style="text-align: left;">∑Leaching from lowest zone</td>
+<td style="text-align: left;">1 - ∑Lightcap</td>
+</tr>
+<tr>
+<td>∆storage</td>
+<td style="text-align: left;">∆Water content</td>
+<td style="text-align: left;">∆(Nmin &amp; SOM)</td>
+<td style="text-align: left;">-</td>
+</tr>
+</tbody>
+</table>
 
 In summary, we argue that agroforestry systems do not make much sense
 from a biophysical point of view, unless there is at least some
@@ -246,7 +330,7 @@ basis.
 ## Intercropping, crop-weed and agroforestry models
 
 Attempts to link separately developed crop models into an
-\'intercropping\' model have not been very successful yet (Caldwell *et
+'intercropping' model have not been very successful yet (Caldwell *et
 al.*, 1996). A possible reason for this is that accurate description of
 both above- and below ground resource capture is more critical in a
 competitive situation than in a monoculture. Aboveground canopy
@@ -272,7 +356,7 @@ intercropping models, as both describe resource capture in a system
 where at least two plants are interacting.
 
 In intercropping models, however, both components have direct value to
-the farmer, whereas in crop-weed systems the 'weeds' have no direct
+the farmer, whereas in crop-weed systems the ‘weeds’ have no direct
 value at all (although they may help in conserving nutrients in the
 system and reducing losses by leaching). Agroforestry models have to
 include a two-plant interaction (Figure. 1.2), similar to intercropping
@@ -287,15 +371,20 @@ interplay (Figure. 1.3). Specific parameters for each component can be
 derived from more specialized component models, such as drivers for
 physiological development (onset of flowering, internal redistribution
 in generative stage). The model should, however, give a fair description
-of \'architecture\' (spatial distribution of the relevant organs) above-
+of 'architecture' (spatial distribution of the relevant organs) above-
 and belowground and their consequences for uptake. A correct account of
 the spatial distribution of organs for resource capture is probably more
 important in plant-plant interaction models than it is in models for
 monocultural stands.
 
-**Figure 1.2.** Components of the WaNuLCAS model.
+|  |  |
+|----|----|
+| <img src="./media/image2.jpeg" style="width:3.27986in;height:2.44792in"
+alt="fig1" /> | **Figure 1.2.** Components of the WaNuLCAS model. |
 
-**Figure 1.3.** Resource capture framework for modeling plant growth, based on shoot and root biomass, allocation to leaf and root area index (LAI and RAI, respectively) and its spatial distribution (based on \'architecture\') and capture of light, water and nutrients; aboveground plant-plant interactions modify resource flow, belowground they modify stocks.
+|  |  |
+|----|----|
+|  | **Figure 1.3.** Resource capture framework for modeling plant growth, based on shoot and root biomass, allocation to leaf and root area index (LAI and RAI, respectively) and its spatial distribution (based on 'architecture') and capture of light, water and nutrients; aboveground plant-plant interactions modify resource flow, belowground they modify stocks. |
 
 A major problem in linking a number of single-species resource capture
 models into a multi-species resource capture model with a single
@@ -323,7 +412,7 @@ agroforestry systems (WaNuLCAS), we aimed at a model which would:
 
 1.  integrate knowledge and hypotheses on below‑ and aboveground
     resource capture by trees and crops (or any two (or more) types of
-    plants) **at patch scale** (the smallest 'self-contained' unit for
+    plants) **at patch scale** (the smallest ‘self-contained’ unit for
     describing the tree/crop interaction) as a basis for predicting
     complementarity and competition,
 
@@ -346,12 +435,12 @@ agroforestry systems (WaNuLCAS), we aimed at a model which would:
 6.  be flexible in exploring **management options** within each type of
     agroforestry system,
 
-7.  be useful in estimating **extrapolation domains** for \'proven\'
+7.  be useful in estimating **extrapolation domains** for 'proven'
     agroforestry techniques, as regards **soil and climate** properties,
     as well as tree and crop architecture,
 
-8.  **be user-friendly** and allow \'non-modelers\' to explore a range
-    of options, while remaining open to improvement without requiring a
+8.  **be user-friendly** and allow 'non-modelers' to explore a range of
+    options, while remaining open to improvement without requiring a
     complete overhaul of the model,
 
 9.  generate **output** which can be used in existing spreadsheets and
@@ -365,7 +454,7 @@ input and output. The current model should be seen as a prototype; in
 the Stella environment it is relatively easy to modify or add modules or
 relationships.
 
-Models can be of value (\'validated\' in the original sense of the word)
+Models can be of value ('validated' in the original sense of the word)
 if a) they adequately reflect the major assumptions one would like to
 make about component processes, if b) they operate smoothly in the
 parameter range where one would like to use them, and/or if c) their
@@ -377,7 +466,7 @@ stage we have concentrated on levels a and b of the validation process.
 WaNuLCAS model is meant as a prototype model, not including all possible
 tree-soil-crop interaction relationships that one can imagine, but
 incorporating a core of relations which we are fairly sure of for each
-specific case. In this sense the model can be viewed as a \'null model\'
+specific case. In this sense the model can be viewed as a 'null model'
 (Gotelli and Graves, 1996) which can be used like a null hypothesis as a
 background against which specific data sets can be tested. The open
 modeling frame will allow users to add other relationships when and
@@ -397,8 +486,8 @@ web sites:
 - <http://www.wiz.uni-kassel.de/ecobas.html> for database of ecological
   models
 
-- <http://www.ierm.ed.ac.uk/simile/> for SIMILE -- previously named AME
-  -- Agroforestry Modelling Environment
+- <http://www.ierm.ed.ac.uk/simile/> for SIMILE – previously named AME –
+  Agroforestry Modelling Environment
 
 - <http://simulistics.com/projects/flores/> for FLORES model
 
