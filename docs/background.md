@@ -20,8 +20,7 @@ endpoints of a continuum.
 
 |  |  |
 |----|----|
-| <img src="./media/image1.jpeg" style="width:2.84792in;height:2.30417in"
-alt="fig1_1" /> | **Figure 1.1.** Schematic classification of the way crop growth models deal with spatial and temporal complexity; agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models. |
+| ![fig1_1](./media/image1.jpeg) | **Figure 1.1.** Schematic classification of the way crop growth models deal with spatial and temporal complexity; agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models. |
 
 In modelling agroforestry systems, a balance should be maintained
 between 'process' and 'pattern', between temporal and spatial aspects
@@ -377,14 +376,10 @@ the spatial distribution of organs for resource capture is probably more
 important in plant-plant interaction models than it is in models for
 monocultural stands.
 
-|  |  |
-|----|----|
-| <img src="./media/image2.jpeg" style="width:3.27986in;height:2.44792in"
-alt="fig1" /> | **Figure 1.2.** Components of the WaNuLCAS model. |
-
-|  |  |
-|----|----|
-|  | **Figure 1.3.** Resource capture framework for modeling plant growth, based on shoot and root biomass, allocation to leaf and root area index (LAI and RAI, respectively) and its spatial distribution (based on 'architecture') and capture of light, water and nutrients; aboveground plant-plant interactions modify resource flow, belowground they modify stocks. |
+|  |
+|----|
+| ![Fig3](./media/image3.jpeg) |
+| **Figure 3.1.** General lay out of zones and layers in the WaNuLCAS model (A) and applications to four types of agroforestry system: B. Alley cropping, C. Contour hedgerows on slopes, with variable topsoil depth, D. Parkland systems, with a circular geometry around individual trees, E. Fallow-crop mosaics with border effects. |
 
 A major problem in linking a number of single-species resource capture
 models into a multi-species resource capture model with a single
