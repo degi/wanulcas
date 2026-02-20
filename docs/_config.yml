@@ -1,0 +1,60 @@
+title: WaNuLCAS 5
+author:
+  name: Degi Harja Asmara
+  email: degi.ecomodels@gmail.com
+  
+description: >
+  WaNuLCAS is a software for simulating water, nutrient, and light capture in agricultural systems. It is designed to help researchers and practitioners understand and optimize crop growth and resource use efficiency.
+
+theme: minima
+
+sass:
+  quiet_deps: true
+  silence_deprecations: [import]
+
+minima:
+  skin: classic
+
+  # Specific pages for site navigation.
+  #   If you wish to link only specific pages in the site-navigation, use this and list
+  #   the `path` property (as represented via Liquid) of the pages in the order they
+  #   should be rendered.
+  nav_pages:
+    - about.md
+    - manual.md
+    - background.md
+    - references.md
+    - appendix.md
+    
+  # Set to `true` to show excerpts on the homepage.
+  show_excerpts: false
+
+  # Minima date format.
+  #   The default value is "%b %d, %Y" (e.g. Nov 14, 2023).
+  #   Refer to https://shopify.github.io/liquid/filters/date/ for valid values.
+  # date_format: "%b-%d-%Y"
+
+  # Social Media Links
+  #   Renders icons via Font Awesome Free webfonts CDN, based on ordered list of entries.
+  #   Entry keys:
+  #     * title    Tooltip rendered on hovering over icon.
+  #     * icon     Font Awesome icon id. `github` corresponds to `fa-github`.
+  #     * url      Full URL of social profile.
+  social_links:
+    - title: WaNuLCAS repository at GitHub
+      icon: github
+      url: "https://github.com/degi/wanulcas"
+    - title: google-scholar
+      icon: google-scholar
+      url: "https://scholar.google.co.id/citations?user=rSiPIssAAAAJ"
+    - title: linkedin
+      icon: linkedin
+      url: "https://www.linkedin.com/in/degi-harja-asmara-6545baa2/"
+    - title: youtube
+      icon: youtube
+      url: "https://www.youtube.com/@DegiHarja"
+      
+  hide_site_feed_link: true 
+  
+  google_analytics: G-WKBML4VGSY
+  
