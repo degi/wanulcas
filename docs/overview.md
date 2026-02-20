@@ -1,3 +1,9 @@
+---
+layout: page
+title: Overview
+permalink: /overview/
+---
+
 # Overview of the Model
 
 ## Model features

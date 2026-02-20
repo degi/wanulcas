@@ -1,3 +1,9 @@
+---
+layout: page
+title: Background
+permalink: /background/
+---
+
 # Background
 
 ## Balancing pattern and process
