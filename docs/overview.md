@@ -1002,29 +1002,29 @@ account of equilibration and some simplifying assumptions are required:
 
 Implementing sub-surface lateral flow required the following steps:
 
-1.  Splitting the excess (incoming - recharge) water for each timestep
+1. Splitting the excess (incoming - recharge) water for each timestep
     into a vertical and a horizontal flow component (**W1**)
 
-> The amount of water leaving a cell is apportioned over one horizontal
-> flow (to the left-hand neighbour) and one vertical one (to the lower
-> neighbour), on the basis of saturated hydraulic conductivity, gradient
-> in hydraulic head (difference in height of neighbouring cells divided
-> by their distance) and surface area through which the flow occurs:
->
-> $`{Fluxh}_{ij} = \frac{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}{{Ksatv}_{i4}x{zonew}_{i} + {Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}`$
-> **\[14\]**
->
-> $`{Fluxv}_{ij} = \frac{{Ksath}_{ij}x{zonew}_{i}}{{Ksatv}_{i4}x{zonew}_{i} + \sum_{i}^{}{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}}`$
-> **\[15\]**
->
-> with:
->
-> $`{HydHeadHor}_{i1} = \frac{\left( {depth}_{i,1} - {depth}_{i - 1,1} \right)}{\left( {zonew}_{i} + {zonew}_{I - 1} \right)} + origslope`$
-> **\[16\]**
->
-> and for *j* \> 1 HydHeadHor_(ij) = origslope
+  > The amount of water leaving a cell is apportioned over one horizontal
+  > flow (to the left-hand neighbour) and one vertical one (to the lower
+  > neighbour), on the basis of saturated hydraulic conductivity, gradient
+  > in hydraulic head (difference in height of neighbouring cells divided
+  > by their distance) and surface area through which the flow occurs:
+  >
+  > ${Fluxh}_{ij} = \frac{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}{{Ksatv}_{i4}x{zonew}_{i} + {Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}$
+  > **\[14\]**
+  >
+  > ${Fluxv}_{ij} = \frac{{Ksath}_{ij}x{zonew}_{i}}{{Ksatv}_{i4}x{zonew}_{i} + \sum_{i}^{}{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}}$
+  > **\[15\]**
+  >
+  > with:
+  >
+  > ${HydHeadHor}_{i1} = \frac{\left( {depth}_{i,1} - {depth}_{i - 1,1} \right)}{\left( {zonew}_{i} + {zonew}_{I - 1} \right)} + origslope$
+  > **\[16\]**
+  >
+  > and for *j* \> 1 HydHeadHor_(ij) = origslope
 
-2.  Accounting for incoming water from above (rainfall in layer 1,
+2. Accounting for incoming water from above (rainfall in layer 1,
     vertical drainage from the layer above for the other zones), as well
     as laterally (**W2**)
 
@@ -1039,7 +1039,7 @@ Implementing sub-surface lateral flow required the following steps:
 > 1 in sequence, based on the knowledge of the real incoming lateral
 > flows
 
-3.  Defining incoming lateral flow to the simulated zones for all layers
+3. Defining incoming lateral flow to the simulated zones for all layers
     (**W3**)
 
 > We assume that the soil up-hill (beyond zone 4) of the simulated zones
@@ -1050,7 +1050,7 @@ Implementing sub-surface lateral flow required the following steps:
 > area generating lateral flow, relative to the total width of the zones
 > considered.
 
-4.  Calculating lateral flows of nutrients by multiplying amounts of
+4. Calculating lateral flows of nutrients by multiplying amounts of
     water moving with the average concentration in soil solution, with
     an option for ‘by-pass flow’ of water without exchange with the soil
     matrix (**N1**)
