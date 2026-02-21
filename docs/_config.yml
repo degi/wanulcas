@@ -23,6 +23,7 @@ minima:
     - about.md
     - manual.md
     - background.md
+    - overview.md
     - references.md
     - appendix.md
     
