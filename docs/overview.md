@@ -1011,12 +1011,6 @@ Implementing sub-surface lateral flow required the following steps:
   > in hydraulic head (difference in height of neighbouring cells divided
   > by their distance) and surface area through which the flow occurs:
   >
-  > ${Fluxh}_{ij} = \frac{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}{{Ksatv}_{i4}x{zonew}_{i} + {Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}$
-  > **\[14\]**
-  >
-  > ${Fluxv}_{ij} = \frac{{Ksath}_{ij}x{zonew}_{i}}{{Ksatv}_{i4}x{zonew}_{i} + \sum_{i}^{}{{Ksath}_{ij}{HydHeadHor}_{ij}\left( \left( {depth}_{i} - {depth}_{i - 1} \right)/2 \right)}}$
-  > **\[15\]**
-  >
   > with:
   >
   > ${HydHeadHor}_{i1} = \frac{\left( {depth}_{i,1} - {depth}_{i - 1,1} \right)}{\left( {zonew}_{i} + {zonew}_{I - 1} \right)} + origslope$
