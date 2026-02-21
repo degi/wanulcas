@@ -9,6 +9,6 @@ Water, Nutrient and Light Capture in Agroforestry Systems.
 * [About](https://degi.github.io/wanulcas/about/)
 * [User Manual](https://degi.github.io/wanulcas/manual/)
 * [Background](https://degi.github.io/wanulcas/background/)
-* [Background](https://degi.github.io/wanulcas/overview/)
+* [Overview](https://degi.github.io/wanulcas/overview/)
 * [References](https://degi.github.io/wanulcas/references/)
 * [Appendix](https://degi.github.io/wanulcas/appendix/)
