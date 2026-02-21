@@ -4,7 +4,7 @@
     {%- assign default_paths = site.pages | map: "path" -%}
     {%- assign page_paths = site.minima.nav_pages | default: default_paths -%}
     {%- assign page_titles = site.pages | map: 'title' | compact %}
-    <img src="https://github.com/degi/wanulcas/blob/main/www/images/wanulcas_logo.svg" style="float:left;height:32px;margin-top:10px;margin-right:10px">
+    <img src="https://raw.githubusercontent.com/degi/wanulcas/refs/heads/main/www/images/wanulcas_logo.svg" style="float:left;height:32px;margin-top:10px;margin-right:10px">
     <a class="site-title" rel="author" href="{{ '/' | relative_url }}"> <b>WaNuLCAS</b>-5</a>
 
     {%- unless page_titles == empty %}
