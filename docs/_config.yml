@@ -1,11 +1,9 @@
 title: WaNuLCAS 5
 author:
-  name: Degi Harja Asmara
-  email: degi.ecomodels@gmail.com
+  name: World Agroforestry (ICRAF)
   
 description: >
-  WaNuLCAS is a software for simulating water, nutrient, and light capture in agricultural systems. It is designed to help researchers and practitioners understand and optimize crop growth and resource use efficiency.
-
+  WaNuLCAS is a software for simulating Water, Nutrient, and Light capture in Agricultural Systems
 theme: minima
 
 sass:
@@ -45,15 +43,6 @@ minima:
     - title: WaNuLCAS repository at GitHub
       icon: github
       url: "https://github.com/degi/wanulcas"
-    - title: google-scholar
-      icon: google-scholar
-      url: "https://scholar.google.co.id/citations?user=rSiPIssAAAAJ"
-    - title: linkedin
-      icon: linkedin
-      url: "https://www.linkedin.com/in/degi-harja-asmara-6545baa2/"
-    - title: youtube
-      icon: youtube
-      url: "https://www.youtube.com/@DegiHarja"
       
   hide_site_feed_link: true 
   
