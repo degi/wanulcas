@@ -2,9 +2,9 @@
 layout: home
 ---
 
-<h1><b>WaNuLCAS</b>5 Documentation</h1>  
+<h1><b>WaNuLCAS</b>-5 Documentation</h1>  
 
-Water, Nutrient and Light Capture in Agroforestry Systems.
+WaNuLCAS is a software for simulating Water, Nutrient, and Light Capture in Agricultural Systems.
 
 * [About](https://degi.github.io/wanulcas/about/)
 * [User Manual](https://degi.github.io/wanulcas/manual/)
