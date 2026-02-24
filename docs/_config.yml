@@ -3,7 +3,7 @@ author:
   name: World Agroforestry (ICRAF)
   
 description: >
-  WaNuLCAS is a software for simulating Water, Nutrient, and Light capture in Agricultural Systems
+  WaNuLCAS is a software for simulating Water, Nutrient, and Light Capture in Agricultural Systems
 theme: minima
 
 sass:
