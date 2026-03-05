@@ -22,7 +22,7 @@ minima:
     - manual.md
     - background.md
     - overview.md
-    - vars/
+    - vars/index.html
     - references.md
     - appendix.md
     
