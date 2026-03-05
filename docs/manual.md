@@ -4,7 +4,6 @@ title: User Manual
 permalink: /manual/
 ---
 
-# WaNuLCAS 5.0 (Water, Nutrient and Light Capture in Agroforestry System) - User Manual
 
 Welcome to the WaNuLCAS 5.0 User Manual. This web application provides a comprehensive interface for simulating agroforestry scenarios.
 
