@@ -4,8 +4,6 @@ title: Background
 permalink: /background/
 ---
 
-# Background
-
 ## Balancing pattern and process
 
 A focal point in the analysis of where and how agroforestry systems work
