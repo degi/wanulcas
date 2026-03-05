@@ -22,6 +22,7 @@ minima:
     - manual.md
     - background.md
     - overview.md
+    - /vars/
     - references.md
     - appendix.md
     
