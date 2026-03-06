@@ -2,11 +2,12 @@
   position: -webkit-sticky; /* For Safari */
   position: sticky;
   top: 20px; /* Distance from top */
-  /*float: right; *//* Or left */
+  float: right; /* Or left */
   width: 250px;
   right: 10px;
     height: 0; /* Ensures container takes no space */
   overflow: visible; /* Allows content to be seen */
+  background-color: grey;
 }
 
 .sticky-wrapper {
