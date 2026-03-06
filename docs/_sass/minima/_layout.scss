@@ -9,20 +9,21 @@
   overflow: visible;   */
 
       height: 100%; /* Full-height */
-    width: 160px; /* Set the width */
+    width: 250px; /* Set the width */
     position: fixed; /* Fixed position on screen */
     z-index: 1; /* Stay on top */
     top: 0; /* Stay at the top */
     right: 0; /* Align to the right edge */
-    background-color: #111;
     overflow-x: hidden; /* Disable horizontal scroll */
     padding-top: 20px;
+  
 }
 
-.sticky-wrapper {
-  position: sticky; /* Container for context */
-  height: 0; /* Ensures container takes no space */
-  overflow: visible; /* Allows content to be seen */
+.sidebar a {
+    padding: 6px 8px 6px 16px;
+    text-decoration: none;
+    font-size: 20px;
+    display: block;
 }
 
 /**
