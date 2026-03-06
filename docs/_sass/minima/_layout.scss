@@ -6,7 +6,11 @@
   width: 250px;
 }
 
-
+.sticky-wrapper {
+  position: relative; /* Container for context */
+  height: 0; /* Ensures container takes no space */
+  overflow: visible; /* Allows content to be seen */
+}
 
 /**
  * Site header
