@@ -4,6 +4,7 @@ title: User Manual
 permalink: /manual/
 ---
 
+{% include toc.html html=content %}
 
 Welcome to the WaNuLCAS 5.0 User Manual. This web application provides a comprehensive interface for simulating agroforestry scenarios.
 
