@@ -4,10 +4,11 @@
   top: 20px; /* Distance from top */
   float: right; /* Or left */
   width: 250px;
+  right: 10;
 }
 
 .sticky-wrapper {
-  position: relative; /* Container for context */
+  position: sticky; /* Container for context */
   height: 0; /* Ensures container takes no space */
   overflow: visible; /* Allows content to be seen */
 }
