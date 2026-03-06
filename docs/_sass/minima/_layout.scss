@@ -1,30 +1,16 @@
 .sidebar {
-/*  position: -webkit-sticky; 
-  position: sticky;
-  top: 20px;
-  float: right; 
-  width: 250px;
-  right: 10px;
-    height: 0; 
-  overflow: visible;   */
 
       height: 100%; /* Full-height */
     width: 250px; /* Set the width */
     position: fixed; /* Fixed position on screen */
     z-index: 1; /* Stay on top */
-    top: 0; /* Stay at the top */
+    top: 100px; /* Stay at the top */
     right: 0; /* Align to the right edge */
     overflow-x: hidden; /* Disable horizontal scroll */
     padding-top: 20px;
   
 }
-/*
-.sidebar a {
-    padding: 6px 8px 6px 16px;
-    text-decoration: none;
-    font-size: 20px;
-    display: block;
-}*/
+
 
 /**
  * Site header
