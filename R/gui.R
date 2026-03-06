@@ -107,10 +107,13 @@ table_edit_ui <- function(id,
                           title = "",
                           is_paginated = F,
                           is_upload_button = T,
-                          is_label = F, vspace = NULL) {
+                          is_label = F, vspace = NULL, height = NULL) {
   ns <- NS(id)
   if(is.null(vspace)) {
     vspace <- ifelse(is_paginated, "90px", "40px")
+  }
+  if(is.null(height)) {
+    height = paste0("calc(100% - ", vspace, ")")
   }
   label <- ifelse(is_label, "Upload", "")
   upload_button <- ifelse(is_upload_button, tagList(
@@ -123,7 +126,7 @@ table_edit_ui <- function(id,
                               icon = icon("upload"),
                               class = "menu_button"
                             )
-                            |> tooltip(
+                            |> bslib::tooltip(
                               "Upload data",
                               id = ns("upload_tt"),
                               options = list(customClass = "custom-tooltip")
@@ -137,7 +140,8 @@ table_edit_ui <- function(id,
                           tagList())
   div(style = "height:100%;overflow:auto;",
       span(upload_button,title),
-      excelR::excelOutput(ns("table_edit"), height = paste0("calc(100% - ", vspace, ")")))
+      # excelR::excelOutput(ns("table_edit"), height = paste0("calc(100% - ", vspace, ")")))
+  excelR::excelOutput(ns("table_edit"), height = height))
 }
 
 table_edit_server <- function(id,
@@ -476,7 +480,7 @@ table_download_link <- function(id,
 }
 
 info <- function(i, class = "x", ...) {
-  tooltip(icon("info-circle", style = "margin-left:10px;"), i, 
+  bslib::tooltip(icon("info-circle", style = "margin-left:10px;"), i, 
           options = list(customClass = paste("custom-tooltip", class)),...)
 }
 

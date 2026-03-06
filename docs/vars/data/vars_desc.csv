@@ -1,0 +1,596 @@
+﻿var,label,desc,unit,min,max
+AF_AnyTrees_is,Trees?,"Parameter governing an option to simulate system with trees. Value 0 means system without trees, value 1 means system with trees is possible",,,
+AF_Circ,Parkland System?,"Switch to decide on circular versus linear symmetry. 1 = circular system, 0 =linear system",,,
+AF_Crop_is,Crops?,"Parameter governing an option to simulate system with crop. Value 0 means system without crop, value 1 means system with crop",,,
+AF_DeepSubSoil,,"Equivalent depth of the subsoil below layer 4, that is used to calculate the effective water outflow from the soil column, via S_KsatVDeepSub",m,0,10
+AF_DepthDynamic_is,,Swicth for making the depth of soil layer 1 on sloping land system a dynamic property,,,
+AF_DepthGroundWater,,"Depth of groundwater table below the bottom of layer 4, expressed in m. For the time being the value is used as a constant in defining 'field capacity'.",m,0,10
+AF_DepthLayi,Soil Layer Thickness,"Soil depth increment in (= layer thickness of) i-th soil layer, i = 1, 2, 3, 4. For sloping land systems the value for the layer 1 is used as average topsoil depth at the start of the run; actual depth of layer 1 will be calculated from the two AF_Slope parameters",m,0,1
+AF_DynPestImpacts_is,Pests?,"Switch governing an option to simulate system with dynamic pest impact. Value 0 means no dynamic pest impacts, value 1 means dynamic pest impacts is possible.",,0,1
+AF_PlotNumberUphill,,Number of similar uphill plot neighbors as source of Lateral Inflow & Run-on,,,
+AF_RunNutLim,Nutrient limitation?,"Switch governing an option to simulate system with nutrient limitation. Value 0 means no nutrient limitation, value 1 means nutrient is possible.",boolean,,
+AF_RunOnFrac,,Fraction of surface runoff from the area uphill that enters the simulation area as run-on.,,0,1
+AF_RunWatLim_is,Water limitation?,"Parameter governing an option to simulate system with water limitation. Value 0 means no water limitation, value 1 means water limitation is possible.",,0,1
+AF_SimulateWeeds_is,Are you simulating weed growth?,"Parameter governing an option to simulate weed growth. Value 0 means no weed growth, value 1 means weed will start growing whenever crop is absent.",,,
+AF_SlopeSoilHoriz,,"Slope (expressed as percent elevation increment per horizontal distance) of the soil horizons below the surface, especially that of the topsoil, used to calculate actual topsoil depth per zone.",%,0,100
+AF_SlopeSurfInit,,"Slope (expressed as percent elevation increment per horizontal distance) of the soil surface at the start of the simulation; this value can differ from the slope of the soil profile AF_SlopeSoilHoriz, but should not differ too much.",%,0,100
+AF_StoneFrac,,Fraction of stone in each soil layer and zone,,0,1
+AF_TreePosit,Tree Position Across Zones,"Position of each tree type. It can be in zone 1 (1) or zone 4 (4); if one wants it to be in both, two otherwise equal tree types can be defined.",,,
+AF_WeedZn_is,,"Switch 0 or 1 to have weeding application for each zone (1 = weeding application, 0 = no weeding)",,,
+AF_Zone,,Width of each zone. Width of zone 4 is calculated back from AF_ZoneTot minus the sum of zone 1+2+3,m,0,100
+AF_ZoneTot,Total Zone Width,Total width of agroforestry system simulated,m,0,100
+AF_ZoneWidth,Width of Zone,,,,
+C_AgronYMoistFrac,,Standard moisture content for expressing marketable yields of each crop,,0,1
+C_ApplyMaintResp_is,,"On/Off switch for applying the maintenance respiration,;1 = on, 0 =off",,,
+C_DailyWeedSeedDecayFrac,,Fraction of the weed seed bank that looses viability and is transferred to the litter pool for decomposition,fraction day-1,0,1
+C_HostEffForT1,,Effectiveness of crop roots as host for a parasitic tree (T1),cm3 cm-1,,
+C_LAIMax,Maximum Leaf Area Index,,,,
+C_RelRespGroRes,,Relative weighting factor for growth used in calculating daily maintenance respiration,,,
+C_RelRespRt,,Relative weighting factor for roots used in calculating daily maintenance respiration,,,
+C_RelRespStLv,,Relative weighting factor for stem & leaves used in calculating daily maintenance respiration,,,
+C_RelRespYieldCurr,,Relative weighting factor for developing fruits/Yield as part of total biomass as used for maintenance respiration,,,
+C_ResidRemovalFrac,Fraction of Crop Residue removed from field,Fraction of crop residue removed from field (not returned as mulch). The same value applies for all zones and all crops used in the simulation,fraction,0,1
+C_RespperBiom,,The relative use of resources for maintenance respiration per unit biomass,,0,0.2
+C_RespTemp,,A graphical relation between temperature and maintenance respiration,,,
+C_Tmin,Minimum Air Temperature for Crop,Minimum Air Temperature for Crop,0 Celsius,,
+C_TOpt,Optimum Air Temperature for Crop,Optimum Air Temperature for Crop,0 Celsius,,
+C_WeedGermFrac,,"Fraction of weed seeds in the seed bank that germinates when a new opportunity arises, e.g. at the end of a cropping season",fraction,0,1
+C_WeedSeedBankInit,,Initial dry weight of weed seeds in seed bank,kg m-2,0,1
+C_WeedSeedExtInflux,,Daily influx of weed seeds from outside of the plot,kg m-2 day-1,0,0.1
+CA_CType,,"A graphical input parameter governing the type of crop planted in sequence, with the possibility of having different crops (and/or planting times) in different zones. Associated with type of crop in database.",,1,5
+CA_DoYStart,,Day of year at which simulation starts,julian days,1,365
+CA_ExtOrgApp_is,,"Parameter governing an option to have simulation with applying external organic input or not. Value 0 means not applying external organic input, value 1 means applying external organic input",,,
+CA_FertApp_is,,"Parameter governing an option to have simulation with applying fertilizer or not. Value 0 means not applying fertilizer, value 1 means applying fertilizer",,,
+CA_FertOrExtOrgAppAmount,,Amount of N or P fertilizer or external organic applied. A graphical input,g m-2,0,10
+CA_FertOrExtOrgAppDoY,,Time of fertilizer or external organic input application. A graphical input parameter.,julian days,1,365
+CA_FertOrExtOrgAppYear,,Year of fertilizer or external organic input application. A graphical input parameter.,,,
+CA_ImmAmount,,Amount of immobile P fertilizer applied. A graphical input parameter,g m-2,,
+CA_ImmDOY,,Time of immobile P fertilizer application. A graphical input parameter,julian days,1,365
+CA_ImmY,,Year of immobile P fertilizer application. A graphical input parameter,,,
+CA_PlantDoY,,Day of crop planting for each subsequent crop. A graphical input parameter.,julian days,1,365
+CA_PlantYear,,Year of planting for each subsequent crop. A graphical input parameter,,,
+CQ_AgronYieldMoistFrac,Standard moisture content,,,,
+CQ_CHarvAlloc,Harvest Allocation,"Allocation of biomass to harvested parts (grain, tuber) as a function of crop growth stage.",,,
+CQ_ClosedCan,Canopy biomass for closed canopy ,Amount of crop canopy biomass at which canopy is closed and nutrient demand per unit new biomass shifts from Cq_ConcYoung to Cq_ConcOld.,kg m-2,0,0.5
+CQ_ClosedCanCurr,Canopy biomass for closed canopy ,Amount of crop canopy biomass at which canopy is closed and nutrient demand per unit new biomass shifts from Cq_ConcYoung to Cq_ConcOld.,kg/m2 ,,
+CQ_CLWR,Leaf Weight Ratio,"Crop leaf weight ratio = gram of green leaf area per gram of shoot, for each crop species as a function of crop growth stage.",g m-2,,
+CQ_ConcOld,,Nutrient concentration in crop tissue formed after biomass has reached the Cq_ClosedCan value.,,0,0.1
+CQ_ConcRt,,N concentration in crop roots,,0,0.1
+CQ_ConcYoung,Hydraulic conductivity of roots,Nutrient concentration in young crop biomass (before biomass has reached the Cq_ClosedCan value).,,0,0.1
+CQ_ConductivityCurr,Hydraulic conductivity of roots,Nutrient concentration in young crop biomass (before biomass has reached the Cq_ClosedCan value).,cm/day ,,
+CQ_CovEff,Crop cover efficiency factor,"Crop Cover Efficiency factor, used in calculating erosion (Erosion type 1)",,0,1
+CQ_CovEffCurr,Crop cover efficiency factor,"Crop Cover Efficiency factor, used in calculating erosion (Erosion type 1)",,,
+CQ_CRelLUE,Relative light use efficiency,Relative light use efficiency (fraction of Cq_GroMax achieved per unit light capture) for each type of crop grown as a function of crop growth stage.,,,
+CQ_CRtAlloc,Root allocation ,,fraction,,
+CQ_CSLA,Specific Leaf Area,,m2/kg,,
+CQ_CTimeGenCurr,Length of generative stage,,days ,,
+CQ_CTimeVegCurr,Length of vegetative stage,,days ,,
+CQ_DOYFlwBeg,,The earliest day in a year when crop start to flowers,julian days,1,365
+CQ_DOYFlwDOYBegin,Earliest day to flower in a year ,,Julian day,,
+CQ_DOYFlwEnd,Latest day to flower in a year ,The latest day in a year when crop start to flowers,julian days,1,365
+CQ_GroMax,Production of dry matter per day,"Maximum daily dry matter production rate at full light capture, for each crop species under local conditions",kg m-2 day-1,0.001,0.1
+CQ_GroMaxCurr,Production of dry matter per day,"Maximum daily dry matter production rate at full light capture, for each crop species under local conditions",kg/(m2.day) ,,
+CQ_Gseed,Seed weight,Seed weight (initial C_CarbHydrReserves to be used for growth).,kg m-2,0.001,0.1
+CQ_GSeedCurr,Seed weight,Seed weight (initial C_CarbHydrReserves to be used for growth).,kg/m2 ,,
+CQ_HBiomConv,Ratio of height increment to biomass incr.,Factor for conversion of crop biomass increment (up to crop stage 1) to crop height increment,,0.1,10
+CQ_HBiomConvCurr,Ratio of height increment to biomass incr.,Factor for conversion of crop biomass increment (up to crop stage 1) to crop height increment,m/kg2 ,,
+CQ_kLight,Extinction light coefficient,Light extinction coefficient for the crop canopy = efficiency of crop foliage in absorbing light.,,0,1
+CQ_kLightCurr,Extinction light coefficient,Light extinction coefficient for the crop canopy = efficiency of crop foliage in absorbing light.,,,
+CQ_LAIMax,,Maximum leaf area index for the crop; if more biomass is produced a proportional amount is transferred to the litter layer,,,
+CQ_LignResid,Lignin fraction of crop residue,Lignin concentration of crop residue (eg. 20%=0.2).,,0,1
+CQ_LignResidCurr,Lignin fraction of crop residue,Lignin concentration of crop residue (eg. 20%=0.2).,,,
+CQ_LignRootRes,Lignin fraction of crop root residue,Lignin concentration of crop root residues,,0,1
+CQ_LignRootResCurr,Lignin fraction of crop root residue,Lignin concentration of crop root residues,,,
+CQ_Lp,,"Hydraulic conductivity of crop roots, reflecting the physiological entry resistance to water per unit root length and unit gradient.",cm day-1,0,0.00001
+CQ_MaxMycInf,Fraction of roots infected by mychorrhiza,,,,
+CQ_MaxRemob,,"Maximum proportion of stem and leaves remobilized per day to the CarbHydrReserves pool, from which it can, for example, be used for growth of the storage component (grain, tuber)",day-1,0,0.1
+CQ_MycMaxInf,,Fraction of crop roots infected by mycorrhiza for a soil layer where the Rt_MTInfFrac parameter is 1,,0,1
+CQ_NConcOldCurr,Nutrient concentration in crop tissue,,,,
+CQ_NConcYoungCurr,Nutrient concentration in young crop biomass,,,,
+CQ_NFixDailyFracCurr,Proportion of N from atmosphere,,,,
+CQ_NFixDayFrac,,"Fraction of current N deficit derived from atmospheric N2 fixation per day for each crop type, if Cq_NFixVariable = 0 ('false').",day-1,0,1
+CQ_NFixDWMaxFrac,,Maximum fraction of the C_GroRes[Dw] pool that can be respired for N2 fixation if Cq_NFixVariable = 0 ('false'),day-1,0,0.5
+CQ_NFixDWMaxFracCurr,Fraction of reserve pool for N2 fix. ,Maximum fraction of the C_GroRes[Dw] pool that can be respired for N2 fixation if Cq_NFixVariable = 0 ('false'),1/day,,
+CQ_NFixDWUnitCost,,"Dry weight cost for respiration per unit N2 fixation, if Cq_NFixVariable = 0 ('false')",kg [dw]  g-1 [N],0,1
+CQ_NFixDWUnitCostCurr,Dry weight cost for N2 fixation,"Dry weight cost for respiration per unit N2 fixation, if Cq_NFixVariable = 0 ('false')",kg(DW)/g(N),,
+CQ_NFixResp,,"Responsiveness of N2 fixation to N stress (N in biomass divided by N target), if Cq_NFixVariable = 0 ('false')",,0,5
+CQ_NFixRespCurr,Responsiveness of N2 fix. to N stress,"Responsiveness of N2 fixation to N stress (N in biomass divided by N target), if Cq_NFixVariable = 0 ('false')",,,
+CQ_NFixVariable_is,,"Switch (0 = false, 1 = true) to choose between variable (N-stress dependent) versus constant N2 fixation as fraction of N deficit",,,
+CQ_NFixVariable_is_Curr,Type of N2 fixation,"Switch (0 = false, 1 = true) to choose between variable (N-stress dependent) versus constant N2 fixation as fraction of N deficit",,,
+CQ_NRtConcCurr,N concentration in roots,,,,
+CQ_NutMobC,,"Relative rate of transfer, per unit root length density (cm cm-3), from the 'immobile' pool of nutrients to the 'mobile' or sorbed pool, due to Crop root activity",m2 day-1,0,0.02
+CQ_PolyResid,Polyphenol fraction of crop residue,,,,
+CQ_PolyRt,Polyphenol fraction of crop root residue,,,,
+CQ_PotSuctAlphMax,,"Plant potential where transpiration is (1-Alpha)*potential transpiration,Alpha is a small value (e.g. 0.01). Value could be different depend on crop type.",cm,6000,4000
+CQ_PotSuctAlphMaxCurr,Maximum plant potential ,"Plant potential where transpiration is (1-Alpha)*potential transpiration,Alpha is a small value (e.g. 0.01). Value could be different depend on crop type.",cm ,,
+CQ_PotSuctAlphMin,,"Plant potential where transpiration is Alpha*potential transpiration, Alpha is a small value (e.g. 0.01). Value could be different depend on crop type.",cm,16000,14000
+CQ_PotSuctAlphMinCurr,Minimum plant potential ,"Plant potential where transpiration is Alpha*potential transpiration, Alpha is a small value (e.g. 0.01). Value could be different depend on crop type.",cm ,,
+CQ_RainWStorCap,,Rainfall water stored as thin film at leaf surface,mm,0,2
+CQ_RainWStorCapCurr,Rainfall water stored at leaf surface,Rainfall water stored as thin film at leaf surface,mm,,
+CQ_RelLightMaxCurr,Relative light intensity at which shading starts to affect crop growth,,,,
+CQ_RelLightMaxGr,,Relative light intensity at which shading starts to affect tree growth,,0,1
+CQ_RemobFrac,Maximum proportion of crop biomass remobilized as storage component ,,1/day,,
+CQ_RhizEffKaPC,,"Proportional reduction of the apparent adsorption constant for P due to root activity of the crop, expressed as fraction of N_KaPdef per unit crop root length density",m2 day-1,0,0.2
+CQ_RtAlloc,,Fraction of crop growth reserves allocated to root biomass in the absence of water or nutrient stress as a function of crop stage (only for Rt_ACType=2).,day-1,,
+CQ_RtAllocResp,,"Crop root allocation responsiveness to water or nutrient (the factor currently in minimum supply) stress; 0 = constant root allocation, 1 = linear response to water and nitrogen stress, >1 more-than-proportional response (only for Rt_ACType = 2)",,0,2
+CQ_RtDiam,Root tip diameter,Crop root diameter. It is used in calculating water and nutrient uptake.,cm,0.05,1
+CQ_SingleCycle_is,,"A parameter deciding what happens after fruits are ripe: 1 = annual that dies back, 0 = perennial that returns to crop stage =1.",,,
+CQ_SingleCycle_is_Cur,"Is it annual crop? 1=yes, 0 = no","A parameter deciding what happens after fruits are ripe: 1 = annual that dies back, 0 = perennial that returns to crop stage =1.",,,
+CQ_SLA,,"Crop specific leaf area = green surface area (one-sided) per unit leaf dry weight, for each crop species as a function of crop growth stage. For Cq_Atype =1, .., 5, default values are provided. Cq_AType = 6, .,10 user defined, as before.",m2 g-1,,
+CQ_TimeGen,,"Length of generative stage for each crop. For Cq_Atype =1, .., 5, default values are provided, but can be modified to adopt the default crop parameters to local conditions.",days,0,1000
+CQ_TimeVeg,,"Length of vegetative stage for each crop. For Cq_Atype =1, .., 5, default values are provided, but can be modified to adopt the default crop parameters to local conditions.",days,0,1000
+CQ_TranspRatio,,"Amount of water needed per unit dry matter production of each crop species. For Cq_Atype =1, .., 5, default values are provided. For Cq_AType=6, .., 10 user defined",l kg-1 ,200,600
+CQ_TranspRatioCurr,Water requirement for dry matter production,"Amount of water needed per unit dry matter production of each crop species. For Cq_Atype =1, .., 5, default values are provided. For Cq_AType=6, .., 10 user defined",l/kg ,,
+CQ_WeedType,,Weed type. This is user defined. Weed biomass growth follows the rules of crop growth. It takes the same type of parameters as crop. All the related input parameters are in Excel sheet,,,
+CW_EnergyDrivenEpot_is,,"Switch (1 = yes, 0 = no) to determine whether the crop water demand driven by Epot",,,
+E_BulkDens,,Bulk density used in converting soil mass movement to changes in volume of topsoil per zone,g cm-3,0.5,1.6
+E_CovEffT,Tree cover efficiency factor,Tree cover efficiency factor (per unit tree LAI),,0,1
+E_EntrailmentCoeffBarePlot,,Entrailment coefficient for sediment movement (Rose equation) in the absence of vegetative soil cover,Ton-1 (soil) mm-1 m2,0,1
+E_ErosiType,"Type of erosion equation used (1 = USLE,  = Rose)","Parameter to decide on model of erosion used. 1 = using USLE, 0 = using Rose Equation",,,
+E_IntvPloughPlant,,Length of ploughing time,julian days,1,365
+E_PloughBefPlant_is,,"Paramater governing option to plough before planting (0 = no ploughing, 1 = ploughing before planting)",,,
+E_PloughDoY,,Date of ploughing,julian days,1,365
+E_PloughY,,Year of ploughing,,0,100
+E_RainFac,,"A multiplier determining impact of rainfall on soil erosion, for calculation soil loss using USLE",,0,10
+E_SoilMoveperPlough,,"Amount of soil moved per ploughing event, for calculation soil loss using USLE",kg m-2 ,0,500
+E_SoilType,,"Type of soil. 1 = medium, 2 = sandy, 3 = clay",,,
+E_TillZone_is,Tillage per zone,"On/off switch for tilling activity in each zone (0 = no tillage, 1 = with tillage)",,,
+EVAP_InitSlashM,,Initial moisture content of slashed vegetation,fraction,,
+EVAP_InitWoodM,,Initial moisture content of slashed wood,fraction,,
+EVAP_InterceptedWater,,Lower values would reflect: <br/>1) rainfall at night (evaporation not during peak of transpiration)<br/>2) more open landscapes where more dry wind comes in from outside the plot.,,,
+EVAP_MulchEffSurfLit,,Effect of mulch on the amount of water evaporating from the soil,,,
+EVAP_SlashDryFact,,Factor determined of water of slashed vegetation will evaporated,fraction,0,1
+EVAP_TransRedFractionByCan,,The evaporation of water intercepted by plant canopies will reduce the potental transpiration by satisfying part of the energy-driven potential evapotranspiration; this parameter determines the fraction of canopy interception transpiration that will be reduce from Epot before we determine plant demand.,,,
+EVAP_WoodDryFact,,Factor determined of water of slashed wood will evaporated,fraction,0,1
+GHG_LitMinMultiplier,,Multiplier of litter mineralization for quick modifications of nitrogen oxide emission,,,
+GHG_N2_per_Nox,,Ratio of nitrous and nitric oxide,,,
+LF_FracGWReleaseAsInflow,,The fraction of groundwater that flow out that reaches the simulated zone (this depends on subsoil stratification and landscape characteristics beyond the scope of out current model),,,
+LF_GWReleaseFraction,,The fraction of the current stock of groundwater that flows out on a daily basis. A stock of groundwater stored uphill depends on the ?number of plots uphill?.,,,
+LF_SubSurfInflow4,,Amount of sub surface water inflow in layer 4,mm day-1,0,5
+Lrvm,Max. root length density,,cm/cm3 ,,
+MC_Carbon,,Proportion of total carbon in plant litter and residue,,0,0.5
+MC_CExtOrg,,Carbon concentration of external input,,0,1
+MC_CNRatInitMetab,,Initial C:N ratio metabolic pool of litter,,,
+MC_LignExtOrg,,Lignin concentration of external input.,,0,1
+MC_PolypExtOrg,,Polyphenol concentration of external input,,0,1
+MC_RelKActLit,,Decomposition rate of active surface litter pool relative to decomposition rate of active soil fraction pool. It's assumed the decomposition rate of active surface litter and active soil fraction is the same.,,,
+MC_RelKMetabLit,,"Decomposition rate of metabolic surface litter pool relative to decomposition rate of metabolic soil litter pool. It's adopted from century model, the decomposition rate of metabolic surface litter pool = 0.028 per week = 0.04 per day and the decomposition rate of metabolic soil litter pool = 0.35 per week = 0.05 per day.",,,
+MC_RelKPassLit,,Decomposition rate of passive surface litter pool relative to decomposition rate of passive soil fraction pool. It's assumed the decomposition rate of passive surface litter and passive soil fraction is the same.,,,
+MC_RelKSlwLit,,Decomposition rate of slow surface litter pool relative to decomposition rate of slow soil fraction pool. It's assumed the decomposition rate of slow surface litter and slow soil fraction is the same.,,,
+MC_RelKStrucLit,,"Decomposition rate of structural surface litter pool relative to decomposition rate of structural soil litter pool. It's adopted from century model, the decomposition rate of structural surface litter pool = 0.076 per week = 0.010857 per day and the decomposition rate of structural soil litter pool = 0.094 per week = 0.013429 per day.",,,
+MC2_Clay,,Proportion of clay in soil (only for soil organic matter type 2),,0,1
+MC2_ClayCoeffCref,,Coefficient of clay based on tabulated Cref for soil organic matter type 2,,,
+MC2_CNRatInitMetab,,Initial C:N ratio metabolic pool of soil organic matter,,,
+MC2_CorgInitMeth3,,Initial soil organic carbon value in soil organic matter pool using Type 3.,gr cm-2,,
+MC2_CorgpCref,,Initial soil organic carbon value in soil organic matter pool using Type 3.,gr cm-2,,
+MC2_CrefMeth3,,Initial C-ref value in soil organic matter pool using Type 2.,gr cm-2,,
+MC2_CrefOffset,,Constant for C reference tabulated for soil organic matter type 2.,,,
+MC2_KAct,,Decay rate for decomposition of active pool of soil organic matter,,,
+MC2_KMetab,,Decay rate for decomposition of active pool of soil organic matter,,,
+MC2_KPass,,Decay rate for decomposition of active pool of soil organic matter,,,
+MC2_kRelLayer,,"Factor determined decay rate for decomposition of active, passive and slow pool for each soil layer (relative to decay rate for decomposition for each pool).",fraction,,
+MC2_KSlw,,Decay rate for decomposition of active pool of soil organic matter,,,
+MC2_KStruc,,Decay rate for decomposition of active pool of soil organic matter,,,
+MC2_pH,Soil Properties,Soil pH (only for soil organic matter type 2),,,
+MC2_pHCoeffCref,,Coefficient of pH based on tabulated of Cref for soil organic matter type 2,,,
+MC2_RainTransfer,,Rain factor which control transferring process of litter to SOM pool, ,,
+MC2_Silt,,Proportion of silt in soil (only for soil organic matter type 2),,0,1
+MC2_SiltClayCoeffCref,,Coefficient of clay and silt based on tabulated Cref for soil organic matter type 2,,,
+MC2_SoilTillTransfer,,Soil tillage factor which control transferring process of litter to SOM pool, ,,
+MC2_SOMDistribution,,Relative distribution of carbon between different soil layers,fraction,0,1
+MC2_SOMInitType,,"Parameter defining methods to initialize soil organic matter pool. Three methods are provided for initializing the soil organic matter pools:<br/>Type = 1 the user can specify all pool sizes for all zones,<br/>Type = 2 the user can specify the size of all pools relative to those for a forest soil (Cref) that is calculated from soil texture data,<br/>Type = 3 the user specifies the Corg and Cref directly, but otherwise follows the procedure of Type 2",,,
+MC2_WormTransfer,,Worm factor which control transferring process of litter to SOM pool, ,0.003,0.1
+MN_CNAct,,C:N ratio of active pools,,5,10
+MN_CNPass,,C:N ratio of passive pools,,8,15
+MN_CNSlw,,C:N ratio of slow pools,,8,15
+MN_CNStruc,,C:N ratio of structural pools,,100,200
+MN_ExtOrgN,,N or P concentration of external input,,0,0.1
+MN_FertDissFrac,Fraction of Fertilizer Dissolved,Daily fraction of fertilizer dissolved,,,
+MN_InitAct,,Initial amount of N in active Litter pool of each zone,mg cm-3,0,1
+MN_InitMetab,,Initial amount of N in metabolic Litter pool of each zone,mg cm-3,0,1
+MN_InitPass,,Initial amount of N in passive Litter pool of each zone,mg cm-3,0,1
+MN_InitSlw,,Initial amount of N in slow Litter pool of each zone,mg cm-3,0,1
+MN_InitStruc,,Initial amount of N in structural Litter pool of each zone,mg cm-3,0,1
+MN_LatFlowFertKm,Runoff causes half of undissolved fertilizer moved,Runoff flow that causes half of the (undissolved) surface fertilizer to move to the next zone,mm,,
+MN_NutRatAct,,Ratio of N to P (N:P) in active organic matter pools,,1,10
+MN_NutRatMetab,,Ratio of N to P (N:P) in metabolic organic matter pools,,1,10
+MN_NutRatPass,,Ratio of N to P (N:P) in passive organic matter pools,,1,10
+MN_NutRatSlw,,Ratio of N to P (N:P) in slow organic matter pools,,1,10
+MN_NutRatStruc,,Ratio of N to P (N:P) in structural organic matter pools,,1,10
+MN2_InitAct,,Initial amount of N in active SOM pool of each zone,mg cm-3,0,1
+MN2_InitMetab,,Initial amount of N in metabolic SOM pool of each zone,mg cm-3,0,1
+MN2_InitPass,,Initial amount of N in passive SOM pool of each zone,mg cm-3,0,1
+MN2_InitSlw,,Initial amount of N in slow SOM pool of each zone,mg cm-3,0,1
+MN2_InitStruc,,Initial amount of N in structural SOM pool of each zone,mg cm-3,0,1
+MN2_PassRelLayer,,Proportional distribution of passive pool,fraction,,
+N_BypassMacroi,,Prefential flows of nutrients in the leachate relative to average concentration * water flow; values < 1 indicates retardation of nutrients due to bypass flow of water in macropores at soil layer i,,0,2
+N_CNutMob,Relative transfer rate for nutrient pool,,cm2/day,,
+N_CRhizKaPMod,Reduction of constant P by root activity,,mg /cm,,
+N_DiffCoef,,Nitrogen diffusion coefficient,cm2 day-1,0,1
+N_FracNO3i,,Fraction of NO3 of total N in i-th soil layer,,0,1
+N_ImInit,Initial immobile N nad P [mg.cm-3],Initial amount of nutrient in immobile pool of each zone,mg cm?3,0,0.1
+N_KaNH4i,,Apparent (instantaneous) adsorption constant or ratio of amount NH4 adsorbed and amount in solution for i-th layer,mg cm-3 ,0,1
+N_KaNO3i,,Apparent (instantaneous) adsorption constant or ratio of amount NO3 adsorbed and amount in solution for i-th layer,mg cm-3,0,1
+N_KaPDefi,,"Apparent (instantaneous) adsorption constant for inorganic P, or ratio of amount of inorganic P adsorbed ant the amount in soil solution; the adsorption constant depends on the P concentration on soil solution and is read in a tabular form (as graphical input parameter).",mg cm-3,,
+N_Lat4InflowRelConc,,"Nutrient concentrations in the incoming sub-surface flows into zone 4, relative to the current average nutrient concentration in that layer across all zones in the simulated area",,0,10
+N_NIniti,,Initial amount of nutrient in soil layer i of each zone,mg cm?3,0,0.5
+N_NutMobi,,"Relative rate of transfer from the 'immobile' pool of nutrients to the 'mobile' or sorbed pool, due to processes other than root activity in soil layer i",day-1,0,0.02
+N_RtSynloci,,"Root synlocation, or degree to which roots of the crop and tree are co-occurring within the various soil layers, affecting the way in which benefits of rhizosphere modification are shared; 1 = sharing of rhizosphere modifications by all roots present, based on their share in total root length, 0 = complete monopoly by roots modifying the rhizosphere",,0,1
+N_TRhizKaPMod,Reduction of constant P by root activity,,mg /cm,,
+N_UseNGassLossEst_is,,"A switch determining simulate system with gaseous N losses. 0 = no gaseous N losses, 1 = with gaseous N losses",,,
+N15_Addi,,Initial amount of N15 in soil layer i of each zone,mg cm-3,,
+P_BurnLab,,Amount of labour involved in burning the field per unit simulated filed,person days ha-1,,
+P_CFertLab,Labour for fertilizer application per application,,person day ha-1,,
+P_CfertPrice,,"Cost of fertilizer at social and private prices, respectively.",currency unit kg-1,,
+P_CHarvLab,Labour for harvesting per cropping season,Amount of labour involved in harvesting crop products per unit dry weight,person days Mg-1 per cropping season,,
+P_CNuFerAppperCropSeason,,Number of fertilizer application per cropping season,,,
+P_CPestConLab,Labour for pest control per cropping season,,person days ha-1,,
+P_CPestContLab,,Amount of labour involved in pest control per cropping season,person days ha-1 per cropping season,,
+P_CPestContPrice,,Amount of direct costs (outside labour) involved in pest control per cropping season,currency unit per ha-1 per cropping season,,
+P_CPlantLab,Labour for planting per cropping season,Amount of labour involved in planting per cropping season,person days ha-1 per cropping season,,
+P_CropProfThreshold,,Threshold value for crop profitability. Relevan to parameter P_UseCropStopRule? = 1,Currency unit,,
+P_CSeedPrice,,"Cost of crop seed per kg at social and private prices, respectively.",currency unit kg-1,,
+P_CWeedLab,Labour for weeding per cropping season,Amount of labour involved in weeding per cropping season,person days ha-1 per cropping season,,
+P_CyieldPrice,Yield Price per kg,"Price of crop yield per unit dry weight at social and private prices, respectively.",currency unit kg-1,,
+P_DiscountRate,,Discount rate (% per year) that applies to both social and private prices,% year-1,,
+P_ExtOrgPrice,,Price of external organic input,currency unit kg-1,,
+P_FenceMatCost,,Price of off-farm material used for building or maintaining a fence around the field,currency unit ha-1,,
+P_LabourforPestContrl_is,,"A switch 0 0r 1 for pesticide application related to the use of labour (1 = pesticide application, 0 = no pesticide application)",,,
+P_LabourforWeed_is,,"A switch 0 0r 1 for weeding application related to the use of labour (1 = weeding application, 0 = no weeding application)",,,
+P_PriceCSeed,Seed Price per kg,,Rp,,
+P_TFertLab,Labour for fertilizer application,,person days ha-1,,
+P_TFruitHarvLab,Labour for fruit harvesting per unit dry weight,Amount of labour involved in harvesting fruits per unit dry weight,person days kg-1,,
+P_TFruitPrice,Fruit price per kg,"Price of tree fruit yield per unit dry weight at social and private prices, respectively.",currency unit kg-1,,
+P_TLatexHarvLab,Labour for latex harvesting per unit dry weight,Amount of labour involved in harvesting latex per unit dry,person days kg-1,,
+P_TLatexPrice,Latex price per kg,"Price of tree latex yield per unit dry weight at social and private prices, respectively.",currency unit kg-1,,
+P_TNuFerApp,,Number of fertilizer application per year,,,
+P_TPlantLab,Labour for planting trees,Amount of labour involved in planting trees per unit dry weight,person days kg-1,,
+P_TPrunLab,Labour for prunning trees per unit dry weight,Amount of labour involved in pruning trees per unit dry weight,person days kg-1,,
+P_TPrunPrice,Pruning (harvested) price per kg,"Price of tree prunings harvested from the field per unit dry weight at social and private prices, respectively.",currency unit kg-1,,
+P_TSeedPrice,Seed price per tree,"Costs of tree planting material per unit initial tree biomass at social and private prices, respectively.",currency unit tree-1,,
+P_TWoodHarvLab,Labour for wood harvesting per unit dry weight,Amount of labour involved in harvesting wood products per unit dry weight,person days kg=1,,
+P_TWoodPrice,Wood price per kg,"Price of tree wood product yield per unit dry weight at social and private prices, respectively.",currency unit kg-1,,
+P_UnitLabCost,,"Cost per unit labour at social and private prices, respectively",currency unit person days-1,,
+P_UseCropStopRule_is,,"A switch determining the simulation will continue to growth crop or not when the previous crop profitability lower than the threshold value. 0 means continue to growth crop, 1 = stop to growth crop",,,
+PD_CeatenBy,,"Fraction of crop component lost if eaten by animals. Default animals are pigs, monkey, locust, nematode, goat, buffalo and birds",,0,1
+PD_CFrugivore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a crop frugivore,1 = animal is frugivore",,,
+PD_CFrugivory,,Constant daily fraction of crop fruit biomass removed due to the action of frugivores,,0,1
+PD_CHerbivore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a crop herbivore,1 = animal is herbivore",,,
+PD_CHerbivory,,Constant daily fraction of crop leaf biomass removed due to the action of herbivores,,0,1
+PD_CRhizovore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a crop rhizovore,1 = animal is rhizovore",,,
+PD_CRhizovory,,Constant daily fraction of crop root biomass removed due to the action of rhizovores,,0,1
+PD_CropsEaten_is,Fraction of crop eaten by,,,,
+PD_FenceBuildDOY,,Schedule for day of fencing for each fencing event. A graphical input.,julian days,,
+PD_FenceBuildLab,,Amount of labour needed to build fence for each fencing event. A graphical input.,person days,,
+PD_FenceBuildY,,Schedule for year of fencing for each fencing event A graphical input.,,,
+PD_FenceDecK,,Daily fractional decay of fence quality,day-1,0,1
+PD_FenceFullQua,,Maximum quality of fence,,1,4
+PD_FenceMaint_is,Fence maintenance,"Switch determining fence maintenance. 1 = fence maintenance will be done automatically, 0 = no fence maintenance",,,
+PD_FenceMUnit,,Unit improvement of fence quality once it falls below the threshold set in PD_FenceQThresh,,0,2
+PD_FenceQThresh,,Threshold of (relative) fence quality below which labour will be used to repair the fence,,0,2
+PD_HalfFenceTime,,Time constant of decay of fence quality: time interval after which quality is reduced by 50%,days,0,365
+PD_JumptheFence_is,,The degree to which animals are deterred by a fence from entering the plot,-,0,1
+PD_PopDensOutside,,"Population density outside the plot, influencing the presence",-,,
+PD_TEatenBy_is,Fraction of tree eaten by,"A switch determining tree attacks by specific animals. Default animals are pigs, monkey, locust, nematode, goat, buffalo and birds. 0 = no attack, 1 = attacked",0 or 1 (0),0,1
+PD_TFrugivore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a tree frugivore,1 = animal is frugivore",,,
+PD_Tfrugivory&Abort,,Constant daily fraction of tree fruit biomass removed due to the action of frugivores,-,0,1
+PD_THerbivore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a tree herbivore,1 = animal is herbivore",,,
+PD_THerbivory,,Constant daily fraction of tree leaf biomass removed due to the action of herbivores,-,0,1
+PD_TLignivory,,Constant daily fraction of tree woody stem biomass removed due to the action of lignivores,-,0,1
+PD_TLignovore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a tree lignovore,1 = animal is lignovore",,,
+PD_TRhizovore_is,,"A switch determining the presence of attack by each default animal. 0 = animals is not a tree rhizovore,1 = animal is rhizovore",,,
+PD_TRhizovory,,Constant daily fraction of tree root biomass removed due to the action of rhizovores,-,0,1
+RAIN_AType,Rainfall Type,"A number 1, 2 or 3 to decide rainfall rate (1= rainfall rate follows precipitation data from external file, rainfall rate follows tabulated data, 2 = rainfall rate follows random generator, 3= rainfall rate follows tabulated monthly total data)",,,
+RAIN_BoundHeaLi,,Boundary value between heavy and light rain (only for Rain_AType=1),mm,20,30
+RAIN_CoeffVar2,,"Coefficient variation of rainfall in mm, used in rainfall generated randomly (Rain_Atype=2)",,0,1
+RAIN_CoeffVar3,,"Coefficient variation of rainfall in mm, rainfall based on tabulated monthly rainfall (Rain_Atype=3)",,0,1
+RAIN_Cycle_is,,"Parameter governing ways to read rainfall data. Corresponds to Rain_AType=1 (0 = use multiple year rainfall data, 1 = use 1 year data in cycle/continuously)",,,
+RAIN_Data,,Actual daily rainfall data. Entered as graphical function or read from Wanulcas.xls (STELLA non-CRT users only). Corresponds to Rain_AType=1.,mm,,
+RAIN_DayP,,Probability of raining each day as a function of Julian day scaled monthly. Corresponds to Rain_AType=2 and 3.,,0,1
+RAIN_GenSeed,,Seed Random Generator. For Rain_AType=2 and 3.,,1,32767
+RAIN_Heavy,,Average precipitation rate of on a heavy rain day; for Rain_AType=2.,mm day-1,0,100
+RAIN_HeavyP,,Probability of heavy rain; for Rain_AType=2.,,0,1
+RAIN_IntensCoefVar,,Coeficient variance of rain intensity. Rain intensity is a factor affecting water infiltration. It is assumes to follow normal distribution with an average of Rain_IntensMean and standard deviation Rain_IntensMean*Rain_IntensCoefVar.,,,
+RAIN_IntensMean,,Average rain intensity per hour. Rain intensity is a factor affecting water infiltration. It is assumes to follow normal distribution with an average of Rain_IntensMean and standard deviation Rain_IntensMean*Rain_IntensCoefVar,mm hr-1,,
+RAIN_IntercDripRt,,The rate of water dripping from water on interception surface,mm hr-1,,
+RAIN_IntMult,,Indicates the maximum temporary storage of water on interception surfaces, ,,
+RAIN_Light,,Average precipitation rate of a light rain day day; for Rain_AType=2.,mm day-1,0,40
+RAIN_MaxIntDripDur,,Maximum value of water interception delay before start to dripping,mm hr-1,,
+RAIN_MonthlyMeanRainfallMax,,Maximum value of monthly mean rainfall,mm,,
+RAIN_MonthlyMeanRainfallMin,,Minimum value of monthly mean rainfall,mm,,
+RAIN_MonthlyMeanTotalrainfall,,Monthly mean rainfall on the wet day,mm,,
+RAIN_MonthTot,,Tabulated data of monthly rainfall; for Rain_AType=3. Entered as graphical function or read from Wanulcas.xls (STELLA non-CRT users only).,mm month-1,,
+RAIN_Multiplier,Rain Multiplier,Multiplier of rainfall for quick modifications of rainfall amount,,0,4
+RAIN_NumberWetDaypM,,The number of wet day for each month,day,,
+RAIN_OffSetValue,,Influence value of dry month. High value indicates low amount of rainfall at dry season.,,,
+RAIN_Pattern1Max,,Maximum value of pattern. Pattern is calculated from shape value which is the maximum and the minimum value have been adjusted to the maximum and minimum value of total monthly rainfall.,,,
+RAIN_Pattern1Min,,Minimum value of pattern.,,,
+RAIN_PeakinessSeason1,,The sharpness of the first peak. High value indicates sharper peak.,,,
+RAIN_PeakinessSeason2,,The sharpness of the second peak. High value indicates sharper peak.,,,
+RAIN_PondFlwRt,,The rate at which water ponding on the surface will actually flow to a neighbouring zone or plot,mm hr-1 per m of zone width,,
+RAIN_PondStoreCp,,The storage capacity of water ponding on the surface,mm,,
+RAIN_Probabiity,,Ratio between season 1 and season 2,,,
+RAIN_RelWetPersistencepM,,Monthly relative wet persistence,,,
+RAIN_ShapeMax,,Maximum value of shape. Shape is a basic pattern of rainfall simulator model that use SINUS as the distribution function. This value will be used to determine Pattern value.,,,
+RAIN_ShapeMin,,Minimum value of shape.,,,
+RAIN_UniorBimodal_is,,An option to have one or two season of rainfall,,,
+RAIN_WeibullParam,,Parameter of Weibull distribution. This Weibull parameter is used to predict the value of daily cumulative frequency of rainfall data.,,,
+RAIN_Weight,Rainfall distribution,Input weight value to decide amount of rain falling on each zone relative to other zones (eg. equal rainfall in each zone on area basis means 1:1:1:1),,0,10
+RAIN_WettestMonthSeason1,,The wettest month of the first season (January ? June),,,
+RAIN_WettestMonthSeason2,,The wettest month of the second season (July ? December),,,
+RAIN_YearStart,,Initial year based on rainfall data at which simulation starts,,,
+RT_ACType,Type of crop root density data,"Parameter governing type of root density data for crop. 0=Lrv data available, 1=Lrv calculated using exponential function model where length root area is constant, 2= Lrv calculated using exponential function model where length root area is derived from root biomass",,,
+RT_ATType,Type of tree root density data,"Parameter governing type of root density data for tree. 0=Lrv data available, 1=Lrv is constant calculated using ellipticall function model, 2= Lrv is calculated using elliptical function but dynamically changes according to water or N stress",,,
+RT_CDecDepthC,Decrease of root with depth,Parameter governing decrease of crop root with depth; corresponds to Rt_ACType=1 and Cq_AType.,m-1,0,10
+RT_CDistResp,Root distribution by depth in good uptake,"Responsiveness of crop root distribution to the depth at which uptake of the currently limiting resource (water, N or P) is most successful. Value 0 = no response to stress, 0 ? 1 = mild response, 1 = proportional change to inverse of relative depth of uptake, > 1 = strong response. Only for Rt_ACType = 2.",,0,3
+RT_CHalfLife,,Crop root half-life (only for Rt_ACType=2),days,30,100
+RT_CHalfLifeCurr,Root half life,,days ,,
+RT_CLraC,Total root length per unit area,,cm/cm2 ,,
+RT_CLraConst,,Total root length per unit area. It is used to calculate crop root density in exponential decrease model (Rt_ACType=1). Also corresponds to Cq_AType.,cm cm-2,0,150
+RT_CLrvmi,,Maximum crop root length density in i-th soil layer; corresponds to Rt_ACType=0 and Cq_A Type.,cm cm-3,0,15
+RT_CMultiplier,Crop root length density multiplier,Multiplier of root for quick modifications of crop root length density,dimensioless,,
+RT_CRtAllocRespCurr,Root affected by water or nutrient stress,,,,
+RT_CSRL,,Specific root length (length per unit dry weight) of crop roots,m g-1,50,100
+RT_CSRLCurr,Length per unit root dry weight,,m/g,,
+RT_MCHypDiam,Diameter of Crop Mycorrhiza,Diameter of crop mycorrhizal hyphae,cm,0.001,0.05
+RT_MCHypL,Length of Crop Mycorrhiza,Length of crop mycorrhizal hyphae per unit infected root length,,10,100
+RT_MCInfFraci,,Fraction of crop roots that is mycorrhizal (infected) in i-th soil layer,,0,1
+RT_MTHypDiam,Diameter of Tree Mycorrhiza,Diameter of tree mycorrhizal hyphae,cm,0.001,0.05
+RT_MTHypL,Length of Tree Mycorrhiza,Length of tree mycorrhizal hyphae per unit infected root length,,10,100
+RT_MTInfFraci,,Fraction of tree roots that is mycorrhizaal (infected),,0,1
+RT_TAlloc,Reserve allocated to root without stress,Fraction of tree growth reserves allocated to roots in the absence of water or nutrient stress (only for Rt_ATType=2),,0,1
+RT_TAllocResp,Rensponsiveness of root to stress factor,"Responsiveness of tree root allocation to stress factors; 0 = constant root allocation, 1 = linear response to water and nitrogen stress, >1 more-than-proportional response (only for Rt_ACType = 2),",,0,2
+RT_TDecDepthC,Decrease of root with depth,Parameter governing decrease of tree root with depth ; for Rt_ATType=1,m-1,0,10
+RT_TDiam,Root tip diameter,,cm,,
+RT_TDistResp,Root distribution by depth in good uptake,"Responsiveness of crop root distribution to the depth at which uptake of the currently limiting resource (water, N or P) is most successful. Value 0 = no response to stress, 0 ? 1 = mild response, 1 = proportional change to inverse of relative depth of uptake, > 1 = strong response. Only for Rt_ACType = 2.",m-1,0,5
+RT_TDistShapeC,Tree root distribution shape ,Tree root distribution shape for Rt_ATType=1 and 2; for a value of 1 root length density decreases as much with horizontal as with vertical distance to the tree stem,m-1,0,2
+RT_THalfLife,Root half life,Tree root half life (only for Rt_ATType=2),days,30,150
+RT_THostEffForT1,,An option for simulation root parasitism tree 1 on others tree root,,,
+RT_TLengDiam1,,Length of (branch) roots of a tree root with a proximal (at stem base) diameter of 1 cm; Intercept (a) of allometric equation (RootLength = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,cm cm-b,0.01,1
+RT_TLengDiamSlope,,Power coefficient (b) of allometric equation (RootLength = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,,1,3
+RT_TLraX0,Total root length per unit area (x=0),Total root length per unit area at X(distance to tree)=0 (tree stem). for Rt_ATType=1,cm cm-2,0,150
+RT_TLrvL_par,Max. root length density,Tree root density in soil layer .i in each zone; for Rt_ATType=0,cm cm-2,0,15
+RT_TMultiplier,Tree root length density multiplier,Multiplier of root for quick modifications of tree root length density,,,
+RT_TProxGini,Gini coefficient,"Distribution coefficient of proximal root diameters (CumFreq = (Diam/Diammax)TProxGini of a tree, used in calculation of the specific root length of a tree root system",,0.001,10
+RT_TWghtDiam1,,Biomass of a (branched) tree root with a proximal (at stem base) diameter of 1 cm; Intercept (a) of allometric equation (Root weight = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,kg cm-b z,0.01,1
+RT_TWghtDiamSlope,,Power coefficient (b) of allometric equation (RootWeight = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,,1,3
+S_BDBDRefDecay,,"Relative rate of decay of the bulk density, returning the surface infiltration rate toward S_SurfInfiltrPerKsatDef and the saturated hydraulic conductivity towards S_KSatDefV",day-1,0,0.1
+S_C_RtStrucFormFrac,,Fraction of contribution of crop root decay on root channels,fraction per m,,
+S_KSatDefVi,,"Saturated hydraulic conductivity of the soil in the absence of macropore structure, as derived from texture-based pedotransfer functions. Read and calculation from WANULCAS.XLS. Input needed to run pedotranfer refer to the sheet pedotranfer",cm day-1,1,500
+S_KsatHperVi,,Ratio of saturated hydraulic conductivity in horizontal and vertical direction for layer i,,0,5
+S_KSatInitVi,,Saturated hydraulic conductivity of the soil at the macropore structure existing at the start of the simulation. Read and calculation from WANULCAS.XLS. Input needed to run pedotranfer refer to the sheet pedotranfer,cm day-1,1,500
+S_KSatVDeepSub,,"Saturated hydraulic conductivity of the soil below layer 4, determining the rate of vertical drainage from the soil column",cm day-1,1,100
+S_RelSurfInfiltrInit,,Surface infiltration rate at the start of the simulation relative to its default value,,100,10000
+S_RelWormLiti,,Relative impact of 'worms' (soil fauna) on increase of saturated hydraulic conductivity in each layer,,0,1
+S_RelWormSurf,,Relative impact of 'worms' (soil fauna) increase of infiltration rate of the soil surface,,0,1
+S_SoilStructDyn_is,Are you simulating a dynamic soil,"Switch determining dynamics of soil structure (0 = false, 1 = true) based on decay and re-creation of macropores by soil fauna above the texture-based default values",day-1,,
+S_SurfInfiltrPerKsatDef,,Ratio of surface infiltration and Ksat for the first soil layer in the default condition of the soil as defined by the pedotransfer function,,25,10000
+S_T_RtStrucFormFrac,,Fraction of contribution of tree root decay on root channels,fraction per m,,
+S_WormsLikeLitMetab,,Activity (in arbitrary units) of soil fauna (?worms'') per unit of organic inputs in the litter metabolic pool,m2 kg-1,0.00001,0.1
+S_WormsLikeLitStruc,,Activity (in arbitrary units) of soil fauna (?worms'') per unit of organic inputs in the litter structural pool,m2 kg-1,0.0000005,0.1
+S_WormsLikeSOMMetab,,Activity (in arbitrary units) of soil fauna (?worms'') per unit of organic inputs in the SOM metabolic pool,m2 kg-1,0.000001,0.1
+S_WormsLikeSOMStruc,,Activity (in arbitrary units) of soil fauna (?worms'') per unit of organic inputs in the SOM structural pool,m2 kg-1,0.00000005,0.1
+SB_2ndFireafterPileup,,Number of days between puile up and secondary burn event,days,1,100
+SB_CritMoist,,Limit value for internal + adhering (intercepted from rainfall) moisture content of slashed necromass; below this value necromass is categorized as dry and fire can take place,l kg-1,0,1
+SB_DailyDeadWoodLitTransf,,Rate of transfer of daily dead wood litter per day,fraction day-1,,
+SB_DailyNecromLitTransf,,Rate of transfer of necromass litter per day,fraction day-1,,
+SB_DeadWoodFuelFact,,Temperature of the fire per unit dry weight of fuel in dead wood,oC kg-1,0,100
+SB_FirImpPSorption,,"Fire impacts on P sorption, as a function of soil surface temperature increase",,,
+SB_FirIndPMobiliz,,"Fire impact on mobilization fraction of P from the inorganic P immobile pool, as a function of soil surface temperature increase",,,
+SB_FirMortSeedBank,,Fractional mortality in the weed seed bank as a function of soil surface temperature increment,,,
+SB_FuelLoadFactor,,Temperature of the fire per unit dry weight of fuel in slashed necromass and structural surface litter,oC kg-1,0,100
+SB_MaxDryingPer,,"The latest time after slashing when fire can occur; if the fuel does not get dry enough before this time, no fire will be occur",days,1,200
+SB_MinDryingPer,,The earliest time after slashing that fire can occur,days,0,100
+SB_NecroBurnFrac,,Fraction of surface necromass burnt as a function of fire temperature at the soil surface.,,,
+SB_NutVolatFracN,,"Volatilization fraction of N in the burnt necromass, as a function of soil surface temperature increment",,,
+SB_NutVolatFracP,,"Volatilization fraction of P in the burnt necromass, as function of soil surface temperature increment",,,
+SB_pHRecFrac,,Daily recovery fraction of soil pH in the topsoil from its post-fire towards its pre-fire value,fraction,0.001,0.1
+SB_PileUpFrac,,Fraction of dead wood pile up after slash and burn event,fraction,0,1
+SB_PSorpRecFrac,,Daily recovery fraction of the P_sorption in the topsoil from its post-fire towards its pre-fire value,fraction,0.001,0.1
+SB_ScorchWRemFrac,,Fraction of scorched wood removed after slash and burn event,fraction,0,1
+SB_SlashDOY,,A graphical input tabulating day of year at which slashing is performed,julian days,,
+SB_SlashYear,,A graphical input tabulating year at which slashing is performed,,,
+SB_SOMBurnFrac,,Fraction of all SOM pools in the topsoil (Layer 1) respired (C) or mineralized (N & P) as a function of soil surface temperature increment,,,
+SB_SurfLitBurnFrac,,Fraction of all surface litter respired (C) or mineralized (N & P) as a function of soil surface temperature increment,,,
+SB_TimetoPileUp,,Number of days between primary burn and pile up (redistribution across the zones) for a secondary burn,days,1,100
+SB_TimetoWoodRem,,Number of days between primary burn and removal of scorched wood,days,1,50
+SB_TTempTol,Max. fire temperature tree can tolerate,Maximum fire temperature that a tree can tolerate. Temperature above the value will induce tree mortality,oC,40,90
+SB_WatRetRecFrac,,Daily recovery fraction of soil water retention in the topsoil from its post-fire towards its pre-fire value,fraction,0.001,0.1
+SB_WetnessTempImp,,Fractional reduction in fire temperature per unit of moisture content of the fuel,fraction,0,1
+T_ApplyFBA_is,Apply allometric equation?,"Switch (1 = yes, 0 = no) to determine whether the allocation of biomass from the canopy to the wood (branches + stem) pools is governed by the fractal branching parameters (allometric equations).",,,
+T_ApplyPalm_is,Fruit growth follows Oil Palm rules? ,"Switch (1 = yes, 0 = no) to determine whether the allocation of biomass to storage pool follows oil palm rule.",,,
+T_BarkThickness,,"Bark thickness to calculate target of latex content, the thickness is following the growth of the tree.",cm,0,1
+T_BrownBast_is,,"Switch (1 = yes, 0 = no) to determine whether the rubber tree infected by brownbast.",,,
+T_CanBiomInit,,Initial amount of biomass in tree canopy (leaf and small stems),kg per tree,0,1
+T_CanHMax,Max. canopy height above bare stem,Maximum height of tree canopy,m,0,15
+T_CanMaintResp,,Fraction of canopy biomass use for maintenance respiration,,,
+T_CanShape,Ratio between canopy width and height,"Factor determining in which part of the tree leaves are concentrated. A value of 1 gives an even spread of tree leaves over the alley, a higher value (eg 2) concentrates tree leaves above the hedgerow",,0,2
+T_CanWidthMax,Max. canopy radius,"Maximum tree canopy width, half the canopy width (radius).",m,0,10
+T_ConcFruit,,Nutrient concentration in fruit component,,0,0.1
+T_ConcGroRes,,Nutrient concentration in carbohydrate reserves,,0,0.1
+T_ConcLf,,N concentration in leaf component of tree,,0,0.1
+T_ConcRt,,Nutrient concentration in tree roots (only for Rt_ATType=2),,0,0.1
+T_ConcTwig,,Nutrient concentration in twig component of tree,,0,0.1
+T_ConcWood,,Nutrient concentration in wood component of tree,,0,0.1
+T_DiamBiom1,Intercept for total biomass equation,Biomass of a tree of diameter 1 cm; Intercept (a) of allometric equation (Branch biomass = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,kg ,0.01,1
+T_DiamBranch1,Intercept for branch biomass equation,Intercept (a) of allometric equation (Tree branch biomass = a Diameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,kg ,0.01,1
+T_DiamCumLit1,Intercept for litterfall equation,Cumulative litterfall expected for a stem diameter of 1 cm. Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,kg ,0.01,1
+T_DiamLfTwig1,Intercept for Leaf&twig biomass equation,Intercept (a) of allometric equation (Leaf &Twigbiomass = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,kg cmb,0.01,1
+T_DiamRtLeng1,Intercept of total root length equation,,cm,,
+T_DiamRtWght1,Intercept of total root weight equation,,kg,,
+T_DiamSlopeBiom,Power for total biomass equation,Power coefficient (b) of allometric equation (Branch biomass = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,cm-1,0,3
+T_DiamSlopeBranch,Power for branch biomass equation,Power coefficient (b) of allometric equation (Tree branch biomass = a Diameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,cm-1,0,3
+T_DiamSlopeCumLit,Power for litterfall equation,Power coefficient (b) of the alloemtric equation describing the increase of cumulative litterfall with stem diameter. Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,cm-1,0,3
+T_DiamSlopeLfTwig,Power for Leaf&twig biomass equation,Power coefficient (b) of allometric equation (Leaf&Twig biomass = a StemDiameterb). Calculation from Functional Branch Analysis (FBA). Input needed to run FBA refer to tree parameterization,cm-1,1,3
+T_DiamSlopeRtLeng,Power of total root length equation,,,,
+T_DiamSlopeRtWght,Power of total root weight equation,,cm-1,,
+T_DiamTreshHarv,Diameter of Timber Harvesting,Tree diameter of timber harvested,cm,,
+T_DOY_1_LfFlush,,Day of the first cycle of leaf flush,julian days,1,365
+T_DOY_2_LfFlush,,Day of the second cycle of leaf flush,julian days,1,365
+T_DOY_Compl1LfFall,,Day when the first season of leaf completely dropdown,julian days,1,365
+T_DOY_Compl2LfFall,,Day when the second season of leaf completely dropdown,julian days,1,365
+T_DOY_SeaLitFall1Start,,Day when the first season of leaf starts dropdown,julian days,1,365
+T_DOY_SeaLitFall2Start,,Day when the second season of leaf starts dropdown,julian days,1,365
+T_DOYFlwBeg,Earliest day to flower in a year,The earliest day in a year when tree start to flowers,julian days,1,365
+T_DOYFlwEnd,Latest day to flower in a year,The latest day in a year when tree start to flowers,julian days,1,365
+T_DynTappingFrac,,Dynamic value of fraction of latex stock would be tapped everyday. The simulation will run using this dynamic value when T_BrownBast? switch to 1,,,
+T_ExpRetThresh,,Threshold value of expected return to labour,,,
+T_FracSeaLitFall1,,Fraction of tree canopy become litterfall,,0,1
+T_FruitAllocMax,,Allocation of biomass to fruit each day,kg m-2 day-1,0,1
+T_FruitAllocStage,,Graphical input parameter as a function of tree stage that determine how much fruit will produce from maximum fruit allocation,,,
+T_FruitConc,Nutrient concentration in fruit component,,g/g,,
+T_FruitHarvFrac,Fraction of fruit harvested,Harvest index for fruit. Constant value for every fruiting season,,0,1
+T_FruitMoistFrac,,Standard moisture content for expressing marketable fruit of each tree,,0,1
+T_GenLitFracMax,Maximum fraction of fruit drop,Fraction of fruit will drop,,0,1
+T_GenLitStage,,Graphical input parameter as a function of tree stage that determine how many fruit will drop,,,
+T_GraphPhenol_is,,"Parameter governing an option to simulate tree phenology using graph. Value 0 means tree phenology using phenology parameters, value 1 means tree phenology using graph",,,
+T_GroMax,Max. growth rate,Maximum growth rate of hedgerows at full canopy closure,kg m-2 day-1,0,0.1
+T_GroResConc,Nutrient concentration in carbohydrate reserves,,g/g,,
+T_GroResFrac,Fraction of growth reserve,Fraction of tree carbohydrate reserves converted to biomass during regrowth stage after pruning,day-1,0,0.5
+T_GroResInit,,Initial amount of tree carbohydrates as reserves of tree potential growth,kg per tree,0,1
+T_GrowthResp,,,,,
+T_HeartWoodAllocAftPruned_is,,"Parameter governing an option to simulate heartwood. Value 0 means after pruning no sapwood biomass that allocated to heartwood biomass, value 1 means after pruning all sapwood biomass allocated to heartwood biomass.",,,
+T_InitStage,Initial stage,"Initial stage of tree when it was planted. If tree already growing at the start of simulation, it is the stage at the start of simulation time",,0,2
+T_KillDOY,,"Schedule date, day of year to kill tree",julian days,1,365
+T_KillY,,"Schedule date, year to kill tree",,,
+T_KLight,Extinction light coefficient,Tree canopy (leaves component) extinction light coefficient = the efficiency of tree foliage in absorbing light,,0,1
+T_LAIMax,Maximum leaf area index,Maximum value of LAI in the tree canopy,,0,5
+T_LAIMinMaxRatio,Ratio leaf area index min. and max.,Parameter describing canopy thickness/dense. Value 1 is maximum thickness,,0,1
+T_LatexFormResp,,Respiration for Latex formation,,,
+T_LatexMainResp,,Fraction of latex production use for maintenance respiration,,,
+T_LatexMoistFrac,,Standard moisture content for expressing marketable latex of each tree,,0,1
+T_LatexRecoveryTime,,Time for latex to recover.,,,
+T_LfConc,Nutrient concentration in leaf component,,g/g,,
+T_LifallDroughtFrac,Litterfall caused by drought,Fraction of tree biomass becomes litterfall due to drought,day-1,0,1
+T_LifallRed,Reducing factor for N and P of litterfall,,,,
+T_LifallThreshWStress,Treeshold value for litterfall due to drought,Threshold value for tree litterfall due to drought,,0,1
+T_LifallWeight,,Input weight value governing amount of tree litterfall going into each zone relative to other zones (eg. 1:1:1:1 means equal mulch given in each zones on area basis),,0,10
+T_LignLifall,Lignin fraction of litterfall,Lignin concentration of tree litterfall (eg. 20%=0.2),,0,1
+T_LignPrun,Lignin fraction of pruned biomass,Lignin concentration of pruned tree biomass (eg. 20%=0.2),,0,1
+T_LignRt,Lignin fraction of root,Lignin concentration of tree root,,0,1
+T_LWR,Leaf weight ratio,Leaf Weight Ratio = leaf dry weight per unit shoot dry weight,,0,5
+T_MaxBarkLatexContent,,Maximum of latex content in bark,,0,1
+T_MaxGrowthUtFrac,,,,,
+T_MaxUseFrac,,,,,
+T_MemExpY,,"How much a farmer forget previous yield (latex yield) and use it as a basis for his expectation of future latex yield, value in 0 - 1. 0 = he remembers fully, 1 = he forgets fully",,0,1
+T_MinDiamforTappingcm,,Minimum tree diameter for tapping,cm,10,15
+T_MycMaxInf,Fraction of roots infected by mychorrhiza,Fraction of tree roots infected by mychorrhiza for a soil layer where the Rt_MTInfFrac parameter is 1,,0,1
+T_NFixDayFrac,Proportion of N from atmosphere,Fraction of current N deficit derived from atmospheric N2 fixation per day for each tree if T_NFixVariable = 1 (('true'),day-1,0,1
+T_NFixDWMaxFrac,Fraction of reserve pool for N2 fix. ,Maximum fraction of the T_GroRes[Dw] pool that can be respired for N2 fixation if T_NFixVariable = 0 (('false'),day-1,0,0.5
+T_NFixDWUnitCost,Dry weight cost for N2 fixation,"Dry weight cost for respiration per unit N2 fixation, if T_NFixVariable = 0 (('false')",kg [dw]  g-1 [N],0,1
+T_NfixResp,Responsiveness of N2 fix. to N stress,"Responsiveness of N2 fixation to N stress (N in biomass divided by N target), if T_NFixVariable = 0 (('false')",,0,5
+T_NFixVariable_is,Type of N2 fixation,"Switch (0 = false, 1 = true) to choose between variable (N-stress dependent) versus constant N2 fixation as fraction of N deficit",,,
+T_NlifallRed,,Reducing factor for nutrient concentration of tree litterfall which depend on type of tree,,0,2
+T_NutMob,Relative transfer rate for N and P pool,,cm2/day,,
+T_NutMobT,,"Relative rate of transfer, per unit root length density (cm cm-3), from the 'immobile' pool of nutrients to the 'mobile' or sorbed pool, due to Crop root activity",m2 day-1,0,0.02
+T_PanelQuality1,,Bark available for tapping at the first period of tapping,,,
+T_PanelQuality2,,Bark available for tapping at the second period for tapping,,,
+T_PanelRecoveryTime,,Recovery time of bark have been tapped that would be available for next period of tapping,days,,
+T_PlantDOY,,Schedule for date of planting time. Entered from Wanulcas.xls,julian days,,
+T_PlantY,,Schedule for year of planting time. Entered from Wanulcas.xls,,,
+T_PolypLifall,Polyphenol fraction of litterfall,Polyphenol concentration of tree litterfall (eg. 3 %=0.03),,0,1
+T_PolypPrun,Polyphenol fraction of pruned biomass,Polyphenol concentration of pruned tree biomass (eg. 3 %=0.03),,0,1
+T_PolypRt,Polyphenol fraction of root,Polyphenol concentration of tree root,,0,1
+T_PrunDoY,,Schedule for date of pruning. Entered from WANULCAS.XLS,julian days,1,365
+T_PrunFracC,Constant Pruning Fraction,"Fraction of canopy that gets pruned, for T_PrunType = 0. Constant for every pruning",,0,1
+T_PrunFracD,,"Fraction of tree canopy that gets pruned, for T_PrunFrac? = 1",,0,1
+T_PrunHarvFracC,Constant Harvested Pruning Fraction,"Fraction of pruned canopy that harvested (not return to the system), for T_PrunType? = 0. Constant for every pruning.",,0,1
+T_PrunHarvFracD,,Fraction of tree pruned biomass harvested. Value changes overtime,,,
+T_PrunLimit,,"Critical total LAI of all trees shadowing the crop zone, triggering a pruning event", ,0,5
+T_PrunMoistFrac,,Standard moisture content for pruned biomass of each tree,,0,1
+T_PrunPlant_is,,"Parameter governing pruning decision. 1 = tree is automatically pruned before crop planting, 0 = tree does not automatically pruned",,,
+T_PrunRecov,Days before trees resprout,Time needed for tree to recover after pruning,days,0,30
+T_PrunStageLimit,,The latest crop stage at which automatic pruning is still performed. Corresponds to T_PrunPlant? = 1,,1,2
+T_PrunType_is,,"This parameter govern the type of pruning events. 0 = Pruning determined automatically based on canopy denseness (tree LAI). Associated with T_PrunLimit and Tree_StageLimit. 1 = Pruning determined by calender. Assciated with Pruning section in sheet Tree Management, Wanulcas.xls",,,
+T_PrunWeight,Prunning Event,Input weight value governing amount of tree pruning going into each zone relative to other zones (eg. equal pruned biomass given in each zones on area basis means 1:1:1:1 ),,0,10
+T_PrunY,,Schedule for year of pruning. Entered from Wanulcas.xls,,,
+T_RainWStorCap,Rainfall water stored at leaf surface,Rainfall intercepted by tree stored as thin film at leaf surface,,,
+T_RecoveryExp,,,,,
+T_RelFruitAllocMax,Fraction biomass allocated to fruit,,,,
+T_RelLatexFormPriority,,,,,
+T_RelLightMaxGr,Relative light intensity at which shading starts to affect tree growth,Relative light intensity at which shading starts to affect tree growth,,0,1
+T_RelPosinZone,Tree Position Within Zone,"Position of each tree within each zone; 0 means the position of the trees on the left side of its zone, 1 means on the right side of its zone.",,0,1
+T_RestDayperTappingDay,,Number of days between tapping event,days,,
+T_RhizEffKaPT,,"Proportional reduction of the apparent adsorption constant for P due to root activity of the crop, expressed as fraction of N_KaPdef per unit tree root length density",m2 day-1,0,0.2
+T_RootConductivity,Coefficient related to tree root conductivity,,cm day-1,,
+T_RtConc,Nutrient concentration in root component,,g/g,,
+T_RtDiam,,Tree root diameter. It is used in calculating water and nutrient uptake. For all root type.,cm,0.05,3
+T_Rubber_is,Tree growth follows Rubber tree rules?,"Switch (1 = yes, 0 = no) to determine whether the tree growth as rubber tree, there is allocation of biomass to latex pool",,,
+T_SapWoodScalingRule,,Power coefficient of conversion of diameter of sapwood to heartwood. Default value 1 means no increasing of diameter heartwood,,0,1
+T_SLA,Specific leaf area,Tree specific leaf area = tree leaf surface area per unit leaf dry weight,m2 kg-1,0,30
+T_SlashLabour,,Amount of labour involved in slashing the field per unit simulated filed as a function of biomass slashed,person days  ,,
+T_SlashSellWoodFrac,,Indicates the fraction of wood that is removed from the plot at the time of slashing the vegetation,,0,1
+T_StageAftPrun,Stage after pruning,Tree growth stage after pruning,,0,2
+T_Tapatall_is,,"Switch (1 = yes, 0 = no) to determine whether the tree will tapped or not",,,
+T_TapGirthFraction,,Fraction of girth for tapped,,0.3,0.5
+T_TappableHeight,,Maximum length of stem bark can be tapped,cm,100,150
+T_TappDOW,,Tapping day of work,days,,
+T_TappingFrac,,Constant value of fraction of latex stock would be tapped everyday,,0,1
+T_TappingFracMultiplier,,Quick modification on dynamic value of fraction of latex stock would be tapped,,,
+T_TappingSlice,,Bark thickness of tapping,cm,0.3,0.5
+T_Temp2,,Temperature for maintenance respiration,,,
+T_TempRespMaint,,A graphical relation between temperature and maintenance respiration,,,
+T_TimeGenCycle,Length of generative cycle,Length of generative cycles of tree,days,,
+T_TimeVeg,Length of vegetative cycle,Length of vegetative cycles of tree,days,,
+T_TranspRatio,Water requirement for dry matter production,Amount of water needed per unit dry matter production of tree,l kg-1,0,500
+T_TranspRatioTime,,Graphical input parameter as a function of tree stage that determine the dynamic of tree transpiration per unit biomass production,-,,
+T_TreesperHa,Tree Density,Tree plant density,,,
+T_TwigConc,Nutrient concentration in twig component,,g/g,,
+T_WoodBiomInit,,Initial amount of biomass in tree stem,kg per tree,0,1
+T_WoodConc,Nutrient concentration in wood component,,g/g,,
+T_WoodDens,Wood density,Wood density of each tree species,kg  m-3,,
+T_WoodFracHRemain,Fraction of Wood remaining,"Wood height remain after pruning. If you do not want to harvest wood/timber when pruning makes sure this is a high value, eg. 100.",m,0,100
+T_WoodHarvDOY,,Schedule for date of pruning. Entered from WANULCAS.XLS,julian days,1,365
+T_WoodHarvFrac,Fraction Harvested Wood,Fraction Harvested wood,,0,1
+T_WoodHarvY,,Schedule for year of timber harvesting. Entered from WANULCAS.XLS,,,
+T_WoodHInit,,Initial value of tree bare stem height (tree height excluded canopy),m,0,15
+T_WoodMaintResp,,Fraction of wood biomass use for maintenance respiration,,,
+T_WoodMoistFrac,,Standard moisture content for expressing marketable wood of each tree,,0,1
+TEMP_AType,Soil Temperature Type,"A number governing type of soil temperature data used in the simulation(0= constant value of soil temperature , 1 =read from monthly average data,2=read from daily data which is read from external file)",,,
+TEMP_Cons,Type 1 : constant temperature,Soil temperature throughout the simulation; corresponds to Temp_AType=0,0C,15,40
+TEMP_DailyData,,Actual daily data of soil temperature; corresponds to Temp_AType=2. Read from Wanulcas.xls,0C,,
+TEMP_DailyPotEvap,Daily soil evaporation potential,Daily potential evaporation. Entered from Wanulcas.xls,mm day-1,,
+TEMP_EvapPotConst,,Amount of water evaporating from top soil in absence of plant cover,mm day-1,0,10
+TEMP_MonthAvg,Type 2 : monthly average temperature,Monthly average of soil temperature; corresponds toTemp_AType=1. Entered as graphical function,0C,,
+TEMP_PotEvapConst_is,Soil Evaporation Potential Type,"Parameter governing type of soil evaporation potential data. 1 = constant throughout simulation, 0 = daily data, 2 = monthly data based on thornthwaite calculation",,,
+TF_AbRelSizePow,AbRelSizePow[Sp],,,,
+TF_CritFruitWaterPot,CritFruitWaterPot,,cm,,
+TF_DWCostUOil,DWCostUOil,,CurrencyUnit/Kg,,
+TF_FemSinkperFruit,Female Sink per Fruit,,kg/fruit,,
+TF_FirstBudtoFlowerInit,FirstBudtoFlowerInit,,leaves,,
+TF_ForgetStress,ForgetStress,,,,
+TF_FrondHistFrac,FrondHistFrac,,,,
+TF_FrondLDpetInterc,FrondLDperInterc,,m,,
+TF_FrondLDpetPower,FrondLDperPower,,,,
+TF_FrondLengthStressFac,FrondLengthStressFactor,,,,
+TF_FrondWDpetInterc,FrondWDperInterc,,kg,,
+TF_FrondWDpetPower,FrondWDperPower,,,,
+TF_FruitWaterPot,FruitWaterPot,,cm,,
+TF_LeafCumInit,LeafCumInit,,leaves,,
+TF_MaleSinkperBunch,Male Sink per Bunch,,kg/bunch,,
+TF_MaleThresh,MaleThresh,,,,
+TF_MThreshtoWatStress,MTreshtoWStress,,,,
+TF_PalmTrunkIntercept,PalmTrunkIntercept,,leaves,,
+TF_PalmTrunkInternode,PalmTrunkInternode,,m,,
+TF_PhyllochronStressFac,PhyllochronStressFactor,,,,
+TF_RadiometricFraction,RadiometricFraction,,,,
+TF_StageAbortSens,Stage Abort Sens,,,,
+TF_StemDHistFrac,StemDHistFrac,,,,
+TF_StemDStressFactor,StemDStressFactor,,,,
+TF_TargetOilperBunch,Target Oil per Bunch,,,,
+TF_TrunkHIncStressFac,TrunkHIncStressFac,,,,
+TF_WatStressAbortFrac,WatStressAbortFrac[Sp],,,,
+TW_DrivenEnergyEpot_is,,"Switch (1 = yes, 0 = no) to determine whether the tree water demand driven by Epot",,,
+TW_PotSuctAlphMax,Plant potential for max. transpiration,"Plant potential where transpiration is (1-Alpha)*potential transpiration, where Alpha is a small value (e.g. 0.01)",cm,,
+TW_PotSuctAlphMin,Plant potential for min. transpiration,"Plant potential where transpiration is Alpha*potential transpiration, where Alpha is a small value (e.g. 0.01)",cm,30000,10000
+W_FieldCapkCriti,,Field capacity determined by a threshold rate of subsequent drainage (Kcrit) that is set in the pedotransfer worksheet; the actual field capacity used is the maximum of this value and the field capacity derived from the height above a groundwater table. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotranfer refer to the sheet pedotranfer,m3 water m-3 soil,,
+W_Hyd_is,Hydraulic Redst,"Parameter governing water hydraulic lift application in model. 1= apply hydraulic lift in overall water balance, 0=otherwise",,0,1
+W_HydEqFraction,,Fraction of water hydraulic lift,fraction,,
+W_PhiPxi,,"Graphs showing relationship between pressure head in i-th soil layer of each zone and matrix flux potential (the index x refers to the plants with the highest (H), lowest (L), medium-high (MH) or medium low (ML) rank of root water potential), but the graphs will be identical. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotranfer refer to the sheet pedotranfer",cm2  day-1,,
+W_PhiThetai,,Matrix flux potential at a given theta/soil water content in layer I of each zone. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotranfer refer to the sheet pedotranfer,cm2  day-1,,
+W_PThetai,,Graphs showing relationship between volumetric soil water content and pressure head in i-th soil layer of each zone. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotranfer refer to the sheet pedotranfer,cm,,
+W_ThetaInacci,,Amount of volumetric soil water in i-th soil layer of each zone not available for plant. It is value of volumetric soil water at pF= 4.2 or P = -16000. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotransfer refer to the sheet pedotrasnfer,l m-2 day-1,,
+W_ThetaIniti,,"Initial volumetric soil water content relative to water saturated pore volume in i ?th soil layer of each zone. Current values are 1, 0.9, 0.8, 0.7 for layer 1?4, respectively",fraction,,
+W_ThetaPi,,Graphs showing relationship between pressure head in i-th soil layer of each zone and volumetric soil water content. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotransfer refer to the sheet pedotransfer,cm,,
+W_ThetaPMax,,Volumetric soil water content at a given maximum soil potential at top layer. Read and calculation from Wanulcas.xls (pedotransfer). Input needed to run pedotransfer refer to the sheet pedotransfer,cm,,
+W_WaterLog_is,Water logging?,,,,

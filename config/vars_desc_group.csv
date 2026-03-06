@@ -1,0 +1,170 @@
+﻿var,group
+CQ_CTimeGenCurr,Crop Stage
+CQ_CTimeVegCurr,Crop Stage
+CQ_SingleCycle_is_Cur,Annual or Perennial?
+CQ_DOYFlwDOYBegin,Annual or Perennial?
+CQ_DOYFlwEnd,Annual or Perennial?
+CQ_GroMaxCurr,Crop Growth
+CQ_GSeedCurr,Crop Growth
+CQ_TranspRatioCurr,Crop Growth
+CQ_HBiomConvCurr,Crop Growth
+CQ_RemobFrac,Crop Growth
+CQ_kLightCurr,Light Capture
+CQ_RelLightMaxCurr,Light Capture
+C_LAIMax,Canopy
+CQ_RainWStorCapCurr,Rain Interception
+CQ_ConductivityCurr,Water Uptake
+CQ_PotSuctAlphMaxCurr,Water Uptake
+CQ_PotSuctAlphMinCurr,Water Uptake
+CQ_ClosedCanCurr,Nutrient Uptake
+CQ_NConcOldCurr,Nutrient Uptake
+CQ_NConcYoungCurr,Nutrient Uptake
+CQ_NRtConcCurr,Nutrient Uptake
+CQ_NFixVariable_is_Curr,N Fixation
+CQ_NFixDailyFracCurr,N Fixation
+CQ_NFixRespCurr,N Fixation
+CQ_NFixDWMaxFracCurr,N Fixation
+CQ_NFixDWUnitCostCurr,N Fixation
+CQ_RtDiam,Root
+Lrvm,Root
+RT_CLraC,Root
+RT_CDecDepthC,Root
+RT_CSRLCurr,Root
+RT_CHalfLifeCurr,Root
+RT_CRtAllocRespCurr,Root
+RT_CDistResp,Root
+CQ_MaxMycInf,Mycorrhizal fraction
+N_CRhizKaPMod,Crop effects on nutrient mobility
+N_CNutMob,Crop effects on nutrient mobility
+CQ_LignResidCurr,Litter Quality
+CQ_LignRootResCurr,Litter Quality
+CQ_PolyResid,Litter Quality
+CQ_PolyRt,Litter Quality
+CQ_CovEffCurr,Soil Erosion
+PD_CropsEaten_is,Sensitivity to pest damage
+CQ_AgronYieldMoistFrac,Agronomic Yield
+P_CPlantLab,Labour
+P_CWeedLab,Labour
+P_CPestConLab,Labour
+P_CHarvLab,Labour
+P_CFertLab,Labour
+P_PriceCSeed,Input costs
+P_CYieldPrice,Input costs
+CQ_CRelLUE,Relative light use efficiency
+CQ_CLWR,Leaf Weight Ratio
+CQ_CHarvAlloc,Harvest Allocation
+CQ_CSLA,Specific Leaf Area
+CQ_CRtAlloc,Root allocation
+T_TimeVeg,Growth Stage
+T_TimeGenCycle,Growth Stage
+T_DOYFlwBeg,Growth Stage
+T_DOYFlwEnd,Growth Stage
+T_InitStage,Growth Stage
+T_StageAftPrun,Growth Stage
+T_GroMax,Growth
+T_GroResFrac,Growth
+T_LWR,Growth
+T_SLA,Growth
+T_TranspRatio,Growth
+T_Rubber_is,Growth
+T_ApplyPalm_is,Fruit
+T_RelFruitAllocMax,Fruit
+T_CanHMax,Canopy
+T_CanShape,Canopy
+T_CanWidthMax,Canopy
+T_LAIMax,Canopy
+T_LAIMinMaxRatio,Canopy
+T_RelLightMaxGr,Light capture
+T_klight,Light capture
+T_RainWStorCap,Rain interception
+T_RootConductivity,Tree Water
+TW_PotSuctAlphMax,Tree Water
+TW_PotSuctAlphMin,Tree Water
+T_NFixVariable_is,N Fixation
+T_NFixDayFrac,N Fixation
+T_NFixDWMaxFrac,N Fixation
+T_NFixDWUnitCost,N Fixation
+T_NFixResp,N Fixation
+T_GroResConc,N Concentration
+T_LfConc,N Concentration
+T_TwigConc,N Concentration
+T_WoodConc,N Concentration
+T_FruitConc,N Concentration
+T_RtConc,N Concentration
+T_LifallDroughtFrac,Litterfall
+T_LiFallThreshWStress,Litterfall
+T_LifallRed,Litterfall
+T_LignLifall,Litter quality
+T_LignPrun,Litter quality
+T_LignRt,Litter quality
+T_PolypLifall,Litter quality
+T_PolypPrun,Litter quality
+T_PolypRt,Litter quality
+T_ApplyFBA_is,Allometric Branching (Above Ground)
+T_DiamBiom1,Allometric Branching (Above Ground)
+T_DiamSlopeBiom,Allometric Branching (Above Ground)
+T_DiamBranch1,Allometric Branching (Above Ground)
+T_DiamSlopeBranch,Allometric Branching (Above Ground)
+T_DiamLfTwig1,Allometric Branching (Above Ground)
+T_DiamSlopeLfTwig,Allometric Branching (Above Ground)
+T_DiamCumLit1,Allometric Branching (Above Ground)
+T_DiamSlopeCumLit,Allometric Branching (Above Ground)
+T_WoodDens,Allometric Branching (Above Ground)
+RT_TDiam,Roots
+RT_TLrvL_par,Roots (Type 0)
+RT_TLraX0,Roots (Type 1)
+RT_TDistShapeC,Roots (Type1 & 2)
+RT_TDecDepthC,Roots (Type1 & 2)
+RT_THalfLife,Roots (Type 2)
+RT_TDistResp,Roots (Type 2)
+RT_TAllocResp,Roots (Type 2)
+RT_TAlloc,Roots (Type 2)
+T_DiamRtLeng1,Roots (Type 2)
+T_DiamSlopeRtLeng,Roots (Type 2)
+T_DiamRtWght1,Roots (Type 2)
+T_DiamSlopeRtWght,Roots (Type 2)
+RT_TProxGini,Roots (Type 2)
+T_MycMaxInf,Mycorrhiza
+N_TRhizKaPMod,Root impacts on nutrient mobility
+T_NutMob,Root impacts on nutrient mobility
+SB_TTempTol,Slash and Burn
+E_CovEffT,Erosion Protection
+PD_TEatenBy_is,Pest impacts
+TF_PalmTrunkInternode,Vegetative stage (Trunk height increment)
+TF_PalmTrunkIntercept,Vegetative stage (Trunk height increment)
+TF_TrunkHIncStressFac,Vegetative stage (Trunk height increment)
+TF_StemDHistFrac,Vegetative stage (Trunk diameter)
+TF_StemDStressFactor,Vegetative stage (Trunk diameter)
+TF_FrondHistFrac,Vegetative stage (Frond length)
+TF_FrondLengthStressFac,Vegetative stage (Frond length)
+TF_FrondWDpetInterc,Vegetative stage (Target Frond biomassa)
+TF_FrondWDpetPower,Vegetative stage (Target Frond biomassa)
+TF_FrondLDpetInterc,Vegetative stage (Target Frond biomassa)
+TF_FrondLDpetPower,Vegetative stage (Target Frond biomassa)
+TF_RadiometricFraction,Vegetative stage (Crown Radius)
+TF_ForgetStress,Vegetative stage (Phyllocron time)
+TF_PhyllochronStressFac,Vegetative stage (Phyllocron time)
+TF_LeafCumInit,Vegetative stage (Phyllocron time)
+TF_MaleThresh,Generative stage (Sex determination)
+TF_MThreshtoWatStress,Generative stage (Sex determination)
+TF_FirstBudtoFlowerInit,Generative stage (Sex determination)
+TF_MaleSinkperBunch,Generative stage (Dry weight bunch increment)
+TF_FemSinkperFruit,Generative stage (Dry weight bunch increment)
+TF_TargetOilperBunch,Generative stage (Oil Production)
+TF_DWCostUOil,Generative stage (Oil Production)
+TF_FruitWaterPot,Generative stage (Number of fruit per bunch)
+TF_CritFruitWaterPot,Generative stage (Number of fruit per bunch)
+TF_StageAbortSens,Generative stage (Number of fruit per bunch)
+TF_WatStressAbortFrac,Generative stage (Number of fruit per bunch)
+TF_AbRelSizePow,Generative stage (Number of fruit per bunch)
+P_TPlantLab,Labour 
+P_TPrunLab,Labour 
+P_TFruitHarvLab,Labour 
+P_TWoodHarvLab,Labour 
+P_TLatexHarvLab,Labour 
+P_TFertLab,Labour 
+P_TSeedPrice,Input costs
+P_TWoodPrice,Tree Products
+P_TFruitPrice,Tree Products
+P_TLatexPrice,Tree Products
+P_TPrunPrice,Tree Products

@@ -41,6 +41,9 @@ library(data.table)
 # - inconsisten calculation order for non negative stock: MN2_MinNutpool and MP2_Pass
 # - the precision error is suspected on the calculation of: RAIN_InfConstr 
 
+# Params  need to be removed from input file (?)
+# AF_ZoneFrac, AF_ZoneTree
+
 ## RUN #####################
 
 run_wanulcas_console <- function(n_iteration, wanulcas_params, output_vars) {
@@ -119,7 +122,7 @@ run_wanulcas <- function(n_iteration,
     df[names(v_df)] <- v_df
     assign(a, df)
   }
-  
+
   vstock <- get_wanulcas_stock_vars()
   
   for (p in names(vstock)) {
@@ -136,12 +139,11 @@ run_wanulcas <- function(n_iteration,
       assign(p, df)
     }
   }
-  # print(zone_df)
-  
-  # print(tan(angle_df[["LightAngles"]] * pi / 180))
+
   
   angle_df["TanAngles"] <- tan(angle_df[["LightAngles"]] * pi / 180)
-  # print(zone_df[["AF_ZoneWidth"]])
+  zone_df["AF_ZoneFrac"] <- zone_df[["AF_ZoneWidth"]]/sum(zone_df[["AF_ZoneWidth"]])
+  zone_df["AF_ZoneTree"] <- c(1:4)
   zone_df["AF_SlopeSurfInit"] <- AF_SlopeSurfInit
   zone_df["AF_ZWcum"] <- cumsum(zone_df[["AF_ZoneWidth"]])
   zone_df["RT_ZoneRight"] <- ifelse(zone_df[["AF_ZoneWidth"]] > 0, zone_df[["AF_ZWcum"]], 0)
@@ -151,13 +153,6 @@ run_wanulcas <- function(n_iteration,
   zonetree_df["AF_ZoneTree"] <- rep(zone_df[["AF_ZoneTree"]], ntree)
   zonetree_df["AF_TreePosit"] <- rep(tree_df[["AF_TreePosit"]], each = nzone)
   zonetree_df["T_TreeinZone"] <- ifelse(zonetree_df[["AF_TreePosit"]] == zonetree_df[["AF_ZoneTree"]], 1, 0)
-  
-  
-  # zone_df["T_TreeinZone"] <- 0
-  # tp <- tree_df[["AF_TreePosit"]][tree_df[["AF_TreePosit"]] > 0]
-  # zone_df[["T_TreeinZone"]][tp] <- 1
-  #
-  
   
   # INIT MC_LAIperNecmss[Zone] = T_LWR[Sp1]*T_SLA[Sp1]
   zone_df["MC_LAIperNecmss"] <- tree_df[["T_LWR"]][1] * tree_df[["T_SLA"]][1]
@@ -201,6 +196,7 @@ run_wanulcas <- function(n_iteration,
   zone_df["CW_DryFactRangePower"] <- CW_DryFactRangePowerStart
   
   calender_df["cumsum_days"] <- cumsum(calender_df[["RAIN_Numberof_DaysperMonth"]])
+
   
   # INIT RAIN_WeightTot = RAIN_Weight[Zn1]*AF_ZoneFrac[Zn1]+RAIN_Weight[Zn2]*AF_ZoneFrac[Zn2]+RAIN_Weight[Zn3]*AF_ZoneFrac[Zn3]+RAIN_Weight[Zn4]*AF_ZoneFrac[Zn4]
   RAIN_WeightTot <- sum(zone_df[["RAIN_Weight"]] * zone_df[["AF_ZoneFrac"]])
@@ -796,6 +792,8 @@ run_wanulcas <- function(n_iteration,
   
   # INIT BN_CBiomInit[SlNut] = AF_ZoneFrac[Zn1]*C_NRoot[Zn1,SlNut]+AF_ZoneFrac[Zn2]*C_NRoot[Zn2,SlNut]+AF_ZoneFrac[Zn3]*C_NRoot[Zn3,SlNut]+AF_ZoneFrac[Zn4]*C_NRoot[Zn4,SlNut]
   zonenut_df[["AF_ZoneFrac"]] <- rep(zone_df[["AF_ZoneFrac"]], nnut)
+
+  
   nut_df["BN_CBiomInit"] <- aggregate(zonenut_df[["AF_ZoneFrac"]] * zonenut_df[["C_NRoot"]], zonenut_df["SlNut"], sum)[[2]]
   
   # INIT BN_ImmInit[SlNut] = AF_ZoneFrac[Zn1]*(N_ImmobileNut1[Zn1,SlNut]+N_ImmobileNut2[Zn1,SlNut]+N_ImmobileNut3[Zn1,SlNut]+N_ImmobileNut4[Zn1,SlNut])+AF_ZoneFrac[Zn2]*(N_ImmobileNut1[Zn2,SlNut]+N_ImmobileNut2[Zn2,SlNut]+N_ImmobileNut3[Zn2,SlNut]+N_ImmobileNut4[Zn2,SlNut])+AF_ZoneFrac[Zn3]*(N_ImmobileNut1[Zn3,SlNut]+N_ImmobileNut2[Zn3,SlNut]+N_ImmobileNut3[Zn3,SlNut]+N_ImmobileNut4[Zn3,SlNut])+AF_ZoneFrac[Zn4]*(N_ImmobileNut1[Zn4,SlNut]+N_ImmobileNut2[Zn4,SlNut]+N_ImmobileNut3[Zn4,SlNut]+N_ImmobileNut4[Zn4,SlNut])
@@ -1594,7 +1592,7 @@ run_wanulcas <- function(n_iteration,
     
     # RAIN_In[Zone] = max(0,Rain*RAIN_WeightAct[Zone]-RAIN_Interception[Zone])
     zone_df["RAIN_In"] <- pmax(0, Rain * zone_df[["RAIN_WeightAct"]] - zone_df[["RAIN_Interception"]])
-    
+
     # LF_RunOn = (AF_PlotNumberUphill*Rain-LF_UpHillRainIn)*AF_RunOnFrac
     LF_RunOn <- (AF_PlotNumberUphill * Rain - LF_UpHillRainIn) *
       AF_RunOnFrac
@@ -1703,7 +1701,7 @@ run_wanulcas <- function(n_iteration,
       W_Drain[1] <- W_EstDrain[1] + AF_LatInFlowRatio[1] * W_HRelDrain[2] * W_Drain[2] - AF_AccLatInFlowRatio[1] * LF_Lat4Inflow
       return(pmax(0, W_Drain))
     }
-    
+
     zone_df["W_Drain1"] <- calc_W_Drain(zone_df[["W_EstDrain1"]], zl1[["W_HRelDrain"]], zone_df[["AF_LatInFlowRatio"]], zone_df[["AF_AccLatInFlowRatio"]], layer_df[layer_df[["layer"]] == 1, "LF_Lat4Inflow"])
     
     # W_V1Drain[Zone] = MAX(0,MIN(min(W_Drain1[Zone]*(1-W_H1RelDrain[Zone]),LF_V1MaxDailyFlow[Zone]),LF_MaxVInflow2[Zone]),0)
@@ -4172,7 +4170,6 @@ run_wanulcas <- function(n_iteration,
     zonelayer_df["W_VDRAIN_up"] <- c(zone_df[["RAIN_Infiltr"]], zonelayer_df[zonelayer_df[["layer"]] %in% 1:3, "W_VDrain"])
     zonelayer_df["W_In"] <- zonelayer_df[["W_VDRAIN_up"]] - zonelayer_df[["W_VDrain"]] + zonelayer_df[["W_LatRecharge"]] + zonelayer_df[["W_HydEquil"]] -
       c(zonelayer_df[zonelayer_df[["layer"]] == 1, "W_Seep"], zonelayer_df[zonelayer_df[["layer"]] %in% 2:4, "W_NetSeep"])
-    
     
     # W_MaxSoilEvap[Zone] = W_Stock1[Zone]-AF_DepthAct1[Zone]*W_ThetaInacc1[Zone]*1000
     zl1 <- zonelayer_df[zonelayer_df[["layer"]] == 1, c("W_Stock",
@@ -12865,6 +12862,8 @@ run_wanulcas <- function(n_iteration,
     zonelayer_df["W_Upt_sum"] <- aggregate(zonelayertree_df["W_Upt"], zonelayertree_df[c("zone", "layer")], sum)[["W_Upt"]]
     zonelayer_df["W_Stock"] <- zonelayer_df[["W_Stock"]] + zonelayer_df[["W_In"]] - zonelayer_df[["W_CUpt"]] - zonelayer_df[["W_Upt_sum"]]
     zonelayer_df[zonelayer_df[["layer"]] == 1, "W_Stock"] <- zonelayer_df[zonelayer_df[["layer"]] == 1, "W_Stock"] - zone_df[["EVAP_Surf"]]
+    
+    
     
     # S_BDActOverBDRefInfiltr[Zone](t) = S_BDActOverBDRefInfiltr[Zone](t - dt) + (S_BDModifierInfiltr[Zone]) * dt
     zone_df["S_BDActOverBDRefInfiltr"] <- zone_df[["S_BDActOverBDRefInfiltr"]] + zone_df[["S_BDModifierInfiltr"]]

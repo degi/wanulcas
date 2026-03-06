@@ -168,7 +168,7 @@ server <- function(input, output, session) {
         showlegend = F,
         title = ""
       )
-      fig <- fig |> config(displayModeBar = FALSE)
+      fig <- fig |> plotly::config(displayModeBar = FALSE)
     }
     return(fig)
   }
@@ -178,6 +178,377 @@ server <- function(input, output, session) {
     output[[gp_id]] <- renderPlotly(generate_graph_plot(x))
   })
   
+  
+  with_tooltip <- function(tooltip_col) {
+    JS(
+      sprintf(
+        'function(cellInfo) {
+    const style = "cursor: help"
+    const title = cellInfo.row["%s"]
+    return `<span style="${style}" title="${title}">${cellInfo.value}</span>`
+   }',
+        tooltip_col
+      )
+    )
+  }
+  
+  #### crop species library ###############
+  
+  output$input_crop_select <- renderUI({
+    crop_list <-  c(user_crop(), crop_species_col)
+    flowLayout(
+      cellArgs = list(style = "width:200px; margin:0px;"),
+      selectInput("input_crop_1", "Crop 1:", crop_list),
+      selectInput("input_crop_2", "Crop 2:", crop_list),
+      selectInput("input_crop_3", "Crop 3:", crop_list),
+      selectInput("input_crop_4", "Crop 4:", crop_list),
+      selectInput("input_crop_5", "Crop 5:", crop_list)
+    )
+  })
+  
+  #, fontWeight = "bold"
+  output$input_crop_lib <- renderReactable({
+    edit_crop <- user_crop()
+    
+    edit_col <- NULL
+    if (length(edit_crop) > 0) {
+      edit_col <- lapply(edit_crop, function(x) {
+        colDef(
+          cell = text_extra("crop_edit_text", class = "reactable-text-input"),
+          headerStyle = list(
+            background = theme_color$primary,
+            color = "#FFF"
+          )
+        )
+      })
+      names(edit_col) <- edit_crop
+    }
+    hpar <- list(color = theme_color$primary)
+    reactable(
+      crop_species_df[c(crop_key_col, edit_crop , crop_species_col)],
+      highlight = T,
+      compact = T,
+      striped = T,
+      pagination = F,
+      groupBy = "group",
+      columns = c(
+        list(
+          group = colDef(
+            name = "Categories",
+            width = 240,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar
+          ),
+          var_desc = colDef(show = F),
+          var_label = colDef(
+            name = "Parameters",
+            width = 240,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar,
+            html = TRUE,
+            cell = with_tooltip("var_desc")
+          ),
+          sub_var = colDef(
+            name = "Att",
+            style = list(color = theme_color$primary, width = 30),
+            headerStyle = hpar
+          )
+        ),
+        edit_col
+        # Yours4 = colDef(cell = text_extra("text"))
+      )
+    )
+  })
+  
+  observeEvent(input$add_crop_button, {
+    show_input_dialog(
+      "Add New Crop Type",
+      "Please select the default crop parameter from the available library and define the crop name",
+      "confirm_add_crop",
+      input_var = "input_crop_name",
+      input_label = "New crop name:",
+      custom_input = selectInput(
+        "input_crop_def",
+        "Default crop paramaters:",
+        crop_species_col
+      )
+    )
+  })
+  
+  user_crop <- reactiveVal()
+  
+  observeEvent(input$confirm_add_crop, {
+    removeModal()
+    cn <- input$input_crop_name
+    if (cn == "")
+      return()
+    crop_species_df[[cn]] <<- crop_species_df[[input$input_crop_def]]
+    user_crop(c(user_crop(), cn))
+  })
+  
+  observeEvent(input$remove_crop_button, {
+    if (length(user_crop()) == 0)
+      return()
+    show_input_dialog(
+      "Remove Crop",
+      "",
+      "confirm_remove_crop",
+      custom_input = selectInput("removed_crop", "Select the crop to removed:", user_crop())
+    )
+  })
+  
+  observeEvent(input$confirm_remove_crop, {
+    removeModal()
+    rc <- input$removed_crop
+    if (rc == "")
+      return()
+    crop_species_df[[rc]] <<- NULL
+    uc <- user_crop()
+    uc <-  uc[uc != rc]
+    user_crop(uc)
+  })
+  
+  observe({
+    req(input$crop_edit_text)
+    values <- input$crop_edit_text
+    print(values)
+  })
+  
+  #### tree species library ###############
+  
+  output$input_tree_select <- renderUI({
+    tree_list <-  c(user_tree(), tree_species_col)
+    flowLayout(
+      cellArgs = list(style = "width:300px; margin:0px;"),
+      selectInput("input_tree_1", "Tree 1:", tree_list),
+      selectInput("input_tree_2", "Tree 2:", tree_list),
+      selectInput("input_tree_3", "Tree 3:", tree_list)
+    )
+  })
+  
+  output$input_tree_lib <- renderReactable({
+    edit_tree <- user_tree()
+    
+    edit_col <- NULL
+    if (length(edit_tree) > 0) {
+      edit_col <- lapply(edit_tree, function(x) {
+        colDef(
+          cell = text_extra("tree_edit_text", class = "reactable-text-input"),
+          headerStyle = list(
+            background = theme_color$primary,
+            color = "#FFF"
+          )
+        )
+      })
+      names(edit_col) <- edit_tree
+    }
+    hpar <- list(color = theme_color$primary)
+    reactable(
+      tree_species_df[c(tree_key_col, edit_tree , tree_species_col)],
+      highlight = T,
+      compact = T,
+      striped = T,
+      pagination = F,
+      groupBy = "group",
+      columns = c(
+        list(
+          group = colDef(
+            name = "Categories",
+            width = 300,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar
+          ),
+          var_desc = colDef(show = F),
+          var_label = colDef(
+            name = "Parameters",
+            width = 300,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar,
+            html = TRUE,
+            cell = with_tooltip("var_desc")
+          ),
+          sub_var = colDef(
+            name = "Att",
+            style = list(color = theme_color$primary, width = 30),
+            headerStyle = hpar
+          )
+        ),
+        edit_col
+      )
+    )
+  })
+  
+  observeEvent(input$add_tree_button, {
+    show_input_dialog(
+      "Add New tree Type",
+      "Please select the default tree parameter from the available library and define the tree name",
+      "confirm_add_tree",
+      input_var = "input_tree_name",
+      input_label = "New tree name:",
+      custom_input = selectInput(
+        "input_tree_def",
+        "Default tree paramaters:",
+        tree_species_col
+      )
+    )
+  })
+  
+  user_tree <- reactiveVal()
+  
+  observeEvent(input$confirm_add_tree, {
+    removeModal()
+    cn <- input$input_tree_name
+    if (cn == "")
+      return()
+    tree_species_df[[cn]] <<- tree_species_df[[input$input_tree_def]]
+    user_tree(c(user_tree(), cn))
+  })
+  
+  observeEvent(input$remove_tree_button, {
+    if (length(user_tree()) == 0)
+      return()
+    show_input_dialog(
+      "Remove tree",
+      "",
+      "confirm_remove_tree",
+      custom_input = selectInput("removed_tree", "Select the tree to removed:", user_tree())
+    )
+  })
+  
+  observeEvent(input$confirm_remove_tree, {
+    removeModal()
+    rc <- input$removed_tree
+    if (rc == "")
+      return()
+    tree_species_df[[rc]] <<- NULL
+    uc <- user_tree()
+    uc <-  uc[uc != rc]
+    user_tree(uc)
+  })
+  
+  observe({
+    req(input$tree_edit_text)
+    values <- input$tree_edit_text
+    print(values)
+  })
+  
+  #### oilpalm species library ###############
+  
+  output$input_oilpalm_select <- renderUI({
+    oilpalm_list <-  c(user_crop(), oilpalm_species_col)
+    flowLayout(
+      cellArgs = list(style = "width:300px; margin:0px;"),
+      selectInput("input_oilpalm_1", "oilpalm 1:", oilpalm_list),
+      selectInput("input_oilpalm_2", "oilpalm 2:", oilpalm_list),
+      selectInput("input_oilpalm_3", "oilpalm 3:", oilpalm_list)
+    )
+  })
+  
+  output$input_oilpalm_lib <- renderReactable({
+    edit_oilpalm <- user_oilpalm()
+    
+    edit_col <- NULL
+    if (length(edit_oilpalm) > 0) {
+      edit_col <- lapply(edit_oilpalm, function(x) {
+        colDef(
+          cell = text_extra("oilpalm_edit_text", class = "reactable-text-input"),
+          headerStyle = list(
+            background = theme_color$primary,
+            color = "#FFF"
+          )
+        )
+      })
+      names(edit_col) <- edit_oilpalm
+    }
+    hpar <- list(color = theme_color$primary)
+    reactable(
+      oilpalm_species_df[c(oilpalm_key_col, edit_oilpalm , oilpalm_species_col)],
+      highlight = T,
+      compact = T,
+      striped = T,
+      pagination = F,
+      groupBy = "group",
+      columns = c(
+        list(
+          group = colDef(
+            name = "Categories",
+            width = 300,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar
+          ),
+          var_desc = colDef(show = F),
+          var_label = colDef(
+            name = "Parameters",
+            width = 300,
+            style = list(color = theme_color$primary),
+            headerStyle = hpar,
+            html = TRUE,
+            cell = with_tooltip("var_desc")
+          ),
+          sub_var = colDef(
+            name = "Att",
+            style = list(color = theme_color$primary, width = 30),
+            headerStyle = hpar
+          )
+        ),
+        edit_col
+      )
+    )
+  })
+  
+  observeEvent(input$add_oilpalm_button, {
+    show_input_dialog(
+      "Add New oilpalm Type",
+      "Please select the default oilpalm parameter from the available library and define the oilpalm name",
+      "confirm_add_oilpalm",
+      input_var = "input_oilpalm_name",
+      input_label = "New oilpalm name:",
+      custom_input = selectInput(
+        "input_oilpalm_def",
+        "Default oilpalm paramaters:",
+        oilpalm_species_col
+      )
+    )
+  })
+  
+  user_oilpalm <- reactiveVal()
+  
+  observeEvent(input$confirm_add_oilpalm, {
+    removeModal()
+    cn <- input$input_oilpalm_name
+    if (cn == "")
+      return()
+    oilpalm_species_df[[cn]] <<- oilpalm_species_df[[input$input_oilpalm_def]]
+    user_oilpalm(c(user_oilpalm(), cn))
+  })
+  
+  observeEvent(input$remove_oilpalm_button, {
+    if (length(user_oilpalm()) == 0)
+      return()
+    show_input_dialog(
+      "Remove oilpalm",
+      "",
+      "confirm_remove_oilpalm",
+      custom_input = selectInput("removed_oilpalm", "Select the oilpalm to removed:", user_oilpalm())
+    )
+  })
+  
+  observeEvent(input$confirm_remove_oilpalm, {
+    removeModal()
+    rc <- input$removed_oilpalm
+    if (rc == "")
+      return()
+    oilpalm_species_df[[rc]] <<- NULL
+    uc <- user_oilpalm()
+    uc <-  uc[uc != rc]
+    user_oilpalm(uc)
+  })
+  
+  observe({
+    req(input$oilpalm_edit_text)
+    values <- input$oilpalm_edit_text
+    print(values)
+  })
   
   ### Run Simulation #############
   
@@ -229,7 +600,7 @@ server <- function(input, output, session) {
         progress = progress
       )
   ) |> bind_task_button("sim_run_button")
-
+  
   if (is_run_online) {
     observeEvent(input$sim_run_button, {
       if (!is_simulation_ready())
@@ -248,13 +619,12 @@ server <- function(input, output, session) {
       progress_trigger <- function(i, n) {
         progress$set(i, "Running simulation", paste("Day", i, "of", n))
       }
-
+      
       task$invoke(n_iteration, pars, output_vars, progress)
-
-
+      
+      
     })
   } else {
-    
     local_task <- eventReactive(input$sim_run_button, ignoreNULL = T, {
       if (!is_simulation_ready())
         return()

@@ -42,7 +42,7 @@ libs <- c(
   # "shinyjs",
   
   # "future",
-  # "ipc"
+  "ipc",
   # "promises"
   "mirai"
 )
@@ -78,10 +78,11 @@ library(lubridate)
 
 # library(shinyjs)
 # library(config)
+
 #multisession
 # library(future)
-library(ipc) #AsyncProgress
 # library(promises)
+library(ipc) #AsyncProgress
 library(mirai)
 
 
@@ -112,9 +113,6 @@ theme_color <- list(
 
 default_wd <- getwd()
 
-tooltip_custom <- function(...) {
-  tooltip(..., options = list(customClass = "custom-tooltip"))
-}
 
 compact_button_style <- "width:auto;height:36px;padding:5px 20px;" #padding:0px 20px;
 
@@ -129,11 +127,16 @@ source("R/wanulcas_lib.R")
 # print(is_run_online)
 # print(config::get("data_path"))
 is_run_online <- Sys.getenv('SHINY_PORT') != ""
-print(paste("Run online:", is_run_online))
+print(paste("Run locale:", !is_run_online))
 
 ### GUI ######################
 
 wanulcas_params_def <- read_yaml("R/default_params.yaml", handlers = yaml_handler)
+crop_species_df <- read.csv("config/crop_species.csv")
+tree_species_df <- read.csv("config/tree_species.csv")
+oilpalm_species_df <- read.csv("config/oilpalm_species.csv")
+vars_desc_df <- read.csv("config/vars_desc.csv")
+vars_desc_group_df <- read.csv("config/vars_desc_group.csv")
 input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
 input_group_df <- read.csv("config/input_group.csv")
@@ -141,13 +144,16 @@ output_vars_option_df <- read.csv("R/output_vars.csv")
 output_vars <- default_output_vars
 
 input_gui_tabs_df[is.na(input_gui_tabs_df)] <- ""
-input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
-input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
+# input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
+# input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
 
-
-
-
-  
+v <- merge(input_vars_conf_df, vars_desc_df, by = "var", all.x = T)
+v[is.na(v)] <- ""
+v$desctolab <- F
+v[v$label == "" & v$desc != "" & nchar(v$desc) <= 50, "desctolab"] <- T 
+v[v$desctolab, "label"] <- v[v$desctolab, "desc"] 
+v[v$group_id == "", "group_id"] <- 0
+input_vars_conf_df <- v  
   
 
 input_vars_conf_df$var_label <- paste0(
@@ -165,6 +171,27 @@ input_vars_conf_df$var_desc <- paste0(input_vars_conf_df$desc,
                                         input_vars_conf_df$var
                                       ), "]")))
 
+crop_key_col <- c("group", "var_label", "var_desc",	"sub_var")
+crop_species_col <- setdiff(colnames(crop_species_df), c("var",	"sub_var",	"order"))
+crop_var_df <- merge(crop_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
+crop_var_df <- merge(crop_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+crop_var_df <- crop_var_df[order(crop_var_df$order), ]
+crop_species_df <- cbind(crop_var_df[-c(1,2)], crop_species_df)
+
+tree_key_col <- c("group", "var_label", "var_desc",	"sub_var")
+tree_species_col <- setdiff(colnames(tree_species_df), c("var",	"sub_var",	"order"))
+tree_var_df <- merge(tree_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
+tree_var_df <- merge(tree_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+tree_var_df <- tree_var_df[order(tree_var_df$order), ]
+tree_species_df <- cbind(tree_var_df[-c(1,2)], tree_species_df)
+
+oilpalm_key_col <- c("group", "var_label", "var_desc",	"sub_var")
+oilpalm_species_col <- setdiff(colnames(oilpalm_species_df), c("var",	"sub_var",	"order"))
+oilpalm_var_df <- merge(oilpalm_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
+oilpalm_var_df <- merge(oilpalm_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+oilpalm_var_df <- oilpalm_var_df[order(oilpalm_var_df$order), ]
+oilpalm_species_df <- cbind(oilpalm_var_df[-c(1,2)], oilpalm_species_df)
+
 # preparing variable input parameters
 
 inputvars_df <- data.frame(
@@ -177,7 +204,7 @@ inputvars_df <- data.frame(
 )
 
 inputvars_df <- merge(inputvars_df,
-                      input_vars_conf_df[c("var", "var_label", "var_desc", "id", "group_id")],
+                      input_vars_conf_df[c("var", "var_label", "var_desc", "id", "group_id", "order")],
                       by = "var",
                       all.x = T)
 inputvars_df$label <- inputvars_df$var_label

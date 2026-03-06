@@ -806,6 +806,7 @@ CQ_Unit <- c(
   "AgronYMoist"
 )
 
+# all crop parameters from xls
 CQ_vars <- c(
   "CQ_CTimeGenCurr",
   "CQ_CTimeVegCurr",
@@ -874,6 +875,7 @@ CQ_vars <- c(
   "YieldP"
 )
 
+#crop parameter on crop array only
 crop_df_vars <- c(
   "CQ_CTimeGenCurr",
   "CQ_CTimeVegCurr",

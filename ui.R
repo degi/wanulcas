@@ -1,7 +1,80 @@
 
 
 
+
 ### INPUT GUI ###############
+
+crop_params_ui <- function() {
+  card_body(
+    class = "bordercard",
+    height = "100%",
+    div(
+      "Select at most 5 types of crop you want to simulate from the crop library:"
+    ),
+    uiOutput("input_crop_select"),
+    card(
+      card_header(
+        class = "d-flex justify-content-between",
+        "Crop Library",
+        flowLayout(
+          cellArgs = list(style = "width:auto; margin:0px;"),
+          actionButton("add_crop_button", "Add New Crop Type", icon = icon("plus"), class = "compact_button"),
+          actionButton("remove_crop_button", "Remove Crop", icon = icon("trash-can"), class = "compact_button")
+        )
+      ),
+      p("You may add and define new crop to the library"),
+      reactableOutput("input_crop_lib")
+    )
+  )
+}
+
+tree_params_ui <- function() {
+  card_body(
+    class = "bordercard",
+    height = "100%",
+    div(
+      "Select at most 3 types of tree you want to simulate from the tree library:"
+    ),
+    uiOutput("input_tree_select"),
+    card(
+      card_header(
+        class = "d-flex justify-content-between",
+        "Tree Library",
+        flowLayout(
+          cellArgs = list(style = "width:auto; margin:0px;"),
+          actionButton("add_tree_button", "Add New Tree Type", icon = icon("plus"), class = "compact_button"),
+          actionButton("remove_tree_button", "Remove Tree", icon = icon("trash-can"), class = "compact_button")
+        )
+      ),
+      p("You may add and define new tree species to the library"),
+      reactableOutput("input_tree_lib")
+    )
+  )
+}
+
+oilpalm_params_ui <- function() {
+  card_body(
+    class = "bordercard",
+    height = "100%",
+    # div(
+    #   "Select at most 3 types of tree you want to simulate from the tree library:"
+    # ),
+    # uiOutput("input_tree_select"),
+    card(
+      card_header(
+        class = "d-flex justify-content-between",
+        "Oilpalm Library",
+        flowLayout(
+          cellArgs = list(style = "width:auto; margin:0px;"),
+          actionButton("add_oilpalm_button", "Add New oilpalm Type", icon = icon("plus"), class = "compact_button"),
+          actionButton("remove_oilpalm_button", "Remove oilpalm", icon = icon("trash-can"), class = "compact_button")
+        )
+      ),
+      p("You may add and define new oilpalm species to the library"),
+      reactableOutput("input_oilpalm_lib")
+    )
+  )
+}
 
 get_input_graph <- function(title, desc, v) {
   title_tt <- div(title, style = "width:180px;")
@@ -41,24 +114,23 @@ get_input_subcontent <- function(id, group_id) {
                               input_vars_conf_df$group_id == group_id, ]
   if (nrow(idf) == 0)
     return(NULL)
+  idf <- idf[order(as.numeric(idf$order)),]
   
   # variable input
   v_content <- NULL
   v <- idf[idf$type == "vars", "var"]
   if (length(v) > 0) {
     par_df <- inputvars_df[inputvars_df$var %in% v, ]
+    par_df <- par_df[order(as.numeric(par_df$order)),]
     if (nrow(par_df) > 0) {
-      # n_ui <- numeric_input_ui(paste("input_var", id, group_id, sep = "_"), par_df, tooltip_class = "custom-tooltip")
-      # print("*********")
-      # print(par_df$ui_id[1])
-      # print(par_df)
       n_ui <- numeric_input_ui(par_df$ui_id[1], par_df, tooltip_class = "custom-tooltip")
-      v_content <- list(layout_column_wrap(
-        width = "200px",
-        fill = F,
-        heights_equal = "row",
-        !!!n_ui
-      ))
+      # v_content <- list(layout_column_wrap(
+      #   width = "200px",
+      #   fill = F,
+      #   heights_equal = "row",
+      #   !!!n_ui
+      # ))
+      v_content <- n_ui
     }
   }
   
@@ -69,7 +141,17 @@ get_input_subcontent <- function(id, group_id) {
     a <- unique(adf$subtype)
     a_id <- paste("input_array", a, id, group_id, sep = "_")
     a_content <- lapply(a_id, function(x) {
-      table_edit_ui(x, is_upload_button = F, vspace = "0px")
+      
+      card(
+        full_screen = TRUE,
+        max_height = 300,
+        
+        card_body(
+          padding = 10,
+          # table_edit_ui(x, is_upload_button = F)
+          table_edit_ui(x, is_upload_button = F, vspace = "4px")
+      # table_edit_ui(x, is_upload_button = F, height = "300px")
+      ))
     })
   }
   
@@ -83,7 +165,8 @@ get_input_subcontent <- function(id, group_id) {
     names(g_content) <- NULL
   }
   
-  return(c(v_content, a_content, g_content))
+  # return(c(v_content, a_content, g_content))
+  return(list(var = v_content, table = c(a_content, g_content)))
 }
 
 
@@ -95,15 +178,33 @@ get_input_content <- function(id) {
   # by group
   g_id <- sort(unique(idf$group_id))
   page_content <- lapply(g_id, function(x) {
+    sc <- get_input_subcontent(id, x)
     content <- card_body(
-      padding = 10,
-      layout_column_wrap(
-        width = "280px",
-        fill = F,
-        gap = 10,
-        heights_equal = "row",
-        !!!get_input_subcontent(id, x)
+      
+      padding = 10, 
+      class = "bordercard",
+      # layout_column_wrap(
+      #   width = "280px",
+      #   fill = F,
+      #   gap = 10,
+      #   heights_equal = "row",
+      #   # !!!get_input_subcontent(id, x)
+      #   !!!sc$var
+      # ),
+      flowLayout(
+        cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$var
+      ),
+      flowLayout(
+        cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$table
       )
+      # layout_column_wrap(
+      #   width = "280px",
+      #   fill = F,
+      #   gap = 10,
+      #   heights_equal = "row",
+      #   # !!!get_input_subcontent(id, x)
+      #   !!!sc$table
+      # )
     )
     g_df <- input_group_df[input_group_df$group_id == x, ]
     if (nrow(g_df) > 0) {
@@ -111,14 +212,19 @@ get_input_content <- function(id) {
     }
     card(content)
   })
+  
+  if(length(page_content) == 1) return(page_content)
   card_body(
     class = "bordercard",
     height = "100%",
-    layout_column_wrap(
-      width = "600px",
-      fill = F,
-      heights_equal = "row",
-      !!!page_content
+    # layout_column_wrap(
+    #   width = "600px",
+    #   fill = F,
+    #   heights_equal = "row",
+    #   !!!page_content
+    # ),
+    flowLayout(
+      cellArgs = list(style = "width:auto; margin:0px;"), !!!page_content
     )
   )
 }
@@ -134,6 +240,39 @@ input_subtab <- function(st) {
       if (!is.null(content)) {
         sst_ui <- c(list(nav_panel("Variables", content)), sst_ui)
       }
+      # crop parameter tab
+      if (id == 7) {
+        return(nav_panel(
+          x["title"],
+          card_body(
+            class = "subpanel",
+            padding = 0,
+            crop_params_ui()
+          )
+        ))
+      }
+      # tree parameter tab
+      if (id == 8) {
+        return(nav_panel(
+          x["title"],
+          card_body(
+            class = "subpanel",
+            padding = 0,
+            tree_params_ui()
+          )
+        ))
+      }
+      # oilpalm parameter tab
+      if (id == 87) {
+        return(nav_panel(
+          x["title"],
+          card_body(
+            class = "subpanel",
+            padding = 0,
+            oilpalm_params_ui()
+          )
+        ))
+      }
       nav_panel(x["title"],
                 card_body(
                   class = "subpanel",
@@ -142,13 +281,10 @@ input_subtab <- function(st) {
                 ))
     } else {
       content <- get_input_content(id)
-      desc <- card_body(
-        padding = 10,
-        fillable = F,
-        fill = F,
-        x["desc"]
-        # div(paste("id:", id))
-      )
+      desc <- card_body(padding = 10,
+                        fillable = F,
+                        fill = F,
+                        x["desc"])
       nav_panel(x["title"], desc, content)
     }
   })
@@ -179,9 +315,6 @@ input_tab <- function() {
 }
 
 ### OUTPUT ##############
-
-
-
 
 
 download_link <- function(id, filename = NULL) {
@@ -260,7 +393,15 @@ ui <-
                 font-weight: bold;
             }
 
-
+            .reactable-text-input {
+              max-width: 80px;
+            }
+            
+            .compact_button {
+              width:auto;
+              height:36px;
+              padding:5px 20px;
+            }
 
           "
           )
@@ -288,13 +429,13 @@ ui <-
         "WaNuLCAS",
         span("5.0", style = "color:#FA842B;")
       ),
-    
     padding = 0,
+    
     
     nav_panel(
       title = "",
       icon = icon("house"),
-      
+      reactable.extras::reactable_extras_dependency(),
       div(
         class = "home",
         

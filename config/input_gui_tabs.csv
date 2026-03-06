@@ -1,11 +1,10 @@
 id,parent_id,title,desc
 1,0,Agroforestry System,"tree planting density and tree spacing, soil depth and tree position accross zone  "
-2,0,Soil & Belowground,
-3,0,Weather & Environment,"Weather parameters rainfall, soil temperature and potential evapotranspiration"
+2,0,Soil,
+3,0,Climate,"Weather parameters rainfall, soil temperature and potential evapotranspiration"
 4,0,Management,
 5,0,Economy,
-38,1,Simulation,
-6,1,Plantations,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
+6,1,Agroforestry Design,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
 7,1,Crop Parameters,Crop Parameters
 8,1,Tree Parameters,Tree Parameters
 9,2,Soil Water,
@@ -78,9 +77,7 @@ id,parent_id,title,desc
 81,8,Litter quality,
 82,8,Allometric Branching (Above Ground),
 83,8,Roots,
-84,8,Slash and Burn,
 85,8,Erosion Protection,
-86,8,Pest impacts,
 87,1,Oil Palm Parameters,
 88,87,Trunk height increment,
 89,87,Trunk diameter,
@@ -99,16 +96,14 @@ id,parent_id,title,desc
 102,7,Annual or Perennial,
 103,7,Crop Growth,
 104,7,Light Capture,
-105,7,Canopy,
 106,7,Rain Interception,
 107,7,Water Uptake,
 108,7,Nutrient Uptake,
 109,7,N Fixation,
 110,7,Root,
 111,7,Mycorrhizal fraction,
-112,7,Crop effects on nutrient mobility,
 113,7,Litter Quality,
 114,7,Soil Erosion,
-115,7,Sensitivity to pest damage,
 116,7,Agronomic Yield,
 117,2,GHG,
+118,2,Soil Texture,
