@@ -4,7 +4,7 @@ title: Background
 permalink: /background/
 ---
 
-## Balancing pattern and process
+## 1. Balancing pattern and process
 
 A focal point in the analysis of where and how agroforestry systems work
 is still whether or not tree-crop systems can utilize resources of
@@ -80,7 +80,7 @@ negative effects can interact during the growing season, and this may
 limit the use of end-of-season summaries of the tree-crop interaction
 effects. Yet, such summaries are helpful as a first approximation.
 
-## Tree-soil-crop interactions
+## 2. Tree-soil-crop interactions
 
 The success of any intercropping depends on the balance of positive
 (facilitation) and negative (competition) interactions between the
@@ -330,7 +330,7 @@ depth from which each component is capturing water and nutrients on a
 daily basis, in order to derive overall complementarity on a seasonal
 basis.
 
-## Intercropping, crop-weed and agroforestry models
+## 3. Intercropping, crop-weed and agroforestry models
 
 Attempts to link separately developed crop models into an
 'intercropping' model have not been very successful yet (Caldwell *et
@@ -404,7 +404,7 @@ length or leaf area, this approach to resource sharing gives a different
 result from adding resource capture for the two components (the latter
 may overestimate potential uptake rates).
 
-## Objectives of the WaNuLCAS Model
+## 4. Objectives of the WaNuLCAS Model
 
 In developing a generic model for water, nutrient and light capture in
 agroforestry systems (WaNuLCAS), we aimed at a model which would:

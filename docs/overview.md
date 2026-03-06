@@ -6,7 +6,7 @@ permalink: /overview/
 
 # Overview of the Model
 
-## Model features
+## 1. Model features
 
 A key feature of the model is the description of uptake of water and
 nutrients (N and P) on the basis of root length densities of the tree(s)
@@ -58,7 +58,7 @@ influencing decomposition and N and P mineralization.
 chosen, with specified soil physical properties and initial water and
 nitrogen contents.
 
-### Modules
+### 1.1. Modules
 
 The ***Water balance*** of the system includes rainfall and canopy
 interception, with the option of exchange between the four zones by
@@ -151,21 +151,22 @@ non-limiting are used as inputs (potentially derived from other models),
 and actual growth is determined by the minimum of shade, water and
 nutrient stress.
 
-## Agroforestry systems
+## 2. Agroforestry systems
 
-#### Zoning of the agroforestry system into four zones. 
+#### 2.1. Zoning of the agroforestry system into four zones. 
 
 Normally, the first zone will be used for trees only. The other three
 zones will normally be used for growing crops, but they can be shaded by
 the trees in zone 1 (depending on canopy size and shape) and can harbour
-tree roots, leading to belowground competition (Figure 3.1 and Table
+tree roots, leading to belowground competition (Figure 2.2 and Table
 3.1). Normally the intensity of interactions will decrease from zone 2
 to 4.
 
 |  |
 |----|
 | ![Fig3](./media/image3.jpeg) |
-| **Figure 3.1.** General lay out of zones and layers in the WaNuLCAS model (A) and applications to four types of agroforestry system: B. Alley cropping, C. Contour hedgerows on slopes, with variable topsoil depth, D. Parkland systems, with a circular geometry around individual trees, E. Fallow-crop mosaics with border effects. |
+Figure 2.2. General lay out of zones and layers in the WaNuLCAS model (A) and applications to four types of agroforestry system: B. Alley cropping, C. Contour hedgerows on slopes, with variable topsoil depth, D. Parkland systems, with a circular geometry around individual trees, E. Fallow-crop mosaics with border effects.
+
 
 In WaNuLCAS versions up to 3.2 two options were provided for tree
 locations: on the left (lower) side of Zone 1 or on the right (upper)
@@ -182,7 +183,7 @@ is located, *AF_TreeRelPos\[Tree\]* indicates the relative position
 \[0-1\] within this zone. *Note: aAdjustments to root distribution will
 (for now) have to be made manually.*
 
-### **Table 3.1.** Characteristic settings for nine types of agroforestry system.
+Table 2.1. Characteristic settings for nine types of agroforestry system.
 
 [TABLE]
 
@@ -199,7 +200,7 @@ The current algorithm passed both tests.
 The canopy can expand both towards the right and towards the left of the
 tree position and will ‘spill over’ into the next zone to the left or
 right when it reaches the zone boun­dary. As indicated by the arrow in
-Figure 3.1, when the tree is not in the middle of the zone, it will
+Figure 2.2, when the tree is not in the middle of the zone, it will
 reach one boundary before the other, and the rate of increase of
 RelCanWidth\[Zone\] will be half of what it was before at the time the
 next zone starts to fill.
@@ -209,7 +210,7 @@ next zone starts to fill.
 
 ***Example of results***
 
-**Figure 3.2.** Examples of the relationship between RelCanWidth for the
+Figure 2.3. Examples of the relationship between RelCanWidth for the
 whole simulation area and RelCanWidthZone\[Zone\]; A. The tree is
 positioned in Zone 2 at RelPos 0.2 ; B The tree is in Zone 4 at RelPos
 0.3; arrow explained in the text
@@ -273,7 +274,7 @@ in the same way. The user has to specify four depths (thickness) of
 layers under the parameter name AF_DepthLay*i*. The layers will be
 homogeneous for four zones in each layers.
 
-#### Input weighting factors
+#### 2.2. Input weighting factors
 
 A number of inputs to the soil surface can be distributed homogeneously
 (proportional to the respective AF_ZoneFrac values), or heterogeneously.
@@ -292,7 +293,7 @@ litterfall and tree prunings over the various zones, while conserving
 their overall mass balance. The units for these weighting factors are
 arbitrary, as they are only used in a relative sense.
 
-#### Calendar of events
+#### 2.3. Calendar of events
 
 The year in WaNuLCAS starts with Year 0, while the day is value from 1
 to 365. Starting day of the simulation can be specified at any time
@@ -303,7 +304,7 @@ take place at a given calendar date usually by specifying the Year and
 Day-of-Year (DOY) in which they will occur. Some events will be
 triggered internally, such as crop harvest when a crop is ready for it
 or a burn event after the slash has dried sufficiently. It may help the
-model user to design such a calendar. Figure 3.3 and Table 3.2 give an
+model user to design such a calendar. Figure 2.4 and Table 2.2 give an
 example of calendar of events for a hedgerow systems with Gliricidia as
 tree and maize - groundnut as crops. To help users in defining Julian
 days, we provide a list of Julian days in **Wanulcas.xls** – sheet
@@ -311,12 +312,12 @@ days, we provide a list of Julian days in **Wanulcas.xls** – sheet
 
 ![calendar2](./media/image6.jpeg)
 
-**Figure 3.3.** A schematic diagram of management activities of a
+Figure 2.4. A schematic diagram of management activities of a
 hedgerow systems.
 
 **\**
 
-### **Table 3.2.** An example of management activities record of a hedgerow systems.
+Table 2.2. An example of management activities record of a hedgerow systems.
 
 | No. | Activities         | Date             | Year in WaNuLCAS | Day in WaNuLCAS |
 |:---:|--------------------|------------------|:----------------:|:---------------:|
@@ -329,7 +330,7 @@ hedgerow systems.
 | 7\. | Groundnut harvest  | 2 August 1995    |        1         |       214       |
 | 8\. | Pruning Gliricidia | 7 August 1995    |        1         |       219       |
 
-#### Crops, weeds and trees
+#### 2.4. Crops, weeds and trees
 
 The model user can schedule a sequence of crops (of different types) to
 be grown at one time for each zone, with specific fertilizer
@@ -374,7 +375,7 @@ concurrence with a crop on the field and when the tree biomass exceeds a
 to the soil as organic input or (partially) removed from the field as
 fodder.
 
-#### Animals and soil biota
+#### 2.5. Animals and soil biota
 
 The model does not at this stage include a livestock component, but it
 can be used to predict fodder production and the tree pruning rules can
@@ -386,9 +387,9 @@ between surface litter and the various soil layers, in the creation of
 soil macropores (influencing bypass flow) and in N fixation or P
 mobilization.
 
-## Soil and climate input data
+## 3. Soil and climate input data
 
-####  Soil physical properties
+#### 3.1. Soil physical properties
 
 For calculating water infiltration to the soil, a layer-specific
 estimate of the 'field capacity' (soil water content one day after heavy
@@ -440,9 +441,10 @@ content diverged.
 |  |
 |:--:|
 | ![fig3](./media/image7.jpeg) |
-| **Figure 3.4.** Relations between soil water content (X-axis), hydraulic head (expressed as pF or -log(head) -- positive Y axis) and unsaturated hydraulic conductivity (negative Y axis) for a dandy (left) and a clayey (right) soil, based on the pedotransfer function used in Wanulcas.xls; two definitions of 'field capacity' are indicated: one based on a user-defined limiting hydraulic conductivity, and one based on a depth above a groundwater table, defining a pF value; in the model the highest value of the two for each layer and zone will be used to determine maximum soil water content after a heavy rain event. |
+Figure 3.1. Relations between soil water content (X-axis), hydraulic head (expressed as pF or -log(head) -- positive Y axis) and unsaturated hydraulic conductivity (negative Y axis) for a dandy (left) and a clayey (right) soil, based on the pedotransfer function used in Wanulcas.xls; two definitions of 'field capacity' are indicated: one based on a user-defined limiting hydraulic conductivity, and one based on a depth above a groundwater table, defining a pF value; in the model the highest value of the two for each layer and zone will be used to determine maximum soil water content after a heavy rain event.
 
-#### Temperature
+
+#### 3.2. Temperature
 
 Soil Temperature data are used to modify soil organic matter
 transformations. They can be entered as:
@@ -460,7 +462,7 @@ modified the length of cropping season. Current default values for air
 temperature ensure the length of cropping season = Cq_TimeVeg +
 Cq_TimeGen as specified on **Wanulcas.xls**.
 
-#### Potential evapotranspiration
+#### 3.3. Potential evapotranspiration
 
 There are 2 options for the potential evapotranspiration rate: for
 Temp_EvapPotConst? = 1 a constant value is used throughout the
@@ -480,7 +482,7 @@ limited by plant water stress if present), dead wood piles on the soil
 after a slash event and finally by the soil (if any demand is
 unsatisfied as yet).
 
-#### Rainfall
+#### 3.4. Rainfall
 
 Rainfall data can be either generated within WaNuLCAS, or be obtained
 from an Excel spreadsheet. Setting the ‘Rain_AType’ parameter makes the
@@ -495,7 +497,7 @@ choice:
 4 = Monthly average tabulated data (with given probability of daily
 rainfall and normal random variation around the average values)
 
-The four options are summarized in Table 3.3.
+The four options are summarized in Table 3.1.
 
 For choice 1, the data should be copied to sheet 'rainfall' to column 3
 of a spreadsheet with name **Wanulcas.xls**. This spreadsheet has in
@@ -528,7 +530,7 @@ maximum value, heavy rain is truncated with Rain_BoundHeaLi as minimum.
 The standard deviation for light rains is as a standard input at 5 mm
 (but can be modified inside the equation for **STELLA** users).
 
-### **Table 3.3.** Three options for deriving daily rainfall values.
+Table 3.1. Three options for deriving daily rainfall values.
 
 [TABLE]
 
@@ -558,9 +560,9 @@ point in the data set, the parameter Cq_YearStart has to be adjusted.
 The Rain_DayP values are given as a monthly tabulated function of Day of
 year.
 
-#### 
+#### 3.5. 
 
-#### Canopy interception of rainfall
+#### 3.6. Canopy interception of rainfall
 
 Part of any rainfall event will not reach the soil surface because the
 tree or crop canopy intercepts it. This interception process has been
@@ -571,7 +573,7 @@ from this intercepted layer at a speed equal to the potential
 evapotranspiration rate, with priority over crop and tree transpiration
 or soil evaporation.
 
-#### Soil redistribution on slopes 
+#### 3.7. Soil redistribution on slopes 
 
 Soil particles can get detached during rainfall events, move along with
 surface runoff water and may get entrenched or filtered out where the
@@ -616,7 +618,8 @@ but not decrease the level. From Fig. 3.5 we can see that:
 
 |  |  |
 
-| **Figure 3.5.** Terminology for describing change of slope: ignoring the soil below the boundary A-B which will not be affected by the changes and assuming that the bulk density of the soil is constant, the redistribution process modifies the triangle A-B-C (with a width w, a height h and a slope-length s) into the polygon A-A' -C'-B (with height h' and slope length s'), plus the soil loss which is proportional to A'A\*C\*C', or wh\*; the triangle AA\*O is equal to OCC\* | ![fig3](./media/image8.jpeg) |
+Figure 3.2. Terminology for describing change of slope: ignoring the soil below the boundary A-B which will not be affected by the changes and assuming that the bulk density of the soil is constant, the redistribution process modifies the triangle A-B-C (with a width w, a height h and a slope-length s) into the polygon A-A' -C'-B (with height h' and slope length s'), plus the soil loss which is proportional to A'A\*C\*C', or wh\*; the triangle AA\*O is equal to OCC\* | ![fig3](./media/image8.jpeg)
+
 
 $`h = 2\left( h_{x} + h^{*} \right) + h'`$ **\[8\]**
 
@@ -654,19 +657,19 @@ The situation where point A is not fixed, can lead (in the absence of
 filter functions) to a parallel decline of topsoil height, without
 change in slope angle.
 
-#### Soil erosion 
+#### 3.8. Soil erosion 
 
 Soil erosion module applies to sloping land situation only. WaNuLCAS
 uses ROSE (physical equation) equations to estimate soil erosion.
 Tillage will affect soil erosion (see 3.10.8)
 
-## Water balance
+## 4. Water balance
 
-#### Soil water storage infiltration and evaporation
+#### 4.1. Soil water storage infiltration and evaporation
 
 For the description of the soil water balance in soil-plant models a
 number of processes should be combined which act on different time
-scales (Figure 3.6):
+scales (Figure 4.1):
 
 1.  rainfall or irrigation (with additional run-on) and its allocation
     to infiltration and surface run-off (and/or ponding), on a
@@ -700,7 +703,7 @@ scales (Figure 3.6):
 |  |
 |----|
 | ![fig3](./media/image9.jpeg) |
-**Figure 3.6.** Elements of the water balance included in the WaNuLCAS model: 1. surface infiltration of rainfall, 2-4. Redistribution of water and solutes over the profile, recharging soil water content (2) and draining (leaching) excess water from the bottom of the profile, 5. surface evaporation, 6. water uptake by tree and crop roots, 7. hydraulic equilibration via tree roots, 8. drought signals influencing shoot:root allocation and 9. bypass flow of solutes. |
+Figure 4.1. Elements of the water balance included in the WaNuLCAS model: 1. surface infiltration of rainfall, 2-4. Redistribution of water and solutes over the profile, recharging soil water content (2) and draining (leaching) excess water from the bottom of the profile, 5. surface evaporation, 6. water uptake by tree and crop roots, 7. hydraulic equilibration via tree roots, 8. drought signals influencing shoot:root allocation and 9. bypass flow of solutes. |
 
 The WaNuLCAS model currently incorporates point 1...7 and 9 of this
 list, but aggregates them to a daily time step; drainage to lower layers
@@ -728,7 +731,7 @@ A simple representation of by-pass flow is added, but only in its
 effects on nutrient leaching (see 3.4.3). Dynamics of macropore are
 described in section 3.3.7.
 
-### **Table 3.4.** Water balance at patch level in WaNuLCAS.
+Table 4.1. Water balance at patch level in WaNuLCAS.
 
 | In | Out |
 |----|----|
@@ -741,7 +744,7 @@ described in section 3.3.7.
 |  | Transpiration by crop |
 |  | Transpiration by weed |
 
-#### Water uptake
+#### 4.2. Water uptake
 
 Water uptake by the plants is driven by their transpirational demand,
 within the possibilities determined by roots length density and soil
@@ -765,7 +768,7 @@ expected soil resistance (estimated as 10% of soil water potential; a
 more precise value is calculated in step 5 of the daily procedure – see
 below)).
 
-The sequence of events in modeling water uptake (Figure. 3.7), more
+The sequence of events in modeling water uptake (Figure 4.2), more
 detail equations are presented in Appendix 5 and 11:
 
 1.  Estimate potential transpirational demand E_(p) from potential dry
@@ -825,7 +828,7 @@ detail equations are presented in Appendix 5 and 11:
 
 ![fig3](./media/image10.jpeg)
 
-**Figure 3.7.** Steps (1…8) in daily cycle of calculations of water uptake; the interrupted arrows represent information flows. 
+Figure 4.2. Steps (1…8) in daily cycle of calculations of water uptake; the interrupted arrows represent information flows. 
 
 The procedure for water uptake is similar to that for nutrient uptake
 (see below), but the transport equations are analogous in terms of
@@ -834,11 +837,11 @@ complication for allocating water uptake is that plant water potential
 may differ between roots of the various components in a given cell. In
 the model the highest (least negative) is used first to share out
 potential water uptake to all components, followed by additional uptake
-potential for components with a lower water potential (Figure 3.8).
+potential for components with a lower water potential (Figure 4.3).
 
 ![sharing-watuptjpg](./media/image11.jpeg)
 
-**Figure 3.8.** Diagram of sharing out available water by tree and crop.
+Figure 4.3. Diagram of sharing out available water by tree and crop.
 
 The model in its current form does not include ‘drought signals’. It may
 be possible to represent such direct effects of root-produced hormones
@@ -847,7 +850,7 @@ averaged water potential around the roots of a crop) and the
 CW_DemandRedFac, beyond their current indirect relation via
 CW_PotSuctCurr.
 
-#### Hydraulic lift and sink
+#### 4.3. Hydraulic lift and sink
 
 An option exist to simulate hydraulic lift and hydraulic sink phenomena
 in tree roots, transferring water from relatively wet to relatively dry
@@ -944,12 +947,12 @@ selected for the HydEq_Fraction; values above 0.5 may be unrealistic.
 
 ![](./media/image12.png)
 
-**Figure 3.9.** Impacts on the water balance of a parkland system with a
+Figure 4.4. Impacts on the water balance of a parkland system with a
 rainfall of approximately 750 mm year⁻¹ of the presence of trees and
 inclusion of hydraulic equilibration in the model, for a range of values
 of the (arbitrarily set) HydEq_Fraction parameter.
 
-#### Implementing a lateral flow component into WaNuLCAS
+#### 4.4. Implementing a lateral flow component into WaNuLCAS
 
 Earlier versions of the model only considered vertical flow, but
 evidence from the field experiments in Lampung indicates that even on
@@ -1063,7 +1066,7 @@ Implementing sub-surface lateral flow required the following steps:
     the incoming subsurface flow can be defined as a multiplier of the
     average concentration of drainage water within the simulated zones.
 
-#### Run-on and run-off
+#### 4.5. Run-on and run-off
 
 Surface run-on and run-off are treated in a similar way, but here the
 conductivity is supposed to be non-limiting as soon as the slope exceeds
@@ -1100,7 +1103,7 @@ $`Rain\_ Duration = \left( \frac{Rain}{Rain\_ IntensMean} \right)xmin\left( \max
 
 ![](./media/image13.png)
 
-**Figure 3.10.** Rain duration that determine the time available for
+Figure 4.5. Rain duration that determine the time available for
 water infiltrated to the soil. Rain duration calculated from rainfall
 and rain intensity.
 
@@ -1129,10 +1132,10 @@ down' (higher layers before deeper ones), or 'bottom up' (starting from
 the subsoil), depending on the specific profile in saturated hydraulic
 conductivities.
 
-#### Subsurface inflows of water to plots on a sloping land
+#### 4.6. Subsurface inflows of water to plots on a sloping land
 
 In WaNuLCAS 4.0 subsurface in-flows are derived from a ‘virtual’ soil
-column uphill (Figure 3.11). This process is only functioning during
+column uphill (Figure 4.6). This process is only functioning during
 rainfall events, especially ones that saturate the soil and cause
 overland or subsurface lateral flow. These are the times, however, that
 the soil in the 4 zones is in similar ‘overflow’ mode. An important
@@ -1145,9 +1148,9 @@ calculated (Figure 3.12).
 
 |  |  |
 
-|  | **Figure 3.11.** General lay out of soil column uphill in WaNuLCAS model. |
+Figure 4.6. General lay out of soil column uphill in WaNuLCAS model.
 
-#### Dynamics of macropore formation and decay
+#### 4.7. Dynamics of macropore formation and decay
 
 Formation and decay of macropores has consequences for the bulk density
 of the 'soil matrix', as the mass balance of soil solids has to be
@@ -1202,7 +1205,7 @@ exponential decay of such channels and a rate of new formation by (tree)
 root turnover and/or earthworm activity within the layers. Impacts of
 soil biota on macro-structure of the soil can now be explored.
 
-#### 3.3.8. Anaerobiosis effect
+#### 4.8. Anaerobiosis effect
 
 Under conditions of restricted soil drainage and/or exceptionally heavy
 rainfall, temporary or medium-term water-logging of soil layers can
@@ -1331,9 +1334,9 @@ root activity become proportional.
 
 Recovery/ time lag...
 
-## Nutrient (nitrogen and phosphorus) balance
+## 5. Nutrient (nitrogen and phosphorus) balance
 
-#### Nutrient inputs and outputs
+#### 5.1. Nutrient inputs and outputs
 
 WaNuLCAS release 1.1 only included a nitrogen balance. From release 1.2
 onwards, an array 'nutrients' is used with nitrogen as first and
@@ -1354,7 +1357,7 @@ process description similar to the Century model; Parton *et al.,*
 1994). Total organic inputs are allocated to the various zones on the
 basis of user-specified weighing functions.
 
-### **Table 3.5.** Nutrient (nitrogen and phosphorus) balance at patch level.
+Table 5.1. Nutrient (nitrogen and phosphorus) balance at patch level.
 
 | In | Out |
 |----|----|
@@ -1367,7 +1370,7 @@ basis of user-specified weighing functions.
 | N or P in crop planting material | Final N or P in crop biomass |
 | Initial N or P in tree biomass | Final N or P in tree biomass |
 
-#### Nutrient inputs
+#### 5.2. Nutrient inputs
 
 Nutrient (nitrogen or phosphorus) inputs consist of initial amounts in
 mineral and organic N pools in the soil, initial stocks in the tree and
@@ -1382,7 +1385,7 @@ of management during simulation, Ca_ExtOrgInp. This would need
 additional parameters to defined the lignin, pholyphenol, N and P
 content.
 
-#### Leaching
+#### 5.3. Leaching
 
 Leaching of N (and P) is driven by percolation of water through the soil
 and the average concentration in soil solution. The latter is derived
@@ -1399,10 +1402,10 @@ is 1, values less then 1 lead to bypass flow (retardation of nutrient
 leaching), values above 1 to preferential flow (e.g. possible with
 rainfall directly after fertilization).
 
-#### Nutrient (N or P) uptake
+#### 5.4. Nutrient (N or P) uptake
 
 The nutrient uptake procedure includes 8 steps (the numbers refer to
-Figure 3.13):
+Figure 5.2):
 
 ***1) Target nutrient content***. The general flow of events starts with
 the current biomass (dry weight). First of all a 'target N content' is
@@ -1423,7 +1426,7 @@ respectively.
 
 ![fig3](./media/image15.jpeg)
 
-**Figure 3.13.** Major steps (explained in the text) in the daily cycle of calculating N uptake; a similar scheme applies to P uptake (without N₂ fixation, but with additional options for 'rhizosphere effects'. |
+Figure 5.2. Major steps (explained in the text) in the daily cycle of calculating N uptake; a similar scheme applies to P uptake (without N₂ fixation, but with additional options for 'rhizosphere effects'. |
 
 ***2 & 3) Nutrient deficit***. The target N content is then contrasted
 with the current nutrient content, to derive the 'Nutrient deficit'. The
@@ -1494,7 +1497,7 @@ content is only 40% of the N target; between 40 and 80% of the N target
 a linear function is assumed. The same function is used for tree and
 crop N-Pos-Grow.
 
-####  Effective adsorption constants for ammonium and nitrate
+#### 5.5. Effective adsorption constants for ammonium and nitrate
 
 Two forms of mineral N occur in most soils, ammonium and nitrate, which
 differ in effective adsorption to the soil and hence in leaching rate
@@ -1533,17 +1536,18 @@ each soil layer; in future it may be linked to a further description of
 nitrification and be affected by the N form in incoming leachates in
 each layer and selective plant uptake.
 
-#### P sorption
+#### 5.6. P sorption
 
 In the model the sorbed + soil solution P is treated as a single pool
-(Figure 3.14A), but at any time the concentration in soil solution can
+(Figure 5.3A), but at any time the concentration in soil solution can
 be calculated on the basis of the current apparent absorption constant
 K_(a); this way effects on K_(a) can be implemented separate from
 effects on total labile pool size.
 
 |  |  |
 |----|:--:|
-| **Figure 3.14.** A. Conceptual scheme of P pools in the soil as represented in the WaNuLCAS model and potential impacts of ash (A), heat (H) or addition of organics (O); B Example of relations between apparent P sorption and total amount of mobile P in a soil, using data from the database of P sorption isotherms for acid upland soils in Indonesia (names refer to the location, in the absence of more functional pedotransfer functions for these properties). | ![fig3](./media/image20.jpeg) |
+Figure 5.3. A. Conceptual scheme of P pools in the soil as represented in the WaNuLCAS model and potential impacts of ash (A), heat (H) or addition of organics (O); B Example of relations between apparent P sorption and total amount of mobile P in a soil, using data from the database of P sorption isotherms for acid upland soils in Indonesia (names refer to the location, in the absence of more functional pedotransfer functions for these properties). | ![fig3](./media/image20.jpeg)
+
 
 For P the apparent sorption constant K_(a) is a function of the amount
 of mobile P in the soil. In the **Wanulcas.xls** spreadsheet examples of
@@ -1560,7 +1564,7 @@ measurements. Following this assumption, the relation between a soil
 test value such as P_Bray2 and the size of the labile pool does depend
 on the sorption characteristics of the soil.
 
-#### N₂ fixation from the atmosphere
+#### 5.7. N₂ fixation from the atmosphere
 
 The option exists for both crops and trees to represent atmospheric N₂
 fixation as way of meeting the plant N requirement. The resultant
@@ -1570,7 +1574,8 @@ obtained as model output and equals Nfix/(Nfix + N_uptake).
 |  |
 |:--:|
 | ![fig3](./media/image21.jpeg) |
-| **Figure 3.15.** Relation between relative N content and daily N₂ fixation as part of plant N deficit, if the N_fixVariable? parameter is set at 1. |
+Figure 5.4. Relation between relative N content and daily N₂ fixation as part of plant N deficit, if the N_fixVariable? parameter is set at 1.
+
 
 N₂ fixation is calculated as a fraction of the current N deficit on any
 day. If the parameters C_NfixVariable? or T_NfixVariable? are set to 0
@@ -1602,7 +1607,7 @@ with N₂ fixation (roughly 0.01 kg DW per g N), and a maximum fraction of
 the GroRes pool to be used for N₂ fixation (MaxDWUsefor Nfix) is
 specified.
 
-#### Special P mobilization mechanisms
+#### 5.8. Special P mobilization mechanisms
 
 Two further processes were added for P uptake:
 
@@ -1648,7 +1653,7 @@ The second process is governed by:
   and tree are co-occurring within the various soil layers, affecting
   the way in which benefits of rhizosphere modification are shared.
 
-####  N₁₅ labeling
+#### 5.9. N₁₅ labeling
 
 The standard version of WaNulCAS no longer includes the sector that
 represents N₁₅ labelling (earlier used by Edwin Rowe in the context of
@@ -1659,7 +1664,7 @@ the plant. The module does not yet include the vertical and lateral
 transfers of labelled N in the soil, nor the soil organic matter or
 litter layer pools.
 
-#### Surface movement and incorporation of fertilizer
+#### 5.10. Surface movement and incorporation of fertilizer
 
 If there is heavy rainfall shortly after a fertilizer application,
 fertilizer can move along with overland flow of water, and can leave the
@@ -1672,7 +1677,7 @@ with a soil tillage operation (similar to the litter -\> SOM transfer).
 Runoff loss from the plot occurs out of zone 1 (and may take two days
 with surface runoff if fertilizer is used in zone 2 but not in zone 1).
 
-#### Green House Gas (GHG)
+#### 5.11. Green House Gas (GHG)
 
 In a recent addition to the model, estimates of nitrogen oxide (N₂, N₂O,
 NO) emissions are derived, on the basis of mineralization (the ‘hole in
@@ -1772,10 +1777,10 @@ soils is 4 kg ha⁻¹ y⁻¹ (equivalent to 0.011 kg ha⁻¹ day⁻¹ or 0.0011 
 m⁻² day⁻¹), while emissions under wet conditions can reach a similar
 level (Verchot *et al*., 2004). For the model we need one additional
 parameter that defines the shape of the relationship between
-water-filled pore space and net emission. Figure 3.16 provides examples
+water-filled pore space and net emission. Figure 5.5 provides examples
 for a range of values of the Km parameter.
 
-**Figure 3.16.** Methane flux (negative values indicate consumption,
+Figure 5.5. Methane flux (negative values indicate consumption,
 positive ones emission) as a function of the water-filled pore space,
 for a range of values of the GHG_CH4_Km parameter (a dimension parameter
 relating to the difference in water-filled pore space (by decrease from
@@ -1786,16 +1791,16 @@ the range defined by highest and lowest flux.
 
 For a simulation on a degraded soil with cassava production and a local
 tree, we find the following response of gaseous N losses to
-modifications of the measured rainfall (Figure 3.17):
+modifications of the measured rainfall (Figure 5.6):
 
-**Figure 3.17**. Effect of total rainfall, as simulated by using
+Figure 5.6. Effect of total rainfall, as simulated by using
 multiplier on daily rainfall amounts, on the gaseous N emissions from a
 soil (specified over NO and N₂O), leaching and N export from the plot in
 crop harvests over a 5 year period.
 
-## Root distribution
+## 6. Root distribution
 
-####  Crop root length density
+#### 6.1. Crop root length density
 
 Three options exist for deriving the maximum root length density in each
 cell:
@@ -1827,7 +1832,7 @@ This function has two parameters:
   density has half of its value at the soil surface). The RtCDecDepth
   parameter depends on the crop type, and may differ between zones*i*.
 
-### **Table 3.6.** Options for deriving crop root distribution; in WaNuLCAS 4.0
+Table 6.1. Options for deriving crop root distribution; in WaNuLCAS 4.0
 
 [TABLE]
 
@@ -1859,7 +1864,7 @@ Cr_RtAlloc, multiplied with a tabulated function of Cq_stage, and
 potentially modified to account for functional equilibrium and local
 response.Cr_RtAllocAct can be modified from Cr_RtAlloc by the minimum of
 the current water and nitrogen stress in the plant, modified by the
-parameter Cr_RtAllocResp, as indicated in Table 3.6.
+parameter Cr_RtAllocResp, as indicated in Table 6.1.
 
 Root decay is implemented by daily removing a fraction of
 –0.69/Cr_RtHalfLife, where the latter is measured in days and can e.g.
@@ -1869,7 +1874,9 @@ such a feedback may be included in future versions.
 
 |  |  |
 
-| ![fig3](./media/image25.jpeg) | **Figure 3.18.** Distribution and development of crop root length density; A. Arbitrarily set values of maximum L_(rv) per depth interval (Rt_ACType = 0); B. multiplier to derive daily actual L_(rv) from maximum values per layer (Rt_ACType = 0 and 1); C Exponential decrease of L_(rv) with depth (on log scale), D. *idem* (linear scale) (Rt_ACType = 1); E. Relationship between shoot and root dry weight under no, mild and severe water or N stress (Rt_ACType = 2) |
+![fig3](./media/image25.jpeg)
+
+Figure 6.1. Distribution and development of crop root length density; A. Arbitrarily set values of maximum L_(rv) per depth interval (Rt_ACType = 0); B. multiplier to derive daily actual L_(rv) from maximum values per layer (Rt_ACType = 0 and 1); C Exponential decrease of L_(rv) with depth (on log scale), D. *idem* (linear scale) (Rt_ACType = 1); E. Relationship between shoot and root dry weight under no, mild and severe water or N stress (Rt_ACType = 2)
 
 For Rt_ACType 2 it is also possible to modify the Rt_CDecDepth parameter
 on the basis of current uptake distribution. The response is based on N
@@ -1878,7 +1885,7 @@ first calculated the relative depth of uptake, by the weighted sum of
 depth of layer multiplied by uptake per unit root length. For relatively
 high uptake success in deep layers Rt_CDecDepth will decrease, for
 success of shallow roots it will increase. The degree of response is
-regulated by Rt_CDistResp, as indicated in Table 3.6. When high values
+regulated by Rt_CDistResp, as indicated in Table 6.1. When high values
 of this responsiveness are chosen, the calculated change in root length
 of an individual layer could exceed the total change in root length from
 decay and new root growth. We prevent this, by capping off the change
@@ -1886,9 +1893,11 @@ based on the proportional change in total root length.
 
 |  |  |
 
-| ![fig3](./media/image26.jpeg) | **Figure 3.19.** Root length density distribution for tree; A. (Rt_ATType = 0) user input of root length density for each cell *ij*; B. (Rt_ATType = 1) tree roots distributed according to an elliptical function. |
+![fig3](./media/image26.jpeg)
 
-#### Tree root length density
+Figure 6.2. Root length density distribution for tree; A. (Rt_ATType = 0) user input of root length density for each cell *ij*; B. (Rt_ATType = 1) tree roots distributed according to an elliptical function.
+
+#### 6.2. Tree root length density
 
 Four options exist for obtaining its value for each cell (zone \*
 depth):
@@ -1943,7 +1952,7 @@ rootsto a voxel is based on current root length and its previous-day
 uptake efficiency. A stand alone **STELLA** model is available to learn
 more about this tree root dynamics option.
 
-#### Specific root length of tree root systems
+#### 6.3. Specific root length of tree root systems
 
 For **Rt_ATType = 2** we use (inverse) allometric equations to relate
 proximal root diameters to total root biomass, and drive the specific
@@ -2023,7 +2032,7 @@ Finally, the specific root length SRL is obtained as function of W_(t)
 
 Equation (53) is used in the model.
 
-#### Root diameter and mycorrhiza
+#### 6.4. Root diameter and mycorrhiza
 
 Tree and crop are likely to differ in root diameter. As root diameter
 has an effect on the potential uptake rate, an 'average' root diameter
@@ -2034,7 +2043,7 @@ and Van Noordwijk (1987) and Van Noordwijk and Brouwer (1997), comparing
 roots of different diameter on the basis of the product of root length
 and SQRT(root diameter); this method of averaging makes the uptake
 function least sensitive to diameter (see Van Noordwijk and Brouwer,
-1997; Figure 3.20)
+1997; Figure 6.3)
 
 ![](./media/image40.png)
 
@@ -2060,9 +2069,9 @@ crop and tree.
 
 ![fig3](./media/image42.jpeg) 
 
-**Figure 3.20.** Effect of root diameter on potential uptake when root systems of different diameter are compared at equal length, root surface area or volume (weight); the smallest effect of root diameter exists when root length times the square root of the root diameter is used (Van Noordwijk and Brouwer, 1997). 
+Figure 6.3. Effect of root diameter on potential uptake when root systems of different diameter are compared at equal length, root surface area or volume (weight); the smallest effect of root diameter exists when root length times the square root of the root diameter is used (Van Noordwijk and Brouwer, 1997). 
 
-## Light capture
+## 7. Light capture
 
 Light capture is calculated on the basis of the leaf area index of the
 tree(s) and crop (T_LAI\[tree\] and C_LAI) for each zone, and their
@@ -2085,7 +2094,7 @@ The current approach has evolved from that in WaNuLCAS where only a
 single tree plus crop component was simulated. In that case, three
 strata were distinguished in the canopy: an upper one (with only one
 type of leaves), a mixed one (with both types of leaves present) and a
-lower one (with one only) (Figure 3.21).
+lower one (with one only) (Figure 7.1).
 
 If light capture of ***n*** plants is to be accounted for in the same
 way, a total of ***2n-1*** canopy layers should be distinguished, with
@@ -2099,14 +2108,16 @@ present in that layer have leaves spread evenly within that layer.
 
 |  |  |
 
-| ![fig3](./media/image43.jpeg) | **Figure 3.21.** Light capture in a two-component leaf canopy, as used in WaNuLCAS; three zones can be distinguished: an upper zone with only one species, a middle one with both and a lower one with only one (usually not the same as in the upper zone); total light capture in the shared zone may be apportioned relative to the leaf area index of both species in that zone (compare Kropff and Van Laar, 1993). |
+![fig3](./media/image43.jpeg)
+
+Figure 7.1. Light capture in a two-component leaf canopy, as used in WaNuLCAS; three zones can be distinguished: an upper zone with only one species, a middle one with both and a lower one with only one (usually not the same as in the upper zone); total light capture in the shared zone may be apportioned relative to the leaf area index of both species in that zone (compare Kropff and Van Laar, 1993).
 
 |                               |
 |-------------------------------|
 | ![fig3](./media/image44.jpeg) |
 | ![fig3](./media/image45.jpeg) |
 
-**Figure 3.22.** A, B and C Three examples of canopy distribution of
+Figure 7.2. A, B and C Three examples of canopy distribution of
 four plant types within a given zone and the way they are represented in
 the canopy layers for calculating light capture; D and E Comparison of
 light capture calculations per component (tree or crop) according to the
@@ -2162,12 +2173,12 @@ Our choice for n rather than 2n-1 layers introduces an inaccuracy in
 step 5 in as far as the lower canopy boundaries of the various
 components within a layer do not coincide.
 
-## Crop growth
+## 8. Crop growth
 
-#### Basic Relations
+#### 8.1. Basic Relations
 
 Major relationships in the daily cycle of calculating crop biomass
-accumulation (Figure 3.23) are:
+accumulation (Figure 8.1) are:
 
 1.  calculation of crop leaf area index on the basis of shoot biomass,
     leaf weight ratio (LWR, leaf weight as fraction of total shoot
@@ -2214,7 +2225,9 @@ accumulation (Figure 3.23) are:
 
 |  |  |
 
-| ![fig3](./media/image49.jpeg) | **Figure 3.23.** Major relationships in the daily cycle of calculating crop biomass accumulation. |
+![fig3](./media/image49.jpeg)
+
+Figure 8.1. Major relationships in the daily cycle of calculating crop biomass accumulation.
 
 The model thus assumes that under N deficiency crops keep their
 potential transpiration rate, but have a reduced actual water use
@@ -2222,7 +2235,7 @@ efficiency (dry matter production per unit water use). Under water
 stress, N uptake will be reduced as biomass accumulation slows down and
 thus demand is decreasing.
 
-#### Deriving stage-dependent potential growth rates and allocation to harvested organs for situations without shading, water or nitrogen deficiency
+#### 8.2. Deriving stage-dependent potential growth rates and allocation to harvested organs for situations without shading, water or nitrogen deficiency
 
 A number of the allocation functions depends on the 'physiological age'
 of the crop. A basic length of the vegetative and generative stage is
@@ -2329,12 +2342,14 @@ DwSt))
 |  |
 |:--:|
 | ![fig3](./media/image50.jpeg) |
-| **Figure 3.24.** Examples of basic allocation functions derived from the Wofost model using climate data from Lampung (Indonesia) and ‘standard’ parameter settings for cassave, (upland) rice, maize, groundnut and cowpea (data provided by Dr. P. de Willigen, AB-DLO Haren the Netherlands). Arrows denote the starts of generative stage (Cq_Stage=1). |
+Figure 8.2. Examples of basic allocation functions derived from the Wofost model using climate data from Lampung (Indonesia) and ‘standard’ parameter settings for cassave, (upland) rice, maize, groundnut and cowpea (data provided by Dr. P. de Willigen, AB-DLO Haren the Netherlands). Arrows denote the starts of generative stage (Cq_Stage=1).
+
 
 |  |
 |:--:|
 | ![fig3](./media/image51.jpeg) |
-| **Figure 3.25.** Leaf weight ratio, harvest allocation and relative light use efficiency rate as a function of time for the model output of Figure 3.24. |
+Figure 8.3. Leaf weight ratio, harvest allocation and relative light use efficiency rate as a function of time for the model output of Figure 8.2.
+
 
 **Converting time-dependent variates into crop stage dependent ones:**
 
@@ -2351,9 +2366,10 @@ andCqCHarvAlloc\[stage\], respectively.
 |  |
 |----|
 | ![fig3](./media/image52.jpeg) |
-| **Figure 3.26.** Comparison of potential production as derived per 10-day interval from the WOFOST model, and the daily interpolated values derived in the Wanulcas.xls spreadsheet: A. daily growth rates, B. accumulative dry matter production, C. trajectory of the relation between growth rate and LAI. |
+Figure 8.4. Comparison of potential production as derived per 10-day interval from the WOFOST model, and the daily interpolated values derived in the Wanulcas.xls spreadsheet: A. daily growth rates, B. accumulative dry matter production, C. trajectory of the relation between growth rate and LAI.
 
-As illustrated in Figure 3.26 for maize, the daily interpolation does
+
+As illustrated in Figure 8.4 for maize, the daily interpolation does
 not exactly match the Wofost input (based on 10 day recording
 intervals), but errors in daily rates as well as cumulative amounts stay
 within generally acceptable limits (5%); towards the end of the crop
@@ -2380,7 +2396,7 @@ If no potential growth simulations are available, the user may enter
 other types of estimates of the biomass of leaves, stems and storage
 organs into the spreadsheet and otherwise follow the procedure outlined.
 
-#### Maintenance respiration
+#### 8.3. Maintenance respiration
 
 Maintence repiration in WaNULCAS is specifically address the ability to
 ‘shading out weeds'. We use two additional concepts:
@@ -2421,9 +2437,9 @@ growth of plant organs such as stems&leaves on a daily basis
 These parameters are set within the **STELLA** model and not yet part of
 Crop Library in Excel.
 
-## Tree growth
+## 9. Tree growth
 
-####  Tree growth stage 
+#### 9.1. Tree growth stage 
 
 For the trees a physiological growth stage is defined in the \[0 - 1\]
 range for the vegetative stage up to the first flowering event, and in
@@ -2464,7 +2480,7 @@ On a daily basis a fraction of the T_Fruit biomass pool can be removed
 by frugivory and fruit abortion, as governed by
 T_frugivory&abortionFrac, and returned to the soil as mulch.
 
-#### Canopy and support structure
+#### 9.2. Canopy and support structure
 
 WaNuLCAS includes a simple description of canopy shape, aboveground
 biomass production and litterfall; these rules are applied if the
@@ -2515,10 +2531,10 @@ canopy shapes, with as parameters:
 - An alternative formulation that is activated when T_ApplyFBARules? = 1
   is described in section 3.8.4.
 
-#### Daily cycle of calculations
+#### 9.3. Daily cycle of calculations
 
 The sequence of events during a pruning/regrowth cycle is illustrated in
-Figure 3.27. In the first stages of regrowth after pruning, growth is
+Figure 9.2. In the first stages of regrowth after pruning, growth is
 based on the carbohydrate reserves in the bare trunk which remained
 after pruning and is thus dominated by the fraction which can be
 converted daily. Once green leaves start to function, the carbohydrate
@@ -2531,7 +2547,8 @@ be made size-dependent if more specific data are available).
 |                                                                      |
 |:--------------------------------------------------------------------:|
 |                    ![fig3](./media/image55.jpeg)                     |
-| **Figure 3.27.**Tree canopy shape during a pruning - regrowth cycle. |
+Figure 9.2.Tree canopy shape during a pruning - regrowth cycle.
+
 
 ![](./media/image56.png)
 
@@ -2556,7 +2573,7 @@ equations based on fractal branching properties can be used (not yet)
 
 Pruning events are described in section 3.10.7.
 
-#### Tree diameter and allometric biomass allocation rules 
+#### 9.4. Tree diameter and allometric biomass allocation rules 
 
 A number of allometric biomass equations (of the general form: Y =
 aD^(b)) is commonly used to relate biomass in specific fractions (total
@@ -2600,7 +2617,7 @@ weight and nutrient resources from the canopy biomass to the T_Wood pool
 is driven by the difference between T_TargetLeafTwig and current
 T_CanBiom.
 
-#### Tree phenology
+#### 9.5. Tree phenology
 
 In WaNuLCAS we treat the physiological water use efficiency (dry matter
 production per unit water used, in situations without nutrient stress)
@@ -2633,7 +2650,7 @@ litterfall, with a minimum waiting period for leaf re-emergence if the
 water stress disappears (e.g. as a consequence of reduced demand after
 litterfall).
 
-####  Cumulative litterfall
+#### 9.6. Cumulative litterfall
 
 If the initial length of a link (section of stem or branch between two
 branching points) is L_(min), and its initial diameter D_(min), a linear
@@ -2712,9 +2729,10 @@ biomass is regained.
 |  |
 |----|
 | ![Fig 3](./media/image68.jpeg) |
-| **Figure 3.29.** A. Comparison of biomass and cumulative litterfall as a function of stem diameter comparing a numerical integration with results of eq.\[54\]; B. Relative allocation of current biomass production to litterfall as a function of stem diameter for a default parameter set and in situations where the slope of the biomass allometric equation is increased or decreased by 25%. |
+Figure 9.3. A. Comparison of biomass and cumulative litterfall as a function of stem diameter comparing a numerical integration with results of eq.\[54\]; B. Relative allocation of current biomass production to litterfall as a function of stem diameter for a default parameter set and in situations where the slope of the biomass allometric equation is increased or decreased by 25%.
 
-#### Tree products
+
+#### 9.7. Tree products
 
 A number of tree products can be harvested and removed from the plot:
 
@@ -2729,10 +2747,10 @@ A number of tree products can be harvested and removed from the plot:
 
 - wood, governed by T_WoodHarvestFrac and T_WoodHarvDay
 
-#### Oil palm growth 
+#### 9.8. Oil palm growth 
 
 A new option is available to simulate fruiting mechanism in oil-palm
-(Figure 3.29). Palms differ from most dicotyledonous trees in a number
+(Figure 9.3). Palms differ from most dicotyledonous trees in a number
 of ways that are relevant for the current model: they have a much more
 rigid development pattern in which leaves are formed and emerge
 continuously (rather than with the seasonality or flushing of many
@@ -2760,7 +2778,7 @@ in a top-down sequence, opposite to their age).
 
 ![](./media/image69.png)
 
-**Figure 3.30.** schematic map of the new tree fruit module developed to
+Figure 9.5. schematic map of the new tree fruit module developed to
 represent palm fruit development in the various bunch stages.
 
 Focussing on oil palm and leaving further model adaptations to other
@@ -2794,11 +2812,11 @@ identified for the model:
 - ***harvest of one (potential) bunch at the end of each phyllochron
   unit.***
 
-Figure 3.30 shows the palm oil module in WaNuLCAS, sink strength for
+Figure 9.5 shows the palm oil module in WaNuLCAS, sink strength for
 male and female bunches and the sensitivity to drought stress leading to
 fruit abortion depend on bunch development stage.
 
-#### Harvesting latex or resin from tress
+#### 9.9. Harvesting latex or resin from tress
 
 Tapping rubber (*Hevea brasiliensis*) or jelutung (*Dyera costulata*)
 trees for their latex, or *Acacia senegalensis* for its gum-arabic or
@@ -2813,18 +2831,18 @@ tree products after adjustment of parameter values.
 
 The conversion of Tree Growth Reserves (T_GroRes) into harvested product
 is described as a two-step process: formation of latex and building up a
-stock of latex, and the actual tapping (Figure 3.31). The first
+stock of latex, and the actual tapping (Figure 9.6). The first
 conversion is controlled by inherent properties of the trees (T_Rubber?,
 an on/off switch that is part of the tree library), and a dynamic
 allocation fraction (T_LatexFormAlloc) that depends on a number of tree
 parameters (than can be differentiated for rubber clones) such as a
 maximum mobilization fraction, bark thickness and a saturation feedback
 if the latex stock (T_LatexStock) approaches its maximum capacity
-(Figure 3.32).
+(Figure 9.7).
 
 ![](./media/image70.png)
 
-**Figure 3.31.** Latex formation diagram in WaNuLCAS model.
+Figure 9.6. Latex formation diagram in WaNuLCAS model.
 
 The second step, tapping into the actual tapping (T_TappedLatex) pool
 can influence the rate of latex formation. There are a number of
@@ -2837,12 +2855,12 @@ controls here:
   season and wettest period),
 
 - Whether it is a ‘tapping day’, depending on the tapping schedule
-  selected (T_TappingDay?) (Figure 3.33),
+  selected (T_TappingDay?) (Figure 9.8),
 
 - Whether there is sufficient ‘tapping panel’ left (bark below the
   maximum tapping height that has not been tapped before, or has
   sufficiently recovered since an earlier tapping cycle, governed by a
-  recovery rate) (T_PanelQuality) (Figure 3.34),
+  recovery rate) (T_PanelQuality) (Figure 9.9),
 
 - Whether the panel is affected by the ‘BrownBast’ condition (a fungal
   infection) (T_BrownBast?),
@@ -2852,15 +2870,16 @@ to labour (this is based on a comparison of labour investment, dry
 weight of latex obtained and prices for a day of labour and a kg or dry
 rubber). This function reflects farmer decisions to selectively tap as
 long as it gives adequate yield or otherwise rest a tree and focus on
-others in the same stand (T_TapThisTree?) (Figure 3.32).
+others in the same stand (T_TapThisTree?) (Figure 9.7).
 
 | ![](./media/image71.png) |
 |----|
-| **Figure 3.32.** Diagram that show number of tree parameter controls a dynamic of latex allocation fraction (T_LatexAllocForm). |
+Figure 9.7. Diagram that show number of tree parameter controls a dynamic of latex allocation fraction (T_LatexAllocForm).
+
 
 ![](./media/image72.png)
 
-**Figure 3.33.** Diagram that show dynamic of available tapping panel
+Figure 9.8. Diagram that show dynamic of available tapping panel
 and its influence factors
 
 The latter ratio is derived in a section of the model that also converts
@@ -2869,16 +2888,16 @@ appropriate area scaling factor.
 
 ![](./media/image73.png)
 
-**Figure 3.34.** Diagram that show influence factors for tapping
+Figure 9.9. Diagram that show influence factors for tapping
 schedule selected and farmer decisions to tap the tree.
 
 This module has been developed as part of the PhD research of Dr. Yahya
 Abdul Karim, and was paramaterized by him for rubber clone comparisons
 in Malaysia.
 
-## Carbon balance
+## 10. Carbon balance
 
-#### Soil organic matter 
+#### 10.1. Soil organic matter 
 
 Total soil organic matter is supposed to consist of 'metabolic' and
 'structural' pools in the recently added organic materials, an 'active'
@@ -2986,9 +3005,10 @@ with the value used in deriving soil hydraulic properties.
 |  |
 |:--:|
 | ![fig3](./media/image75.jpeg) |
-| **Figure 3.35.** Major relationships in N immobilization and N mineralization from organic residues; the basic C and N pools are similar to the Century model, but plant polyphenolics are added as litter quality parameter. |
+Figure 10.1. Major relationships in N immobilization and N mineralization from organic residues; the basic C and N pools are similar to the Century model, but plant polyphenolics are added as litter quality parameter.
 
-#### Carbon stocks
+
+#### 10.2. Carbon stocks
 
 An output table is provided which summarizes the carbon balance, similar
 to the water, nitrogen and phosphorus balance sheets.
@@ -3001,9 +3021,9 @@ products removed from the plot and all carbon lost as CO₂ in soil
 organic matter transformations. Plant respiration is implicit in the net
 photosysnthesis and thus does not appear on the C balance sheet.
 
-## Management options
+## 11. Management options
 
-#### Options for strategic and tactic management 
+#### 11.1. Options for strategic and tactic management 
 
 The WaNuLCAS model can evaluate a number of farmer management options.
 These can be grouped in strategic decisions, to be made by a farmer
@@ -3047,7 +3067,7 @@ competition are set up in such a way that the model can be extended to
 an n-plant interaction and different plants can share a zone in the
 model, above as well as belowground.
 
-#### Slash-and-burn events 
+#### 11.2. Slash-and-burn events 
 
 A number of 'Slash' events can be defined in the event calendar, by
 specifying the S&B_SlashYear and S&B_SlashDOY tables. Slash events
@@ -3114,7 +3134,7 @@ via the temperature at the soil surface or that in the top soil:
 Most of the above impacts is related to temperature via a graphical
 input; impacts can be set to zero by modifying these graphs.
 
-#### Tree mortality 
+#### 11.3. Tree mortality 
 
 Trees can die due to fire (see 3.10.2) or at a set date (T_KillYear and
 T_KillDOY). Currently, we can kill, replant then kill of any tree on
@@ -3123,7 +3143,7 @@ acertain zone up to 3 times on 1 length of simulation.
 If Rt_ATType = 2 is used, any remaining root biomass at that time is
 treated as input to the soil organic matter module.
 
-#### Weed growth
+#### 11.4. Weed growth
 
 An option is provided to include weed growth in the simulations, outside
 of the cropping periods. If the switch C_SimulateWeeds? is set at 1 (in
@@ -3141,7 +3161,7 @@ parameter set chosen on the basis of Cq_WeedType (default = 10). The
 weed can have a perennial or annual growth habit, depending on the value
 of Cq_SingleCycle? for crop type 10.
 
-#### Pests and diseases
+#### 11.5. Pests and diseases
 
 Leaves, roots, fruits and wood of crops and trees can be eaten by
 herbivores, rhizovores, frugivores and lignivores, respectively. The
@@ -3157,7 +3177,7 @@ if it is in a good enough condition (PD_FenceQ \>= 1). Again, this is a
 skeleton of a module only, and the user who is interested in this type
 of interactions and lateral flows will have to provide more detail.
 
-#### Fence
+#### 11.6. Fence
 
 Fence quality is supposed to be related to initial labour time
 investment according to Q = M \* L/(K + L), where M is the maximum
@@ -3186,7 +3206,7 @@ building and maintenance are taken to be proportional to the amount of
 labour spent, and the P_FenceMatCost\[PriceType\] value is supposed to
 be spent when the amount of labour used equals PD_HalfFenceTime.
 
-#### Tree pruning
+#### 11.7. Tree pruning
 
 For tree pruning the following options are provided:
 
@@ -3215,19 +3235,19 @@ For tree pruning the following options are provided:
   (harvested) from the field, e.g. for use as fodder. This can also be
   specified as constant or dynamic.
 
-#### Tillage 
+#### 11.8. Tillage 
 
 This option relates to Soil Erosion and transfer of litter to SOM pools.
 Tilling can be specified from a calendar, or be automatically
 implemented at X days before planting a new crop.
 
-#### Timber Harvesting
+#### 11.9. Timber Harvesting
 
 Timber can be harvested, specified in Excel sheet Tree Management. When
 timber is harvested all canopy biomass and fruit are removed from plot.
 T_WoodHeight will decreased depending on fraction of timber removed.
 
-#### 3.10.10 Grazing 
+#### 11.10. Grazing 
 
 Grazing will affect crop/grass only and 2 types of grazing pressure can
 occur, field and patch level.
@@ -3263,9 +3283,9 @@ to have rule for relating stocking rate to standing biomass as result of
 actual grazing success. This would reflect farmer decision making in
 managing the system.
 
-## Model output
+## 12. Model output
 
-#### General
+#### 12.1. General
 
 A number of graphs and tables is provided for viewing output of a
 WaNuLCAS simulation, but the **STELLA** environment allows a user to
@@ -3280,7 +3300,7 @@ dry weights of the model to the moisture contents conventionally used
 for agronomic yields (as governed by the .C_AgronYMoistFrac parameter in
 crop type).
 
-#### Financial analysis
+#### 12.2. Financial analysis
 
 The WaNuLCAS model can predict the outcome of patch-level performance of
 agroforestry systems under a range of management choices. In version 2 a
@@ -3297,9 +3317,9 @@ as to allow an analysis of the impacts of economic policies and market
 imperfections on the profitability of the agroforestry system simulated.
 As we do a daily accounting of costs and returns, no separate category
 of 'working capital' is needed as one would use for an annual accounting
-system. Costs and returns included in WaNuLCAS are listed in Table 3.7.
+system. Costs and returns included in WaNuLCAS are listed in Table 12.1.
 
-### **Table 3.7.** Costs and returns included in the calculation of net present value in WaNuLCAS
+Table 12.1. Costs and returns included in the calculation of net present value in WaNuLCAS
 
 | Costs | Returns |
 |:---|:---|
@@ -3310,7 +3330,7 @@ system. Costs and returns included in WaNuLCAS are listed in Table 3.7.
 | Labour for crop planting, management and harvesting |  |
 | Labour and input costs for field protection (incl. fence building and maintenance) |  |
 
-#### Filter functions
+#### 12.3. Filter functions
 
 Tree and crop roots can exert 'safety-net' or 'filter' functions by
 intercepting nutrients from various depths of the soil, and thus
@@ -3353,9 +3373,10 @@ cumulative loss in horizontal and vertical direction from this cell.
 |  |
 |----|
 | ![fig3](./media/image81.jpeg) |
-| **Figure 3.36.** Filter functions (or safetynet functions) are defined as uptake/(uptake +loss) at three scales: local (as example here for cell 3.3), edge (uptake from zone1+layer4, net losses from the edge equal net losses from system as a whole) or system as a whole. |
+Figure 12.1. Filter functions (or safetynet functions) are defined as uptake/(uptake +loss) at three scales: local (as example here for cell 3.3), edge (uptake from zone1+layer4, net losses from the edge equal net losses from system as a whole) or system as a whole.
 
-#### Number of days plants has growth limitation
+
+#### 12.4. Number of days plants has growth limitation
 
 We defined this as fraction of days (out of the length of simulation
 days) tree or crop is limited by water, nitrogen or phosphorous.
