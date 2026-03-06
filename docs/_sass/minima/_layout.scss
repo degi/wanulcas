@@ -5,6 +5,8 @@
   /*float: right;*/ /* Or left */
   width: 250px;
   right: 10;
+    height: 0; /* Ensures container takes no space */
+  overflow: visible; /* Allows content to be seen */
 }
 
 .sticky-wrapper {
