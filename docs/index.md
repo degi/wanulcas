@@ -10,5 +10,4 @@ WaNuLCAS is a software for simulating Water, Nutrient, and Light Capture in Agri
 * [User Manual](https://degi.github.io/wanulcas/manual/)
 * [Background](https://degi.github.io/wanulcas/background/)
 * [Overview](https://degi.github.io/wanulcas/overview/)
-* [References](https://degi.github.io/wanulcas/references/)
 * [Appendix](https://degi.github.io/wanulcas/appendix/)
