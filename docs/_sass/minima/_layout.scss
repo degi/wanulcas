@@ -1,13 +1,10 @@
 .sidebar {
   position: -webkit-sticky; /* For Safari */
   position: sticky;
-  top: 0px; /* Distance from top */
-  height: 100vh;
-  float: right; /* Or left */
+  top: 20px; /* Distance from top */
+  /*float: right;*/ /* Or left */
   width: 250px;
   right: 10;
-  padding: 20px;
-  box-sizing: border-box;
 }
 
 .sticky-wrapper {
