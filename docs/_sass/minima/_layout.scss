@@ -1,3 +1,13 @@
+.sidebar {
+  position: -webkit-sticky; /* For Safari */
+  position: sticky;
+  top: 20px; /* Distance from top */
+  float: right; /* Or left */
+  width: 250px;
+}
+
+
+
 /**
  * Site header
  */
