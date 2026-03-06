@@ -4,7 +4,7 @@ title: Background
 permalink: /background/
 ---
 
-## 1. Balancing pattern and process
+## 1. Balancing Pattern and Process
 
 A focal point in the analysis of where and how agroforestry systems work
 is still whether or not tree-crop systems can utilize resources of
@@ -22,9 +22,9 @@ and simultaneous agroforestry systems may thus have been overstated in
 the past and a modelling framework is desirable in which they are
 endpoints of a continuum.
 
-|  |  |
-|----|----|
-| ![fig1_1](./media/image1.jpeg) | **Figure 1.1.** Schematic classification of the way crop growth models deal with spatial and temporal complexity; agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models. |
+![fig1_1](./media/image1.jpeg)
+
+Figure 1.1. Schematic classification of the way crop growth models deal with spatial and temporal complexity; agroforestry models should explore the diagonal, rather than try to introduce spatial patterns in complex process based models.
 
 In modelling agroforestry systems, a balance should be maintained
 between 'process' and 'pattern', between temporal and spatial aspects
@@ -80,7 +80,7 @@ negative effects can interact during the growing season, and this may
 limit the use of end-of-season summaries of the tree-crop interaction
 effects. Yet, such summaries are helpful as a first approximation.
 
-## 2. Tree-soil-crop interactions
+## 2. Tree-Soil-Crop Interactions
 
 The success of any intercropping depends on the balance of positive
 (facilitation) and negative (competition) interactions between the
@@ -118,7 +118,7 @@ benefits then depends on:
     specifically for the resources obtained in competition with the
     crop, C<sub>recycl</sub>.
 
-### **Table 1.1.** Three-step approach to analysis and synthesis of tree-soil-crop interactions in simultaneous agroforestry systems. A direct experimental separation of the terms in the equation is combined with quantification of key processes and followed by model synthesis to explore management options and system-site matching (van Noordwijk *et al.*, 1998a).
+Table 1.1. Three-step approach to analysis and synthesis of tree-soil-crop interactions in simultaneous agroforestry systems. A direct experimental separation of the terms in the equation is combined with quantification of key processes and followed by model synthesis to explore management options and system-site matching (van Noordwijk *et al.*, 1998a).
 
 <table style="width:100%;">
 <colgroup>
@@ -252,7 +252,7 @@ below the zone of crop roots and/or outside of the crop growing season
 resources stored in the subsoil for longer periods of time (Young,
 1997).
 
-### **Table 1.2.** Representation of resource capture (equation 1) in a simple tree-crop agroforestry system, where the crop roots are confined to the 'topsoil' and the tree roots explore the 'subsoil' as well; the subscripts 1, 2 and 3 refer to crop zones with increasing distance to the tree.
+Table 1.2. Representation of resource capture (equation 1) in a simple tree-crop agroforestry system, where the crop roots are confined to the 'topsoil' and the tree roots explore the 'subsoil' as well; the subscripts 1, 2 and 3 refer to crop zones with increasing distance to the tree.
 
 <table style="width:96%;">
 <colgroup>
@@ -330,7 +330,7 @@ depth from which each component is capturing water and nutrients on a
 daily basis, in order to derive overall complementarity on a seasonal
 basis.
 
-## 3. Intercropping, crop-weed and agroforestry models
+## 3. Intercropping, Crop-Weed and Agroforestry Models
 
 Attempts to link separately developed crop models into an
 'intercropping' model have not been very successful yet (Caldwell *et
@@ -380,10 +380,9 @@ the spatial distribution of organs for resource capture is probably more
 important in plant-plant interaction models than it is in models for
 monocultural stands.
 
-|  |
-|----|
-| ![Fig3](./media/image3.jpeg) |
-| **Figure 3.1.** General lay out of zones and layers in the WaNuLCAS model (A) and applications to four types of agroforestry system: B. Alley cropping, C. Contour hedgerows on slopes, with variable topsoil depth, D. Parkland systems, with a circular geometry around individual trees, E. Fallow-crop mosaics with border effects. |
+![Fig3](./media/image3.jpeg)
+
+Figure 3.1. General lay out of zones and layers in the WaNuLCAS model (A) and applications to four types of agroforestry system: B. Alley cropping, C. Contour hedgerows on slopes, with variable topsoil depth, D. Parkland systems, with a circular geometry around individual trees, E. Fallow-crop mosaics with border effects.
 
 A major problem in linking a number of single-species resource capture
 models into a multi-species resource capture model with a single
