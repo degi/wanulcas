@@ -16,19 +16,32 @@
 </head>
 
 <body>
+    <header class="site-header">
+
+  <div class="wrapper">
+    <img src="https://raw.githubusercontent.com/degi/wanulcas/refs/heads/main/www/images/wanulcas_logo.svg" style="float:left;height:32px;margin-top:10px;margin-right:10px">
+    <a class="site-title" rel="author" href="/wanulcas/"> <b>WaNuLCAS</b>-5</a>
+      <nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon"></span>
+        </label>
+
+        <div class="nav-items">
+  <a class="nav-item" href="/wanulcas/manual/">User Manual</a>
+  <a class="nav-item" href="/wanulcas/background/">Background</a>
+  <a class="nav-item" href="/wanulcas/overview/">Overview</a>
+  <a class="nav-item" href="/wanulcas/appendix/">Appendix</a>
+</div>
+
+      </nav>
+  </div>
+</header>
+    
     <div class="container-fluid">
         <main class="row">
             <div class="col">
-                <h1>Wanulcas vars</h1>
-
-                <p>Display any CSV file as a searchable, filterable, pretty HTML table. Done in 100% JavaScript. <a
-                        href="https://github.com/derekeder/csv-to-html-table">Code
-                        on GitHub</a>.</p>
-
-                <p> Here's a table of Health Clinics from the <a
-                        href="https://data.cityofchicago.org/browse?q=health%20clinic&sortBy=relevance&utf8=%E2%9C%93">City
-                        of Chicago Data Portal</a>.
-                </p>
+                <h2>List of variables on WaNuLCAS model</h2>
 
                 <div id="table-container"></div>
             </div>
