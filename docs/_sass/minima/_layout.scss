@@ -1,12 +1,22 @@
 .sidebar {
-  position: -webkit-sticky; /* For Safari */
+/*  position: -webkit-sticky; 
   position: sticky;
-  top: 20px; /* Distance from top */
-  float: right; /* Or left */
+  top: 20px;
+  float: right; 
   width: 250px;
   right: 10px;
-    height: 0; /* Ensures container takes no space */
-  overflow: visible; /* Allows content to be seen */
+    height: 0; 
+  overflow: visible;   */
+
+      height: 100%; /* Full-height */
+    width: 160px; /* Set the width */
+    position: fixed; /* Fixed position on screen */
+    z-index: 1; /* Stay on top */
+    top: 0; /* Stay at the top */
+    right: 0; /* Align to the right edge */
+    background-color: #111;
+    overflow-x: hidden; /* Disable horizontal scroll */
+    padding-top: 20px;
 }
 
 .sticky-wrapper {
