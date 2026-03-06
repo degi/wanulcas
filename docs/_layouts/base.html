@@ -6,7 +6,11 @@
   <body>
 
     {%- include header.html -%}
-
+<div class="sticky-wrapper">
+  <div class="sidebar">
+     {% include toc.html html=content %}
+</div></div>
+    
     <main class="page-content" aria-label="Content">
       <div class="wrapper">
         {{ content }}
