@@ -56,10 +56,10 @@ oilpalm_params_ui <- function() {
   card_body(
     class = "bordercard",
     height = "100%",
-    # div(
-    #   "Select at most 3 types of tree you want to simulate from the tree library:"
-    # ),
-    # uiOutput("input_tree_select"),
+    div(
+      "Select at most 3 types of oilpalm you want to simulate from the tree library:"
+    ),
+    uiOutput("input_oilpalm_select"),
     card(
       card_header(
         class = "d-flex justify-content-between",

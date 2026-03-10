@@ -31,6 +31,10 @@ generate_graph_functions <- function(graphs) {
       method <- "constant"
     }
     lapply(x$xy_data, function(d, m) {
+      if(length(d$x_val) != length(d$y_val)) {
+        print("ERROR: graph axis")
+        print(d)
+      }
       suppressWarnings(approxfun(
         unlist(d$x_val),
         unlist(d$y_val),
@@ -1224,7 +1228,7 @@ zonelayertree_df_params <- c(
   'RT_TLrvL4_Zn4'
 )
 
-tree_df_params <- c(
+tree_vars <- c(
   'T_TimeVeg',
   'T_TimeGenCycle',
   'T_DOYFlwBeg',
@@ -1289,7 +1293,10 @@ tree_df_params <- c(
   'T_MycMaxInf',
   'N_TRhizKaPMod',
   'SB_TTempTol',
-  'E_CovEffT',
+  'E_CovEffT'
+)
+
+oilpalm_vars <- c(
   "TF_PalmTrunkInternode",
   "TF_PalmTrunkIntercept",
   "TF_TrunkHIncStressFac",
@@ -1314,6 +1321,8 @@ tree_df_params <- c(
   "TF_WatStressAbortFrac",
   "TF_AbRelSizePow"
 )
+
+tree_df_params <- c(tree_vars, oilpalm_vars)
 
 TF_TargetOilperBunch_params <- c(
   "TF_TargetOilperBunch_Ripe",
@@ -1483,6 +1492,9 @@ TF_MaleSinkperBunch_params <- c(
   "TF_MaleSinkperBunch_Anthesis6"
 )
 
+# wanulcas_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
+# xls_input_file <- "Wanulcas.xlsm"
+
 apply_xls_params <- function(xls_input_file, wanulcas_params) {
   # if (is.null(wanulcas_params)) {
   #   wpars <- default_params
@@ -1616,7 +1628,7 @@ apply_xls_params <- function(xls_input_file, wanulcas_params) {
   
   wpars$arrays$treenut_df$vars$T_NutMob <- c(tree_par_df$T_NutMobT_N, tree_par_df$T_NutMobT_P)
   wpars$arrays$treepcomp_df$vars$T_LfConc <- c(1, 1, 1, tree_par_df$T_LfConc_N, tree_par_df$T_LfConc_P)
-  wpars$arrays$treepcomp_df$vars$T_TwigConc <- c(1, 1, 1, tree_par_df$T_ConcTwig_N, tree_par_df$T_ConcTwig_N)
+  wpars$arrays$treepcomp_df$vars$T_TwigConc <- c(1, 1, 1, tree_par_df$T_ConcTwig_N, tree_par_df$T_ConcTwig_P)
   wpars$arrays$treepcomp_df$vars$T_FruitConc <- c(1,
                                                   1,
                                                   1,
@@ -1749,6 +1761,182 @@ write_params <- function(wanulcas_params, filename) {
   write(t, filename)
 }
 
+### Crop sp to wanulcas params ###############
+# cs <- read.csv("crop_species.csv")
+# croplist_df <- cs[c(1:2, 4:8)]
+
+apply_croplist_params <- function(wanulcas_params, croplist_df) {
+  # preparing the data
+  tCQ_df <- as.data.frame(t(croplist_df[3:7]))
+  colnames(tCQ_df) <- ifelse(
+    croplist_df$sub_var == "",
+    croplist_df$var,
+    paste(croplist_df$var, croplist_df$sub_var, sep = "-")
+  )
+  pCQ_df <- tCQ_df[, crop_df_vars]
+  CQ_list <- as.list(pCQ_df)
+  wanulcas_params$arrays$crop_df$vars[names(CQ_list)] <- CQ_list
+  # assign parameters
+  wanulcas_params$arrays$cropnut_df$vars$CQ_NConcYoungCurr <- c(tCQ_df[["CQ_NConcYoungCurr-N"]], tCQ_df[["CQ_NConcYoungCurr-P"]])
+  wanulcas_params$arrays$cropnut_df$vars$CQ_NConcOldCurr <- c(tCQ_df[["CQ_NConcOldCurr-N"]], tCQ_df[["CQ_NConcOldCurr-P"]])
+  wanulcas_params$arrays$cropnut_df$vars$N_CNutMob <- c(tCQ_df[["N_CNutMob-N"]], tCQ_df[["N_CNutMob-P"]])
+  wanulcas_params$arrays$cropanimal_df$vars$PD_CropsEaten_is <-  unlist(tCQ_df[c(
+    "PD_CropsEaten_is-Pigs",
+    "PD_CropsEaten_is-Monkeys",
+    "PD_CropsEaten_is-Grasshoppers",
+    "PD_CropsEaten_is-Nematodes",
+    "PD_CropsEaten_is-Goats",
+    "PD_CropsEaten_is-Buffalo",
+    "PD_CropsEaten_is-Birds"
+  )])
+  wanulcas_params$arrays$croplayer_df$vars$Lrvm <-  unlist(tCQ_df[c("Lrvm-1", "Lrvm-2", "Lrvm-3", "Lrvm-4")])
+  wanulcas_params$arrays$cropprice_df$vars$P_PriceCSeed <-  c(tCQ_df[["P_PriceCSeed-Private"]], tCQ_df[["P_PriceCSeed-Social"]])
+  wanulcas_params$arrays$cropprice_df$vars$P_CYieldPrice <-  c(tCQ_df[["P_CYieldPrice-Private"]], tCQ_df[["P_CYieldPrice-Social"]])
+  
+  # assign graph parameters
+  graph_vars <- c("CQ_CRelLUE",
+                  "CQ_CLWR",
+                  "CQ_CHarvAlloc",
+                  "CQ_CSLA",
+                  "CQ_CRtAlloc")
+  for (gv in graph_vars) {
+    for (cr in c(1:5)) {
+      for (z in c(1:4)) {
+        wanulcas_params$graphs[[gv]]$xy_data[[paste0(gv, "_Type", cr, "_Zn", z)]][["y_val"]] <-
+          croplist_df[croplist_df == gv, cr + 2]
+      }
+    }
+  }
+  
+  return(wanulcas_params)
+}
+
+### Tree sp to wanulcas params ###############
+# ts <- read.csv("tree_species.csv")
+# treelist_df <- ts[c(1:2, 4:6)]
+
+apply_treelist_params <- function(wanulcas_params, treelist_df) {
+  # preparing the data
+  tree_par_df <- as.data.frame(t(treelist_df[3:5]))
+  colnames(tree_par_df) <- ifelse(
+    treelist_df$sub_var == "",
+    treelist_df$var,
+    paste(treelist_df$var, treelist_df$sub_var, sep = "_")
+  )
+  
+  T_par_list <- as.list(tree_par_df[tree_vars])
+  wanulcas_params$arrays$tree_df$vars[names(T_par_list)] <- T_par_list
+  
+  wanulcas_params$arrays$treeanimal_df$vars$PD_TEatenBy_is <- as.numeric(unlist(tree_par_df[paste0(
+    "PD_TEatenBy_is_",
+    c(
+      "Pigs",
+      "Monkeys",
+      "Grasshoppers",
+      "Nematodes",
+      "Goats",
+      "Buffalo",
+      "Birds"
+    )
+  )]))
+  
+  RT_TLrvL_df <- treelist_df[treelist_df$var == "RT_TLrvL_par", 3:5]
+  wanulcas_params$arrays$zonelayertree_df$vars$RT_TLrvL_par <- c(RT_TLrvL_df[[1]], RT_TLrvL_df[[2]], RT_TLrvL_df[[3]])
+  
+  wanulcas_params$arrays$treenut_df$vars$T_NutMob <- c(tree_par_df$T_NutMob_N, tree_par_df$T_NutMob_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_LfConc <- c(1, 1, 1, tree_par_df$T_LfConc_N, tree_par_df$T_LfConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_TwigConc <- c(1, 1, 1, tree_par_df$T_TwigConc_N, tree_par_df$T_TwigConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_FruitConc <- c(1,
+                                                            1,
+                                                            1,
+                                                            tree_par_df$T_FruitConc_N,
+                                                            tree_par_df$T_FruitConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_GroResConc <- c(1,
+                                                             1,
+                                                             1,
+                                                             tree_par_df$T_GroResConc_N,
+                                                             tree_par_df$T_GroResConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_RtConc <- c(1, 1, 1, tree_par_df$T_RtConc_N, tree_par_df$T_RtConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_WoodConc <- c(1, 1, 1, tree_par_df$T_WoodConc_N, tree_par_df$T_WoodConc_P)
+  wanulcas_params$arrays$treepcomp_df$vars$T_LifallRed <- c(0,
+                                                            0,
+                                                            0,
+                                                            tree_par_df$T_LifallRed_N,
+                                                            tree_par_df$T_LifallRed_P)
+  return(wanulcas_params)
+}
+
+### Oilpalm sp to wanulcas params ###############
+# ts <- read.csv("oilpalm_species.csv")
+# oilpalmlist_df <- ts[c(1:2, 4:6)]
+
+apply_oilpalmlist_params <- function(wanulcas_params, oilpalmlist_df) {
+  # preparing the data
+  oilpalm_par_df <- as.data.frame(t(oilpalmlist_df[3:5]))
+  colnames(oilpalm_par_df) <- ifelse(
+    oilpalmlist_df$sub_var == "",
+    oilpalmlist_df$var,
+    paste(oilpalmlist_df$var, oilpalmlist_df$sub_var, sep = "_")
+  )
+  p_vars <- c(
+    "P_TPlantLab",
+    "P_TPrunLab",
+    "P_TFruitHarvLab",
+    "P_TWoodHarvLab",
+    "P_TLatexHarvLab",
+    "P_TFertLab"
+  )
+  T_par_list <- as.list(oilpalm_par_df[c(oilpalm_vars, p_vars)])
+  wanulcas_params$arrays$tree_df$vars[names(T_par_list)] <- T_par_list
+  
+  fid <- c(
+    "Ripe",
+    "Ripe1" ,
+    "Ripe2",
+    "Ripe3"   ,
+    "Ripe4",
+    "Ripe5",
+    "Ripe6"   ,
+    "Ripe7"     ,
+    "Ripe8" ,
+    "Ripe9"     ,
+    "Ripe10"  ,
+    "Ripe11",
+    "Ripe12"  ,
+    "EarlyFruit",
+    "Pollinated" ,
+    "Anthesis"   ,
+    "Anthesis1"  ,
+    "Anthesis2",
+    "Anthesis3" ,
+    "Anthesis4",
+    "Anthesis5",
+    "Anthesis6"
+  )
+  fvars <- c(
+    "TF_MaleSinkperBunch",
+    "TF_FemSinkperFruit",
+    "TF_TargetOilperBunch",
+    "TF_StageAbortSens"
+  )
+  
+  for (v in fvars) {
+    vid <- paste0(v, "_", fid)
+    wanulcas_params$arrays$treefruit_df$vars[[v]] <- as.numeric(unlist(oilpalm_par_df[vid]))
+  }
+  
+  p_vars <- c("P_TSeedPrice",
+              "P_TWoodPrice",
+              "P_TFruitPrice",
+              "P_TLatexPrice",
+              "P_TPrunPrice")
+  
+  for (p in p_vars) {
+    wanulcas_params$arrays$treeprice_df$vars[[p]] <- c(oilpalm_par_df[[paste0(p, "_Private")]], oilpalm_par_df[[paste0(p, "_Social")]])
+  }
+  
+  return(wanulcas_params)
+}
 
 
 ### Rain ###########################

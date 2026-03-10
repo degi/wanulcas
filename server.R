@@ -441,6 +441,10 @@ server <- function(input, output, session) {
       selectInput("input_oilpalm_1", "oilpalm 1:", oilpalm_list),
       selectInput("input_oilpalm_2", "oilpalm 2:", oilpalm_list),
       selectInput("input_oilpalm_3", "oilpalm 3:", oilpalm_list)
+      
+      # selectInput("input_oilpalm_1", "oilpalm 1:", oilpalm_list, selected = oilpalm_list[1]),
+      # selectInput("input_oilpalm_2", "oilpalm 2:", oilpalm_list, selected = oilpalm_list[1]),
+      # selectInput("input_oilpalm_3", "oilpalm 3:", oilpalm_list, selected = oilpalm_list[1])
     )
   })
   
@@ -529,7 +533,11 @@ server <- function(input, output, session) {
       "Remove oilpalm",
       "",
       "confirm_remove_oilpalm",
-      custom_input = selectInput("removed_oilpalm", "Select the oilpalm to removed:", user_oilpalm())
+      custom_input = selectInput(
+        "removed_oilpalm",
+        "Select the oilpalm to removed:",
+        user_oilpalm()
+      )
     )
   })
   
@@ -551,9 +559,49 @@ server <- function(input, output, session) {
   })
   
   ### Run Simulation #############
+  validate_crop <- function(input_crop) {
+    ifelse(is.null(input_crop),
+           c(user_crop(), crop_species_col)[1],
+           input_crop)
+  }
   
-  # sim_output <- reactiveVal()
-  local_task <- reactiveVal()
+  validate_tree <- function(input_tree) {
+    ifelse(is.null(input_tree),
+           c(user_tree(), tree_species_col)[1],
+           input_tree)
+  }
+  
+  validate_oilpalm <- function(input_oilpalm) {
+    ifelse(is.null(input_oilpalm),
+           c(user_oilpalm(), oilpalm_species_col)[1],
+           input_oilpalm)
+  }
+  
+  apply_species_params <- function(params) {
+    croplist <- c(
+      validate_crop(input$input_crop_1),
+      validate_crop(input$input_crop_2),
+      validate_crop(input$input_crop_3),
+      validate_crop(input$input_crop_4),
+      validate_crop(input$input_crop_5)
+    )
+    croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
+    treelist <- c(
+      validate_tree(input$input_tree_1),
+      validate_tree(input$input_tree_2),
+      validate_tree(input$input_tree_3)
+    )
+    treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
+    oilpalmlist <- c(
+      validate_oilpalm(input$input_oilpalm_1),
+      validate_oilpalm(input$input_oilpalm_2),
+      validate_oilpalm(input$input_oilpalm_3)
+    )
+    oilpalmlist_df <- oilpalm_species_df[c("var", "sub_var", oilpalmlist)]
+    params <- params |> apply_croplist_params(croplist_df) |> apply_treelist_params(treelist_df) |> apply_oilpalmlist_params(oilpalmlist_df)
+    return(params)
+  }
+  
   
   get_input_parameters <- function() {
     params <- list()
@@ -586,8 +634,13 @@ server <- function(input, output, session) {
       a$xy_data <- b
       a
     }, params$graphs, xy, SIMPLIFY = F)
+    
+    params <- apply_species_params(params)
     return(params)
   }
+  
+  # sim_output <- reactiveVal()
+  local_task <- reactiveVal()
   
   task <- ExtendedTask$new(
     function(n, pars, outvars, progress)

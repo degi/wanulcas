@@ -128,6 +128,8 @@ source("R/wanulcas_lib.R")
 # print(config::get("data_path"))
 is_run_online <- Sys.getenv('SHINY_PORT') != ""
 print(paste("Run locale:", !is_run_online))
+# force to run on one engine
+is_run_online <- F
 
 ### GUI ######################
 
