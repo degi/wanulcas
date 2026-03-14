@@ -1,5 +1,6 @@
 ---
 layout: home
+title: WaNuLCAS 5.0 Documentation
 ---
 
 Welcome to the official documentation site for WaNuLCAS 5.0. This site provides comprehensive information on how to understand, configure, and run simulations within the application.
