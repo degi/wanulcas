@@ -27,11 +27,11 @@ The following presentation slides provide an overview of the application:
 
 ![Slide 1](./images/Slide1.PNG)
 *Figure 1. WaNuLCAS Model Overview*<br/><br/>
-WaNuLCAS addresses the key principles underlying a wide range of tree-crop agroforestry systems in order to maximize cross-fertilization between research into these various systems and explore a wide range of management options. It supports evaluating complex dynamics surrounding simultaneous and sequential agroforestry models.
+This figure provides an overview of the model development. The main concept is built upon a continuous, dynamic loop connecting resource stocks and simulated processes to evaluate complex agroforestry systems.
 <br/><br/>
 ![Slide 2](./images/Slide2.PNG)
 *Figure 2. Parameters Required for WaNuLCAS*<br/><br/>
-The model simulation requires input parameters structured into biological and physical categories. These parameters include intricate soil properties, localized climate data, distinct tree and crop characteristics, management schedules, and economic variables.
+The model simulation requires input parameters structured into biological and physical categories, which are further divided into spatial and temporal types. Spatial parameters include soil data, agroforestry design, and zone input differentiation, while temporal parameters consist of calendar events, climate data, and tree and crop library configurations.
 <br/><br/>
 ![Slide 3](./images/Slide3.PNG)
 *Figure 3. Logic Flow of the WaNuLCAS Model*<br/><br/>
