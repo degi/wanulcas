@@ -4,8 +4,6 @@ title: Overview
 permalink: /overview/
 ---
 
-# Overview of the Model
-
 ## 1. Model features
 
 A key feature of the model is the description of uptake of water and
