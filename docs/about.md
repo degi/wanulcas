@@ -24,6 +24,8 @@ Although efforts have been made to incorporate relevant process knowledge across
 
 Copy right, but do not copy wrong. The WaNuLCAS model was developed based on publicly funded research at the World Agroforestry Centre (ICRAF) and may be used for non-commercial research purposes in the interest of smallholder agroforesters worldwide.
 
+<img src="https://raw.githubusercontent.com/degi/wanulcas/refs/heads/main/www/images/wanulcas_diagram.png" width="300" alt="WaNuLCAS Logo"/>
+
 ---
 
 &copy; World Agroforestry (ICRAF) - 2026
