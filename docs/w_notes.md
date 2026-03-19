@@ -1,6 +1,6 @@
 ---
 layout: page
-title: WaNuLCAS Programming and R-Shiny Code Conversion
+title: Technical Notes on WaNuLCAS R-Shiny Code Conversion
 permalink: /notes/
 ---
 
