@@ -1,9 +1,8 @@
 ---
 layout: page
-title: Technical Notes on WaNuLCAS R-Shiny Code Conversion
+title: Technical Notes on R-Shiny Code Conversion of WaNuLCAS
 permalink: /notes/
 ---
-
 ## Background
 
 WaNuLCAS is a model of water, nitrogen, and light interactions in agroforestry systems. Its development began in 1997. The publication of the first version of the WaNuLCAS model was in 1999:
