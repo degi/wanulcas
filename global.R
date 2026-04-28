@@ -85,6 +85,7 @@ library(lubridate)
 library(ipc) #AsyncProgress
 library(mirai)
 
+library(shinyjs)
 
 # shinyCyJS: flow chart
 
@@ -121,6 +122,8 @@ compact_button_style <- "width:auto;height:36px;padding:5px 20px;" #padding:0px 
 # setwd("R")
 source("R/wanulcas.R")
 source("R/wanulcas_lib.R")
+source("R/gui.R")
+
 # setwd(default_wd)
 
 # is_run_online <- config::get("is_online")
@@ -143,7 +146,9 @@ input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
 input_group_df <- read.csv("config/input_group.csv")
 output_vars_option_df <- read.csv("R/output_vars.csv")
-output_vars <- default_output_vars
+xls_config_df <- read.csv("R/xls_param_config.csv")
+
+# output_vars <- default_output_vars
 
 input_gui_tabs_df[is.na(input_gui_tabs_df)] <- ""
 # input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
@@ -226,7 +231,9 @@ array_params_to_ui_inp <- function(array_params) {
                               input_vars_conf_df$subtype == x["subtype"] &
                               input_vars_conf_df$id == as.numeric(x["id"]) &
                               input_vars_conf_df$group_id == as.numeric(x["group_id"]), "var"]
-    as.data.frame(c(array_params[[x["arr"]]]$keys, df[v]))
+    
+    var_df <- df[v[v %in% names(df)]]
+    as.data.frame(c(array_params[[x["arr"]]]$keys, var_df))
   })
   names(ui_inp) <- arr_ids_df$ui_id
   return(ui_inp)
@@ -285,7 +292,11 @@ graph_inp <- graph_params_to_ui_inp(wanulcas_params_def$graphs)
 
 ###
 
-
+download_link <- function(id, filename = NULL) {
+  if (is.null(filename))
+    filename <- paste0(id, ".csv")
+  div(style = "margin-left:auto; margin-right:0;", table_download_link(id, filename = filename))
+}
 
 
 ### variable def ################

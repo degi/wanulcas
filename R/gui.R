@@ -1,5 +1,9 @@
 
 
+
+
+
+
 chart_color <- c(
   paletteer_d("ggthemes::calc"),
   paletteer_d("ggsci::schwifty_rickandmorty"),
@@ -107,41 +111,43 @@ table_edit_ui <- function(id,
                           title = "",
                           is_paginated = F,
                           is_upload_button = T,
-                          is_label = F, vspace = NULL, height = NULL) {
+                          is_label = F,
+                          vspace = NULL,
+                          height = NULL) {
   ns <- NS(id)
-  if(is.null(vspace)) {
-    vspace <- ifelse(is_paginated, "90px", "40px")
-  }
-  if(is.null(height)) {
-    height = paste0("calc(100% - ", vspace, ")")
-  }
+  # if (is.null(vspace)) {
+  #   vspace <- ifelse(is_paginated, "90px", "40px")
+  # }
+  # if (is.null(height)) {
+  #   height = paste0("calc(100% - ", vspace, ")")
+  # }
   label <- ifelse(is_label, "Upload", "")
   upload_button <- ifelse(is_upload_button, tagList(
-                          
-                          div(
-                            style = "float:right;",
-                            actionButton(
-                              ns("upload_btn"),
-                              label,
-                              icon = icon("upload"),
-                              class = "menu_button"
-                            )
-                            |> bslib::tooltip(
-                              "Upload data",
-                              id = ns("upload_tt"),
-                              options = list(customClass = "custom-tooltip")
-                            )
-                          ) |>
-                            popover(
-                              id = ns("upload_pop"),
-                              fileInput(ns("upload_file"), "Upload data", accept = c(".csv"))
-                            ))
-                          , 
-                          tagList())
-  div(style = "height:100%;overflow:auto;",
-      span(upload_button,title),
-      # excelR::excelOutput(ns("table_edit"), height = paste0("calc(100% - ", vspace, ")")))
-  excelR::excelOutput(ns("table_edit"), height = height))
+    div(
+      style = "float:right;",
+      actionButton(
+        ns("upload_btn"),
+        label,
+        icon = icon("upload"),
+        class = "menu_button"
+      )
+      |> bslib::tooltip(
+        "Upload data",
+        id = ns("upload_tt"),
+        options = list(customClass = "custom-tooltip")
+      )
+    ) |>
+      popover(id = ns("upload_pop"), fileInput(
+        ns("upload_file"), "Upload data", accept = c(".csv")
+      ))
+  )
+  , tagList())
+  div(
+    # style = "height:100%;overflow:auto;",
+    span(upload_button, title),
+    # excelR::excelOutput(ns("table_edit"), height = paste0("calc(100% - ", vspace, ")")))
+    excelR::excelOutput(ns("table_edit"), height = height)
+  )
 }
 
 table_edit_server <- function(id,
@@ -154,10 +160,12 @@ table_edit_server <- function(id,
                               allowRowModif = F,
                               nrow = 0,
                               pagination = NULL,
-                              csvFileName = "table_data", ...) {
+                              csvFileName = "table_data",
+                              ...) {
   moduleServer(id, function(input, output, session) {
     output$table_edit <- excelR::renderExcel({
       data <- reactive_data()
+
       if (is.null(data)) {
         return()
       }
@@ -238,11 +246,12 @@ table_edit_server <- function(id,
         rowDrag = allowRowModif,
         minDimensions = c(NA, nrow),
         pagination = pagination,
-        autoIncrement = F,
+        autoIncrement = T,
         dateFormat = "DD-Mon-YYYY",
         csvFileName = csvFileName,
         defaultColWidth = 100,
         includeHeadersOnDownload = T,
+        digits = NA,
         ...
       )
     })
@@ -260,7 +269,9 @@ table_edit_server <- function(id,
       df_input <- df_input[rowSums(!is.na(df_input)) > 0, ]
       idx <- which(col_type_data == "numeric")
       for (i in idx) {
+        # print(df_input[[i]])
         df_input[[i]] <- as.numeric(df_input[[i]])
+        # print(df_input[[i]])
       }
       table_data(df_input)
     })
@@ -272,7 +283,7 @@ table_edit_server <- function(id,
       fpath <- input$upload_file$datapath
       df <- read.csv(fpath)
       toggle_popover("upload_pop", show = F)
-      if(is.null(col_type_data)) {
+      if (is.null(col_type_data)) {
         table_data(df)
         return()
       }
@@ -413,33 +424,45 @@ reactable_edit_server <- function(id,
 
 
 numeric_input_ui <- function(id, df, tooltip_class = NULL, ...) {
-  # print(numeric_input_ui)
-  # print(id)
-  # print(df)
-  # print(tooltip_class)
   ns <- NS(id)
   n_ui <- apply(df, 1, function(x) {
-    if(!is.null(x[["info"]]) && x[["info"]] != "") {
-      numericInput(
-        ns(x[["var"]]),
-        markdown(x[["label"]]),
-        as.numeric(x[["value"]]),
-        as.numeric(x[["min"]]),
-        as.numeric(x[["max"]]),
-        as.numeric(x[["step"]]), 
-        ...
-      ) |> bslib::tooltip(x[["info"]], options = list(customClass = tooltip_class))  
-    } else {
-    numericInput(
+    # if(!is.null(x[["info"]]) && x[["info"]] != "") {
+    #   numericInput(
+    #     ns(x[["var"]]),
+    #     markdown(x[["label"]]),
+    #     as.numeric(x[["value"]]),
+    #     as.numeric(x[["min"]]),
+    #     as.numeric(x[["max"]]),
+    #     as.numeric(x[["step"]]),
+    #     ...
+    #   ) |> bslib::tooltip(x[["info"]], options = list(customClass = tooltip_class))
+    # } else {
+    # numericInput(
+    #   ns(x[["var"]]),
+    #   markdown(x[["label"]]),
+    #   as.numeric(x[["value"]]),
+    #   as.numeric(x[["min"]]),
+    #   as.numeric(x[["max"]]),
+    #   as.numeric(x[["step"]]),
+    #   ...
+    # )
+    #
+    # }
+    ni <- numericInput(
       ns(x[["var"]]),
       markdown(x[["label"]]),
       as.numeric(x[["value"]]),
       as.numeric(x[["min"]]),
       as.numeric(x[["max"]]),
-      as.numeric(x[["step"]]), 
+      as.numeric(x[["step"]]),
       ...
     )
+    if ("info" %in% names(x)) {
+      if (x[["info"]] != "") {
+        return(ni |> bslib::tooltip(x[["info"]], options = list(customClass = tooltip_class)))
+      }
     }
+    ni
   })
   names(n_ui) <- NULL
   return(n_ui)
@@ -472,7 +495,7 @@ table_download_link <- function(id,
                                 filename = "data.csv",
                                 label = "Download as CSV") {
   actionLink(
-    "download_csv",
+    paste("download_csv_", floor(runif(1) * 1000000)),
     label,
     icon("download"),
     onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", id, filename)
@@ -480,8 +503,12 @@ table_download_link <- function(id,
 }
 
 info <- function(i, class = "x", ...) {
-  bslib::tooltip(icon("info-circle", style = "margin-left:10px;"), i, 
-          options = list(customClass = paste("custom-tooltip", class)),...)
+  bslib::tooltip(
+    icon("info-circle", style = "margin-left:10px;"),
+    i,
+    options = list(customClass = paste("custom-tooltip", class)),
+    ...
+  )
 }
 
 
@@ -489,13 +516,15 @@ input_dialog <- function(title = "",
                          desc = "",
                          confirm_id,
                          confirm_label = "Confirm",
+                         cancel_button = modalButton("Cancel"),
                          input_var = NULL,
                          input_label = NULL,
                          input_def = NULL,
                          input_pholder = NULL,
                          input_type = NULL,
                          input_info = NULL,
-                         custom_input = NULL) {
+                         custom_input = NULL,
+                         type = NULL) {
   inp <- NULL
   if (!is.null(input_var)) {
     blank <- rep("", length(input_var))
@@ -535,13 +564,19 @@ input_dialog <- function(title = "",
   }
   names(inp) <- NULL
   inp <- HTML(inp)
+  i <- NULL
+  if (!is.null(type) && type %in% names(alert_type)) {
+    at <- alert_type[[type]]
+    i <- icon(at$icon, style = paste(alert_style, "color:", at$color))
+  }
   modalDialog(
-    title = title,
+    title = tagList(i, div(title)),
     HTML(paste("<p>", desc, "</p>")),
     custom_input,
     inp,
     footer = tagList(
-      modalButton("Cancel"),
+      # modalButton("Cancel"),
+      cancel_button,
       actionButton(confirm_id, confirm_label)
     )
   )
@@ -551,12 +586,51 @@ show_input_dialog <- function(...) {
   showModal(input_dialog(...))
 }
 
-show_alert <- function(title, desc) {
-  showModal( 
-    modalDialog( 
-      desc, 
-      title = title, 
-      easy_close = TRUE
-    ) 
+alert_type <- list(
+  info = list(icon = "circle-info", color = "#0dcaf0"),
+  warning = list(icon = "triangle-exclamation", color = "#ffc107"),
+  error = list(icon = "circle-xmark", color = "#dc3545"),
+  success = list(icon = "circle-check", color = "#198754")
+)
+
+alert_style <- "position: absolute;
+                top: 0;
+                right: 0;
+                opacity: 0.15;
+                font-size: 220px;
+                clip-path: rect(40px 210px auto auto);
+                transform: translate(10px, -40px);
+                display: inline-block;"
+
+show_alert <- function(title, desc, type = NULL, ...) {
+  i <- NULL
+  if (!is.null(type) && type %in% names(alert_type)) {
+    at <- alert_type[[type]]
+    i <- icon(at$icon, style = paste(alert_style, "color:", at$color))
+  }
+  showModal(modalDialog(
+    HTML(paste("<p>", desc, "</p>")),
+    title = tagList(i, div(title)),
+    easyClose = TRUE,
+    footer = NULL,
+    ...
+  ))
+}
+
+format_var_label <- function(vars_desc_df) {
+  paste0(
+    ifelse(
+      vars_desc_df$label == "",
+      vars_desc_df$var,
+      vars_desc_df$label
+    ),
+    ifelse(vars_desc_df$unit == "", "", paste0(" [", trimws(
+      vars_desc_df$unit
+    ), "]"))
   )
+}
+
+format_var_desc <- function(vars_desc_df) {
+  paste0(vars_desc_df$desc,
+         ifelse(vars_desc_df$label == "", "", paste0(" [", trimws(vars_desc_df$var), "]")))
 }

@@ -1,7 +1,7 @@
 ﻿group_id,title,desc
-1,Sloping Land,
-2,Soil Layer,
-3,Uphill,Uphill Nieghbours & Run-on
+1,Sloping land system,
+2,Soil layer thickness,
+3,Uphill Neighbours & runon,Uphill neighbours as source of Lateral Inflow & Run-on
 4,Rainfall intensity  mm/hour,
 5,Evaporation Efffect,
 6,"Trees,crops & weed as hosts for T1","An option is provided for simulating root parasitism by Tree 1 on roots of Tree2, Tree3 or any of the crop (or weed) types. The 'effectiveness' parameter specified here is multiplied with the product of the root length densities (in layer 1 and 2) of the host and the parasite to derive the fraction of roots that is parasitized (in all soil layers) and effectively belongs to (contributes to water and nutrient uptake) of the parasite in stead of the host."
@@ -31,3 +31,14 @@
 31,Root impacts on nutrient mobility,
 32,Type 1 & 2,
 33,Type 2,
+34,Soil fauna activity,
+35,Initial biomass and height,
+36,Tree transpiration,
+37,Tree leaf phenology,
+38,Tree stem (SapWood and HeartWood),
+39,Vegetative stage,
+40,Generative stage,
+41,Stone fraction,
+42,Ending a crop cycle,
+43,Moisture content of tree component,
+44,Fertilizer application,

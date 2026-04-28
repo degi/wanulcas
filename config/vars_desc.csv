@@ -32,7 +32,7 @@ C_RelRespYieldCurr,,Relative weighting factor for developing fruits/Yield as par
 C_ResidRemovalFrac,Fraction of Crop Residue removed from field,Fraction of crop residue removed from field (not returned as mulch). The same value applies for all zones and all crops used in the simulation,fraction,0,1
 C_RespperBiom,,The relative use of resources for maintenance respiration per unit biomass,,0,0.2
 C_RespTemp,,A graphical relation between temperature and maintenance respiration,,,
-C_Tmin,Minimum Air Temperature for Crop,Minimum Air Temperature for Crop,0 Celsius,,
+C_TMin,Minimum Air Temperature for Crop,Minimum Air Temperature for Crop,0 Celsius,,
 C_TOpt,Optimum Air Temperature for Crop,Optimum Air Temperature for Crop,0 Celsius,,
 C_WeedGermFrac,,"Fraction of weed seeds in the seed bank that germinates when a new opportunity arises, e.g. at the end of a cropping season",fraction,0,1
 C_WeedSeedBankInit,,Initial dry weight of weed seeds in seed bank,kg m-2,0,1

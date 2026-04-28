@@ -1,6 +1,8 @@
 # Rahmat
 # tambah tombol stop simulasi <- gak bisa, restart aja
 
+
+
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 1000 * 1024^2)
   # options(future.globals.maxSize = 5000 * 1024^2)
@@ -36,7 +38,19 @@ server <- function(input, output, session) {
   rv_arr <- do.call(reactiveValues, arr_inp)
   rv_graph <- do.call(reactiveValues, graph_inp)
   
-  rv <- reactiveValues(wanulcas_cfg = list(), sim_output = NULL)
+  rv <- reactiveValues(
+    wanulcas_cfg = list(),
+    sim_output = NULL,
+    output_vars = default_output_vars,
+    output_graph_cfg = list()
+  )
+  
+  # validate_output_vars <- function() {
+  #   print(rv$output_vars)
+  #   if(is.null(rv$output_vars)) rv$output_vars <- default_output_vars
+  # }
+  
+  ### conditional variables #####################################
   
   conditional_id <-
     c("is_sim_output")
@@ -96,7 +110,8 @@ server <- function(input, output, session) {
         x,
         reactive(rv_arr[[x]]),
         col_title = arr_conf[[x]]$title_desc,
-        col_disable = c(rep(T, nkeys), rep(F, nvar))
+        col_disable = c(rep(T, nkeys), rep(F, nvar)),
+        col_type = c(rep(NA, nkeys), rep("numeric", nvar))
       )
     })
   })
@@ -117,7 +132,8 @@ server <- function(input, output, session) {
   rv_graph_edit <- reactiveValues()
   react_graph <- reactive({
     react_graph <- lapply(names(graph_inp), function(x) {
-      rv_graph_edit[[x]] <- table_edit_server(x, reactive(rv_graph[[x]]))
+      rv_graph_edit[[x]] <- table_edit_server(x, reactive(rv_graph[[x]]), allowRowModif = T, nrow = NA,
+                                              col_type = rep("numeric", length(rv_graph[[x]])))
     })
   })
   
@@ -150,7 +166,7 @@ server <- function(input, output, session) {
         name = names(df)[2]
       )
     }
-    fig <- fig |> layout(
+    fig <- fig |> plotly::layout(
       legend = list(orientation = 'h'),
       showlegend = T,
       title = desc,
@@ -161,7 +177,7 @@ server <- function(input, output, session) {
     
     is_fullscreen <- input[[paste0("input_graph_card-", var, "_full_screen")]]
     if (!is_fullscreen) {
-      fig <- fig |> layout(
+      fig <- fig |> plotly::layout(
         xaxis = list(showgrid = F),
         yaxis = list(title = ""),
         margin = list(l = 0),
@@ -194,22 +210,40 @@ server <- function(input, output, session) {
   
   #### crop species library ###############
   
+  crop_ui_id <- "input_array_crop_7_0"
+  tree_ui_id <- "input_array_tree_8_0"
+  
+  get_crop_list <- function() {
+    c(user_crop(), crop_species_col)
+  }
+  
+  crop_select_ids <- c("input_crop_1",
+                       "input_crop_2",
+                       "input_crop_3",
+                       "input_crop_4",
+                       "input_crop_5")
+  
   output$input_crop_select <- renderUI({
-    crop_list <-  c(user_crop(), crop_species_col)
-    flowLayout(
-      cellArgs = list(style = "width:200px; margin:0px;"),
-      selectInput("input_crop_1", "Crop 1:", crop_list),
-      selectInput("input_crop_2", "Crop 2:", crop_list),
-      selectInput("input_crop_3", "Crop 3:", crop_list),
-      selectInput("input_crop_4", "Crop 4:", crop_list),
-      selectInput("input_crop_5", "Crop 5:", crop_list)
-    )
+    crop_list <- get_crop_list()
+    cr_select <- rv_arr[[crop_ui_id]]$CQ_Species
+    flowLayout(cellArgs = list(style = "width:200px; margin:0px;"),
+               !!!lapply(c(1:5), function(i) {
+                 selectInput(crop_select_ids[i],
+                             paste0("Crop ", i, ":"),
+                             crop_list,
+                             selected = cr_select[i])
+               }))
   })
   
-  #, fontWeight = "bold"
+  lapply(c(1:5), function(i) {
+    observeEvent(input[[crop_select_ids[i]]], {
+      rv_arr[[crop_ui_id]]$CQ_Species[i] <- input[[crop_select_ids[i]]]
+    })
+  })
+  
+  
   output$input_crop_lib <- renderReactable({
     edit_crop <- user_crop()
-    
     edit_col <- NULL
     if (length(edit_crop) > 0) {
       edit_col <- lapply(edit_crop, function(x) {
@@ -255,7 +289,6 @@ server <- function(input, output, session) {
           )
         ),
         edit_col
-        # Yours4 = colDef(cell = text_extra("text"))
       )
     )
   })
@@ -316,14 +349,28 @@ server <- function(input, output, session) {
   
   #### tree species library ###############
   
+  get_tree_list <- function() {
+    c(user_tree(), tree_species_col)
+  }
+  
+  tree_select_ids <- c("input_tree_1", "input_tree_2", "input_tree_3")
+  
   output$input_tree_select <- renderUI({
-    tree_list <-  c(user_tree(), tree_species_col)
-    flowLayout(
-      cellArgs = list(style = "width:300px; margin:0px;"),
-      selectInput("input_tree_1", "Tree 1:", tree_list),
-      selectInput("input_tree_2", "Tree 2:", tree_list),
-      selectInput("input_tree_3", "Tree 3:", tree_list)
-    )
+    tree_list <- get_tree_list()
+    tr_select <- rv_arr[[tree_ui_id]]$T_Species
+    flowLayout(cellArgs = list(style = "width:300px; margin:0px;"),
+               !!!lapply(c(1:3), function(i) {
+                 selectInput(tree_select_ids[i],
+                             paste0("Tree ", i, ":"),
+                             tree_list,
+                             selected = tr_select[i])
+               }))
+  })
+  
+  lapply(c(1:3), function(i) {
+    observeEvent(input[[tree_select_ids[i]]], {
+      rv_arr[[tree_ui_id]]$T_Species[i] <- input[[tree_select_ids[i]]]
+    })
   })
   
   output$input_tree_lib <- renderReactable({
@@ -578,26 +625,34 @@ server <- function(input, output, session) {
   }
   
   apply_species_params <- function(params) {
-    croplist <- c(
-      validate_crop(input$input_crop_1),
-      validate_crop(input$input_crop_2),
-      validate_crop(input$input_crop_3),
-      validate_crop(input$input_crop_4),
-      validate_crop(input$input_crop_5)
-    )
-    croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
-    treelist <- c(
-      validate_tree(input$input_tree_1),
-      validate_tree(input$input_tree_2),
-      validate_tree(input$input_tree_3)
-    )
-    treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
+    # croplist <- c(
+    #   validate_crop(input$input_crop_1),
+    #   validate_crop(input$input_crop_2),
+    #   validate_crop(input$input_crop_3),
+    #   validate_crop(input$input_crop_4),
+    #   validate_crop(input$input_crop_5)
+    # )
+    # croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
+    # treelist <- c(
+    #   validate_tree(input$input_tree_1),
+    #   validate_tree(input$input_tree_2),
+    #   validate_tree(input$input_tree_3)
+    # )
+    # treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
     oilpalmlist <- c(
       validate_oilpalm(input$input_oilpalm_1),
       validate_oilpalm(input$input_oilpalm_2),
       validate_oilpalm(input$input_oilpalm_3)
     )
     oilpalmlist_df <- oilpalm_species_df[c("var", "sub_var", oilpalmlist)]
+    
+    croplist <- rv_arr[[crop_ui_id]]$CQ_Species
+    croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
+    treelist <- rv_arr[[tree_ui_id]]$T_Species
+    treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
+    
+    # params$arrays$crop_df$vars$CQ_Species <- croplist
+    # params$arrays$tree_df$vars$T_Species <- treelist
     params <- params |> apply_croplist_params(croplist_df) |> apply_treelist_params(treelist_df) |> apply_oilpalmlist_params(oilpalmlist_df)
     return(params)
   }
@@ -672,10 +727,7 @@ server <- function(input, output, session) {
       progress_trigger <- function(i, n) {
         progress$set(i, "Running simulation", paste("Day", i, "of", n))
       }
-      
-      task$invoke(n_iteration, pars, output_vars, progress)
-      
-      
+      task$invoke(n_iteration, pars, rv$output_vars, progress)
     })
   } else {
     local_task <- eventReactive(input$sim_run_button, ignoreNULL = T, {
@@ -689,14 +741,12 @@ server <- function(input, output, session) {
       progress_trigger <- function(i, n) {
         progress$set(i, "Running simulation", paste("Day", i, "of", n))
       }
-      
-      run_wanulcas(n_iteration, pars, output_vars, progress_trigger)
+      run_wanulcas(n_iteration, pars, rv$output_vars, progress_trigger)
     })
-    
   }
   
   is_simulation_ready <- function() {
-    if (length(output_vars) == 0) {
+    if (length(rv$output_vars) == 0) {
       show_alert(
         "Output variables was not selected",
         "Please select the output variable on the table below by checking the correspondent box."
@@ -709,14 +759,46 @@ server <- function(input, output, session) {
   ### Output ######################
   
   observe(rv$sim_output <- local_task())
+  observe(rv$sim_output <- task$result())
   
-  # observe(rv$sim_output <- task$result())
-  # observe({
-  #   if (!is.null(data_result))
-  #     rv$sim_output <- data_result()
-  # })
+  check_dynamic_card_container <- function() {
+    runjs(
+      "Shiny.setInputValue('card_container_exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
+    )
+  }
   
-  output$sim_output_ui <- renderUI({
+  observe({
+    out <- rv$sim_output
+    if (is.null(out))
+      return()
+    formatted_output_data(format_output_data(out))
+    output_cfg <- isolate(rv$output_graph_cfg)
+    if (length(output_cfg) > 0) {
+      check_dynamic_card_container()
+      # runjs(
+      #   "Shiny.setInputValue('exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
+      # )
+    }
+  })
+  
+  # if not being checked and existed, the card can't be displayed automatically
+  observeEvent(input$card_container_exists, {
+    if (input$card_container_exists) {
+      output_cfg <- isolate(rv$output_graph_cfg)
+      if (length(output_cfg) > 0) {
+        reset_output_config(output_cfg)
+      }
+    } else {
+      shinyjs::delay(1000, check_dynamic_card_container())
+      #                {
+      #   runjs(
+      #     "Shiny.setInputValue('exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
+      #   )
+      # })
+    }
+  })
+  
+  output$sim_output_ui_old <- renderUI({
     result <- rv$sim_output
     if (is.null(result))
       return()
@@ -802,6 +884,7 @@ server <- function(input, output, session) {
         type = "scatter",
         mode = "lines",
         showlegend = ifelse(row == 1, T, F)
+        
       )
       for (v in vars) {
         fig <- fig |> add_trace(
@@ -812,7 +895,7 @@ server <- function(input, output, session) {
           color = I(chart_color[match(v, vars)])
         )
       }
-      fig <- fig |> layout(
+      fig <- fig |> plotly::layout(
         annotations = list(
           list(
             y = 1,
@@ -825,7 +908,8 @@ server <- function(input, output, session) {
         ),
         xaxis = list(title = "Time"),
         yaxis = list(title = list(text = rowtitle, font = subfont)),
-        hoverlabel = list(namelength = -1)
+        hoverlabel = list(namelength = -1),
+        
       )
       return(fig)
     })
@@ -861,7 +945,7 @@ server <- function(input, output, session) {
     io_df$file <- sapply(io_df$var, prefix)
     io_file_df <<- io_df
     
-    vars_df <- data.frame(var = sort(output_vars))
+    vars_df <- data.frame(var = sort(isolate(rv$output_vars)))
     vars_df$arr <- ""
     vars_df$details <- NA
     lapply(names(result), function(x) {
@@ -996,8 +1080,9 @@ server <- function(input, output, session) {
   #### Output vars selection ###################
   
   output$output_var_selector <- renderReactable({
-    selected <- which(output_vars_option_df$var %in% default_output_vars,
-                      arr.ind = TRUE)
+    # selected <- which(output_vars_option_df$var %in% default_output_vars,
+    #                   arr.ind = TRUE)
+    selected <- which(output_vars_option_df$var %in% rv$output_vars, arr.ind = TRUE)
     reactable(
       output_vars_option_df,
       selection = "multiple",
@@ -1020,40 +1105,49 @@ server <- function(input, output, session) {
     )
   })
   
-  output$output_var_selected <- renderReactable({
+  # output$output_var_selected <- renderReactable({
+  #   i <- getReactableState("output_var_selector", "selected")
+  #   df <- output_vars_option_df[i, c("var", "arr")]
+  #   rownames(df) <- NULL
+  #   reactable(
+  #     df,
+  #     highlight = T,
+  #     compact = T,
+  #     striped = T,
+  #     showPageSizeOptions = T,
+  #     pageSizeOptions = c(10, 20, 40, 100),
+  #     defaultPageSize = 20,
+  #     paginateSubRows = T,
+  #     rownames = T,
+  #     columns = list(
+  #       var = colDef(name = "Variable"),
+  #       arr = colDef(name = "Array Dimension")
+  #     )
+  #   )
+  # })
+  
+  output$output_var_selected <- renderUI({
     i <- getReactableState("output_var_selector", "selected")
-    df <- output_vars_option_df[i, c("var", "arr")]
-    rownames(df) <- NULL
-    reactable(
-      df,
-      highlight = T,
-      compact = T,
-      striped = T,
-      showPageSizeOptions = T,
-      pageSizeOptions = c(10, 20, 40, 100),
-      defaultPageSize = 20,
-      paginateSubRows = T,
-      rownames = T,
-      columns = list(
-        var = colDef(name = "Variable"),
-        arr = colDef(name = "Array Dimension")
-      )
-    )
+    df <- output_vars_option_df[i, "var"]
+    tags$ul(lapply(df, tags$li))
   })
   
   observe({
     i <- getReactableState("output_var_selector", "selected")
-    output_vars <<- output_vars_option_df[i, "var"]
-    output$selected_vars_info <- renderUI(div(
-      "Number of selected output variabels:",
-      tags$strong(length(output_vars))
-    ))
+    if (is.null(i))
+      return()
+    rv$output_vars <- output_vars_option_df[i, "var"]
+    output$selected_vars_info <- renderUI(
+      #div(
+      # "Selected log variabels:",
+      tags$strong(
+        length(rv$output_vars)
+        # )
+      )
+    )
   })
   
-  observeEvent(
-    input$clear_selected_output_vars,
-    updateReactable("output_var_selector", selected = NA)
-  )
+  observeEvent(input$clear_selected_output_vars, rv$output_vars <- c())
   
   observeEvent(input$reset_default_output_vars, {
     selected <- which(output_vars_option_df$var %in% default_output_vars,
@@ -1077,11 +1171,547 @@ server <- function(input, output, session) {
     rv$sim_output <- NULL
   })
   
+  
+  #### dynamic output graph  #########################
+  
+  # output_graph_cfg <- reactiveVal(list())
+  
+  card_id_counter <- 0
+  get_next_card_id <- function() {
+    card_id_counter <<- card_id_counter + 1
+    return(paste0("outgraph", card_id_counter))
+  }
+  
+  reset_output_config <- function(cfg = NULL) {
+    card_id_counter <<- 0
+    prev_cfg <- isolate(rv$output_graph_cfg)
+    lapply(names(prev_cfg), function(id) {
+      ns <- NS(id)
+      # removeUI(selector = paste0("#", ns("card"), " *"), multiple = TRUE)
+      removeUI(selector = paste0("#", ns("card")))
+    })
+    rv$output_graph_cfg <- list()
+    if (!is.null(cfg)) {
+      set_output_config(cfg)
+    }
+  }
+  
+  create_dynamic_card <- function(id,
+                                  data,
+                                  def_vars = NULL,
+                                  def_filter = NULL,
+                                  def_vars_ext = NULL) {
+    cfg <- isolate(rv$output_graph_cfg)
+    cfg[[id]] <- list()
+    rv$output_graph_cfg <- cfg
+    
+    # print("create_dynamic_card")
+    # print(id)
+    # print(def_vars)
+    # print(def_filter)
+    
+    var_df <- data$var_df
+    arr_data <- data$arr_data
+    
+    # find other variables which has similar array dimension with the selected dimensions
+    get_match_vars <- function(keys, arr) {
+      dim_choices <- arr_data[[arr]]$keys
+      ks <- unlist(lapply(names(dim_choices), function(k) {
+        n <- sum(keys %in% dim_choices[[k]])
+        if (n == 1) {
+          NULL
+        } else {
+          k
+        }
+      }))
+      arr_match <- unlist(sapply(arr_data, function(x)
+        if (setequal(names(x$keys), ks))
+          x$arr))
+      
+      if (length(arr_match) > 0 && arr_match == arr)
+        return(NULL)
+      if (is.null(ks))
+        ks <- "single"
+      list(vars = var_df[var_df$arr == arr_match, "vars"],
+           dim = ks,
+           arr = arr_match)
+    }
+    
+    
+    def_v_choices <- var_df$vars
+    def_arr <- NULL
+    def_dim_choices <- NULL
+    def_v_ext_choices <- NULL
+    if (!is.null(def_vars)) {
+      def_arr <- var_df[var_df$vars == def_vars[1], "arr"]
+      def_v_choices <- var_df[var_df$arr == def_arr, "vars"]
+      def_dim_choices <- arr_data[[def_arr]]$keys
+      v_ext <- get_match_vars(def_filter, def_arr)
+      def_v_ext_choices <- v_ext$vars
+    }
+    
+    ns <- NS(id)
+    button_id <- ns("remove_card_button")
+    var_select_id <- ns("var_select")
+    dim_id <- ns("dim_compare")
+    var_ext_select_id <- ns("var_ext_select")
+    sp_select_id <- ns("sp_select")
+    graph_id <- ns("graph_id")
+    card_title_id <- ns("card_title")
+    table_id <- ns("table")
+    
+    dim_label <- function(x)
+      markdown(sprintf(
+        "Comparable variables (array dimension: **%s**):",
+        trimws(paste(x, collapse = ", "))
+      ))
+    
+    observeEvent(input[[button_id]], {
+      removeUI(selector = paste0("#", ns("card")))
+      cfg <- isolate(rv$output_graph_cfg)
+      cfg[[id]] <- NULL
+      rv$output_graph_cfg <- cfg
+    })
+    
+    
+    
+    render_dim <- function(v_ext) {
+      if (is.null(v_ext) || length(v_ext$vars) == 0) {
+        output[[dim_id]] <- NULL
+      } else {
+        output[[dim_id]] <- renderUI(dim_label(v_ext$dim))
+      }
+    }
+    
+    # variable selection
+    observeEvent(input[[var_select_id]], {
+      vs <- input[[var_select_id]]
+      output[[card_title_id]] <- renderText(paste(vs, collapse = ", "))
+      if (is.null(vs)) {
+        updateSelectizeInput(session, var_select_id, choices = var_df$vars)
+        updateSelectizeInput(session,
+                             sp_select_id,
+                             choices = character(0),
+                             selected = character(0))
+        updateSelectizeInput(session, var_ext_select_id, choices = character(0))
+        output[[dim_id]] <- NULL
+      } else if (length(vs) == 1) {
+        arr <- var_df[var_df$vars == vs, "arr"]
+        vfilt <- var_df[var_df$arr == arr, "vars"]
+        dim_choices <- arr_data[[arr]]$keys
+        
+        sp <- input[[sp_select_id]]
+        # if (is.null(sp) && !is.null(def_vars)) {
+        #   sp <- def_filter
+        # }
+        # if(!is.null(def_filter)) {
+        #   sp <- def_filter
+        # }
+        # print(dim_choices)
+        v_ext <- NULL
+        if (length(sp) >= 1) {
+          v_ext <- get_match_vars(sp, arr)
+          render_dim(v_ext)
+        }
+        updateSelectizeInput(session,
+                             var_select_id,
+                             choices = vfilt,
+                             selected = vs)
+        updateSelectizeInput(session,
+                             sp_select_id,
+                             choices = dim_choices,
+                             selected = sp)
+        updateSelectizeInput(session, var_ext_select_id, choices = v_ext$vars)
+        def_vars <<- NULL
+        def_filter <<- NULL
+      }
+    }, ignoreNULL = FALSE)
+    
+    
+    # sub plot or array dimension selection
+    observeEvent(input[[sp_select_id]], {
+      sp <- input[[sp_select_id]]
+      vs <- input[[var_select_id]]
+      arr <- var_df[var_df$vars == vs[1], "arr"]
+      vfilt <- var_df[var_df$arr == arr, "vars"]
+      if (is.null(sp)) {
+        output[[dim_id]] <- NULL
+        updateSelectizeInput(session, var_ext_select_id, choices = character(0))
+      } else if (length(sp) >= 1) {
+        v_ext <- get_match_vars(sp, arr)
+        render_dim(v_ext)
+        updateSelectizeInput(session,
+                             var_select_id,
+                             choices = vfilt,
+                             selected = vs)
+        updateSelectizeInput(session,
+                             var_ext_select_id,
+                             choices = v_ext$vars,
+                             selected = def_vars_ext)
+        def_vars_ext <<- NULL
+      }
+    }, ignoreNULL = FALSE)
+    
+    observe({
+      vs <- input[[var_select_id]]
+      if (is.null(vs) || is.null(var_df)) {
+        t <- "Please select the variables on left panel!"
+        output[[graph_id]] <- renderPlotly(validate(need(F, t)))
+        output[[table_id]] <- renderReactable(validate(need(F, t)))
+        return()
+      }
+      v_df <- var_df[var_df$vars %in% vs, ]
+      arr <- unique(v_df$arr)[1]
+      df <- arr_data[[arr]]$data[c("time", names(arr_data[[arr]]$keys), vs)]
+      sp <- input[[sp_select_id]]
+      vs_ext <- input[[var_ext_select_id]]
+      
+      #save to config
+      cfg <- isolate(rv$output_graph_cfg)
+      cfg[[id]][["vars"]] <- vs
+      cfg[[id]][["filter"]] <- sp
+      cfg[[id]][["vars_ext"]] <- vs_ext
+      rv$output_graph_cfg <- cfg
+      
+      # print(vs)
+      # print(var_df)
+      # print(arr)
+      
+      
+      # filter dataframe with the selected dimension keys
+      if (arr == "single_df") {
+        key_df <- data.frame(single = 0)
+      } else {
+        key_df <- wanulcas_def_arr[[arr]]
+        if (!is.null(sp)) {
+          k_df <- as.data.frame(t(sapply(sp, function(a) {
+            unlist(strsplit(a, " "))
+          })))
+          k <- unique(k_df[[1]])
+          f_df <- df
+          f_key_df <- key_df
+          for (x in k) {
+            f_df <- f_df[f_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
+            f_key_df <- f_key_df[f_key_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
+          }
+          df <- f_df
+          if (class(f_key_df) == "data.frame") {
+            key_df <- f_key_df
+          } else {
+            key_df <- data.frame(f_key_df)
+            colnames(key_df) <- k
+          }
+        }
+      }
+      # is there any addition data from other array
+      
+      if (!is.null(vs_ext)) {
+        vx_df <- var_df[var_df$vars %in% vs_ext, ]
+        arr_ext <- unique(vx_df$arr)[1]
+        df_ext <- arr_data[[arr_ext]]$data[vs_ext]
+        df <- cbind(df, df_ext)
+        vs <- c(vs, vs_ext)
+      }
+      
+      
+      
+      output[[table_id]] <- renderReactable(
+        reactable(
+          df,
+          highlight = T,
+          compact = T,
+          showPageSizeOptions = T,
+          defaultColDef = colDef(
+            cell = function(value) {
+              # Only format if the value is not an integer
+              if (is.numeric(value) && value %% 1 != 0) {
+                if (abs(value) >= 10) {
+                  format(round(value, 2), nsmall = 2)
+                } else {
+                  format(round(value, 4), nsmall = 4)
+                }
+              } else {
+                value
+              }
+            }
+          )
+        )
+      )
+      
+      output[[graph_id]] <- renderPlotly({
+        # generate_output_graph_data(df, key_df, vs)
+        generate_output_graph(df, key_df, vs)
+      })
+    })
+    
+    
+    # graph setting ui
+    div(
+      id = ns("card"),
+      navset_card_underline(
+        full_screen = T,
+        title = textOutput(card_title_id),
+        
+        sidebar = sidebar(
+          selectizeInput(
+            inputId = var_select_id,
+            label = "Variables:",
+            choices = def_v_choices,
+            selected = def_vars,
+            multiple = TRUE,
+            options = list(dropdownParent = 'body')
+          ),
+          conditionalPanel(
+            condition = "input['var_select'].length > 0",
+            ns = ns,
+            selectizeInput(
+              inputId = sp_select_id,
+              label = "Filter:",
+              choices = def_dim_choices,
+              selected = def_filter,
+              multiple = TRUE,
+              options = list(dropdownParent = 'body')
+            )
+          ),
+          div(
+            style = "padding: 0; margin: 0;",
+            uiOutput(dim_id),
+            conditionalPanel(
+              condition = "output['dim_compare'] != null",
+              ns = ns,
+              selectizeInput(
+                inputId = var_ext_select_id,
+                label = NULL,
+                choices = def_v_ext_choices,
+                selected = def_vars_ext,
+                multiple = TRUE,
+                options = list(dropdownParent = 'body')
+              )
+            )
+          )
+        ),
+        nav_panel(
+          "Graph",
+          icon = icon("chart-line"),
+          card_body(padding = 0, plotlyOutput(graph_id, height = "300px"))
+        ),
+        nav_panel(
+          "Data",
+          icon = icon("table"),
+          card_body(
+            padding = 0,
+            download_link(table_id),
+            reactableOutput(table_id)
+          )
+        ),
+        nav_item(actionLink(button_id, "", icon = icon("trash-can")))
+      )
+    )
+  }
+  
+  
+  generate_output_graph <- function(df, key_df, vars) {
+    kn <- names(key_df)
+    ncolplot <- length(unique(key_df[[1]]))
+    nrowplot <- nrow(key_df) / ncolplot
+    key_df$row <- 1:nrow(key_df)
+    subfont = list(size = 14)
+    figs <- apply(key_df, 1, function(k) {
+      # get data with similar id for all selected keys
+      if (kn[1] == "single") {
+        df2 <- df
+        coltitle <- ""
+        rowtitle <- ""
+      } else {
+        row <- as.numeric(k[["row"]])
+        coltitle <- ""
+        if (row <= ncolplot) {
+          coltitle <- paste0("<i>", kn[1], ":</i> <b>", k[[kn[1]]], "</b>")
+        }
+        k <- as.data.frame(t(as.data.frame(k)))
+        k$row <- NULL
+        rowtitle <- ""
+        if (row %% ncolplot == 1 | ncolplot == 1) {
+          rowtitle <-  paste(paste0("<i>", kn[-1], ":</i> <b>", k[-1], "</b>"), collapse = "; ")
+        }
+        kk <- k[rep(1, nrow(df)), ]
+        kk_is <- df[kn] == kk
+        df2 <- df[apply(kk_is, 1, function(x)
+          all(x == T)), ]
+      }
+      
+      
+      fig <- plot_ly(
+        type = "scatter",
+        mode = "lines",
+        showlegend = ifelse(length(vars) == 1 || row != 1, F, T)
+      )
+      for (v in vars) {
+        fig <- fig |> add_trace(
+          x = df2[["time"]],
+          y = df2[[v]],
+          name = v,
+          legendgroup = v,
+          color = I(chart_color[match(v, vars)])
+        )
+      }
+      fig <- fig |> plotly::layout(
+        annotations = list(
+          list(
+            y = 1,
+            yref = 'paper',
+            yanchor = "bottom",
+            text = coltitle,
+            showarrow = FALSE,
+            font = subfont
+          )
+        ),
+        xaxis = list(title = "Time"),
+        yaxis = list(title = list(text = rowtitle, font = subfont)),
+        hoverlabel = list(namelength = -1)
+      )
+      return(fig)
+    })
+    
+    subplot(
+      figs,
+      shareX = T,
+      shareY = T,
+      titleX = T,
+      titleY = T,
+      nrows = nrowplot
+    )
+  }
+  
+  generate_output_graph_data <- function(df, key_df, vars) {
+    kn <- names(key_df)
+    ncolplot <- length(unique(key_df[[1]]))
+    nrowplot <- nrow(key_df) / ncolplot
+    key_df$row <- 1:nrow(key_df)
+    subfont = list(size = 14)
+    d <- apply(key_df, 1, function(k) {
+      # get data with similar id for all selected keys
+      if (kn[1] == "single") {
+        df2 <- df
+        coltitle <- ""
+        rowtitle <- ""
+      } else {
+        row <- as.numeric(k[["row"]])
+        coltitle <- ""
+        if (row <= ncolplot) {
+          coltitle <- paste0("<i>", kn[1], ":</i> <b>", k[[kn[1]]], "</b>")
+        }
+        k <- as.data.frame(t(as.data.frame(k)))
+        k$row <- NULL
+        rowtitle <- ""
+        if (row %% ncolplot == 1 | ncolplot == 1) {
+          rowtitle <-  paste(paste0("<i>", kn[-1], ":</i> <b>", k[-1], "</b>"), collapse = "; ")
+        }
+        kk <- k[rep(1, nrow(df)), ]
+        kk_is <- df[kn] == kk
+        df2 <- df[apply(kk_is, 1, function(x)
+          all(x == T)), ]
+        
+      }
+      print(rowtitle)
+      print(coltitle)
+      print(df2)
+      
+      
+    })
+    
+    
+  }
+  
+  output$sim_output_ui <- renderUI({
+    card_body(
+      fileInput(
+        "upload_output_data_button",
+        span(icon("upload"), "Upload output data file"),
+        accept = c("application/zip", ".zip"),
+        width = "300px"
+      ),
+      div(
+        style = "width:100%",
+        fileInput(
+          "upload_output_cfg",
+          "Upload Output Configuration",
+          accept = c("application/yaml", ".yaml")
+        ),
+        downloadLink(style = "float:right; margin-right:50px", "download_output_cfg", "Save Output Configuration")
+      ),
+      layout_column_wrap(
+        id = "dynamic_card_container",
+        width = "400px",
+        style = "margin:10px"
+      ),
+      div(
+        style = "width:100%",
+        actionButton(
+          style = "float:right; margin-right:50px",
+          "add_dynamic_card_button",
+          "Add Output Graph",
+          icon = icon("plus")
+        )
+      )
+    )
+  })
+  
+  add_dynamic_card <- function(def_vars = NULL,
+                               def_filter = NULL,
+                               def_vars_ext = NULL) {
+    id <- get_next_card_id()
+    insertUI(
+      selector = "#dynamic_card_container",
+      where = "beforeEnd",
+      ui = create_dynamic_card(
+        id,
+        formatted_output_data(),
+        def_vars,
+        def_filter,
+        def_vars_ext
+      )
+    )
+    return(id)
+  }
+  
+  
+  
+  observeEvent(input$add_dynamic_card_button, add_dynamic_card())
+  
+  
+  output$download_output_cfg <- downloadHandler(
+    filename = function() {
+      paste("output_config.yaml")
+    },
+    content = function(fname) {
+      write_yaml(rv$output_graph_cfg, fname)
+    },
+    contentType = "application/yaml"
+  )
+  
+  set_output_config <- function(cfg) {
+    cs <- lapply(cfg, function(x) {
+      add_dynamic_card(x$vars, x$filter, x$vars_ext)
+    })
+  }
+  
+  observeEvent(input$upload_output_cfg, {
+    dpath <- input$upload_output_cfg$datapath
+    # set_output_config(read_yaml(dpath))
+    reset_output_config(read_yaml(dpath))
+  })
+  
   ### UPLOAD ######################
   
   observeEvent(input$upload_parameter, {
     dpath <- input$upload_parameter$datapath
     set_parameters(read_params(dpath))
+    show_alert(
+      "Upload Successful!",
+      "The paramaters file has been successfully uploaded!",
+      "success"
+    )
   })
   
   set_parameters <- function(params) {
@@ -1102,7 +1732,134 @@ server <- function(input, output, session) {
     lapply(names(graph_df), function(x) {
       rv_graph[[x]] <- graph_df[[x]]
     })
+    
+    crops <- rv_arr[[crop_ui_id]]$CQ_Species
+    for (i in 1:5) {
+      updateSelectInput(session, crop_select_ids[i], selected = crops[i])
+    }
+    
+    trees <- rv_arr[[tree_ui_id]]$T_Species
+    for (i in 1:5) {
+      updateSelectInput(session, tree_select_ids[i], selected = trees[i])
+    }
+    
+    if (!is.null(params$output)) {
+      rv$output_vars <- params$output$time_vars
+      rv$output_graph_cfg <- params$output$output_cfg
+    }
+    
+    
   }
+  
+  # observe({
+  #   crops <- rv_arr[["input_array_crop_117_0"]]$CQ_Species
+  #   for (i in 1:5) {
+  #     updateSelectInput(session, crop_select_ids[i], selected = crops[i])
+  #   }
+  # })
+  #
+  # observe({
+  #   trees <- rv_arr[["input_array_tree_117_0"]]$T_Species
+  #   for (i in 1:5) {
+  #     updateSelectInput(session, tree_select_ids[i], selected = trees[i])
+  #   }
+  # })
+  
+  
+  observeEvent(input$upload_xls_parameter, {
+    dpath <- input$upload_xls_parameter$datapath
+    params <- get_input_parameters()
+    params <- apply_xls_params(params, dpath, xls_config_df)
+    set_parameters(params)
+    show_alert(
+      "Upload Successful!",
+      "The MS-Excel paramaters file has been successfully uploaded and applied!",
+      "success"
+    )
+  })
+  
+  formatted_output_data <- reactiveVal()
+  
+  format_output_data <- function(data) {
+    if (is.null(data)) {
+      return()
+    }
+    var_data <- lapply(names(data), function(x) {
+      df <- data[[x]]
+      keys <- NULL
+      keys_label <- NULL
+      if (x != "single_df") {
+        keys <- apply(wanulcas_def_arr[[x]], 2, unique, simplify = F)
+        keys_label <- sapply(names(keys), function(a) {
+          k <- paste(a, keys[[a]])
+          kk <- as.list(k)
+          names(kk) <- k
+          kk
+        }, simplify = F, USE.NAMES = T)
+      }
+      v <- setdiff(names(df), c("time", names(keys)))
+      list(
+        vars = v,
+        keys = keys_label,
+        arr = x,
+        data = df
+      )
+    })
+    names(var_data) <- names(data)
+    v <- unlist(sapply(var_data, function(x)
+      x[["vars"]]))
+    a <- unlist(sapply(var_data, function(x)
+      rep(x[["arr"]], length(x[["vars"]]))))
+    var_df <- data.frame(vars = v, arr = a)
+    # a variable may exist on multiple array, it should be selected to the shortest array dimensions
+    # TODO: should prevented on the wanulcas output loop
+    var_df <- aggregate(
+      var_df[2],
+      var_df[-2],
+      FUN = function(x) {
+        d <- unique(x)
+        d[which.min(nchar(d))]
+      }
+    )
+    return(list(var_df = var_df, arr_data = var_data))
+  }
+  
+  observeEvent(input$upload_output_data_button, {
+    print(paste("Extracting the files:", input$upload_parameter$name))
+    dpath <- input$upload_output_data_button$datapath
+    data <- upload_output_data(dpath)
+    fdata <- format_output_data(data)
+    formatted_output_data(fdata)
+  })
+  
+  show_alert_file_error <- function(file_error) {
+    show_alert("File Error!",
+               paste("File error! Or it is not a", file_error, "file!"),
+               type = "error")
+  }
+  
+  data_dir <- paste0(tempdir(), "/data_temp")
+  
+  upload_output_data <- function(dpath) {
+    file_list <- NULL
+    try(file_list <- utils::unzip(dpath, list = TRUE), silent = T)
+    if (is.null(file_list)) {
+      show_alert_file_error("compressed (zip)")
+      return()
+    }
+    utils::unzip(dpath, exdir = data_dir, junkpaths = T)
+    d <- list()
+    for (f in file_list$Name) {
+      arr <- paste0(prefix(f, "."), "_df")
+      fpath <- paste0(data_dir, "/", f)
+      df <- read.csv(fpath)
+      d[[arr]] <- df
+    }
+    print("Output data uploaded!")
+    showNotification("Output data uploaded!", type = "message")
+    return(d)
+  }
+  
   
   ### DOWNLOAD ######################
   
@@ -1112,6 +1869,8 @@ server <- function(input, output, session) {
     },
     content = function(fname) {
       pars <- isolate(get_input_parameters())
+      pars$output <- list(time_vars = rv$output_vars,
+                          output_cfg = rv$output_graph_cfg)
       write_params(pars, fname)
     }
   )

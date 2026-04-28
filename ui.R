@@ -2,6 +2,9 @@
 
 
 
+
+
+
 ### INPUT GUI ###############
 
 crop_params_ui <- function() {
@@ -18,8 +21,18 @@ crop_params_ui <- function() {
         "Crop Library",
         flowLayout(
           cellArgs = list(style = "width:auto; margin:0px;"),
-          actionButton("add_crop_button", "Add New Crop Type", icon = icon("plus"), class = "compact_button"),
-          actionButton("remove_crop_button", "Remove Crop", icon = icon("trash-can"), class = "compact_button")
+          actionButton(
+            "add_crop_button",
+            "Add New Crop Type",
+            icon = icon("plus"),
+            class = "compact_button"
+          ),
+          actionButton(
+            "remove_crop_button",
+            "Remove Crop",
+            icon = icon("trash-can"),
+            class = "compact_button"
+          )
         )
       ),
       p("You may add and define new crop to the library"),
@@ -42,8 +55,18 @@ tree_params_ui <- function() {
         "Tree Library",
         flowLayout(
           cellArgs = list(style = "width:auto; margin:0px;"),
-          actionButton("add_tree_button", "Add New Tree Type", icon = icon("plus"), class = "compact_button"),
-          actionButton("remove_tree_button", "Remove Tree", icon = icon("trash-can"), class = "compact_button")
+          actionButton(
+            "add_tree_button",
+            "Add New Tree Type",
+            icon = icon("plus"),
+            class = "compact_button"
+          ),
+          actionButton(
+            "remove_tree_button",
+            "Remove Tree",
+            icon = icon("trash-can"),
+            class = "compact_button"
+          )
         )
       ),
       p("You may add and define new tree species to the library"),
@@ -66,8 +89,18 @@ oilpalm_params_ui <- function() {
         "Oilpalm Library",
         flowLayout(
           cellArgs = list(style = "width:auto; margin:0px;"),
-          actionButton("add_oilpalm_button", "Add New oilpalm Type", icon = icon("plus"), class = "compact_button"),
-          actionButton("remove_oilpalm_button", "Remove oilpalm", icon = icon("trash-can"), class = "compact_button")
+          actionButton(
+            "add_oilpalm_button",
+            "Add New oilpalm Type",
+            icon = icon("plus"),
+            class = "compact_button"
+          ),
+          actionButton(
+            "remove_oilpalm_button",
+            "Remove oilpalm",
+            icon = icon("trash-can"),
+            class = "compact_button"
+          )
         )
       ),
       p("You may add and define new oilpalm species to the library"),
@@ -114,14 +147,14 @@ get_input_subcontent <- function(id, group_id) {
                               input_vars_conf_df$group_id == group_id, ]
   if (nrow(idf) == 0)
     return(NULL)
-  idf <- idf[order(as.numeric(idf$order)),]
+  idf <- idf[order(as.numeric(idf$order)), ]
   
   # variable input
   v_content <- NULL
   v <- idf[idf$type == "vars", "var"]
   if (length(v) > 0) {
     par_df <- inputvars_df[inputvars_df$var %in% v, ]
-    par_df <- par_df[order(as.numeric(par_df$order)),]
+    par_df <- par_df[order(as.numeric(par_df$order)), ]
     if (nrow(par_df) > 0) {
       n_ui <- numeric_input_ui(par_df$ui_id[1], par_df, tooltip_class = "custom-tooltip")
       # v_content <- list(layout_column_wrap(
@@ -141,7 +174,6 @@ get_input_subcontent <- function(id, group_id) {
     a <- unique(adf$subtype)
     a_id <- paste("input_array", a, id, group_id, sep = "_")
     a_content <- lapply(a_id, function(x) {
-      
       card(
         full_screen = TRUE,
         max_height = 300,
@@ -150,8 +182,9 @@ get_input_subcontent <- function(id, group_id) {
           padding = 10,
           # table_edit_ui(x, is_upload_button = F)
           table_edit_ui(x, is_upload_button = F, vspace = "4px")
-      # table_edit_ui(x, is_upload_button = F, height = "300px")
-      ))
+          # table_edit_ui(x, is_upload_button = F, height = "300px")
+        )
+      )
     })
   }
   
@@ -180,8 +213,7 @@ get_input_content <- function(id) {
   page_content <- lapply(g_id, function(x) {
     sc <- get_input_subcontent(id, x)
     content <- card_body(
-      
-      padding = 10, 
+      padding = 10,
       class = "bordercard",
       # layout_column_wrap(
       #   width = "280px",
@@ -191,12 +223,8 @@ get_input_content <- function(id) {
       #   # !!!get_input_subcontent(id, x)
       #   !!!sc$var
       # ),
-      flowLayout(
-        cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$var
-      ),
-      flowLayout(
-        cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$table
-      )
+      flowLayout(cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$var),
+      flowLayout(cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$table)
       # layout_column_wrap(
       #   width = "280px",
       #   fill = F,
@@ -213,7 +241,8 @@ get_input_content <- function(id) {
     card(content)
   })
   
-  if(length(page_content) == 1) return(page_content)
+  if (length(page_content) == 1)
+    return(page_content)
   card_body(
     class = "bordercard",
     height = "100%",
@@ -224,7 +253,8 @@ get_input_content <- function(id) {
     #   !!!page_content
     # ),
     flowLayout(
-      cellArgs = list(style = "width:auto; margin:0px;"), !!!page_content
+      cellArgs = list(style = "width:auto; margin:0px;"),
+      !!!page_content
     )
   )
 }
@@ -317,11 +347,7 @@ input_tab <- function() {
 ### OUTPUT ##############
 
 
-download_link <- function(id, filename = NULL) {
-  if (is.null(filename))
-    filename <- paste0(id, ".csv")
-  div(style = "margin-left:auto; margin-right:0;", table_download_link(id, filename = filename))
-}
+
 
 
 ### MAIN GUI ####################
@@ -330,6 +356,7 @@ ui <-
   page_navbar(
     id = "main_page",
     theme = bs_theme(
+      version = 5,
       primary = theme_color$primary,
       secondary = theme_color$secondary,
       dark = theme_color$dark,
@@ -337,11 +364,15 @@ ui <-
       info = theme_color$info,
       warning = theme_color$warning,
       danger = theme_color$danger,
-      font_scale = 0.8
+      font_scale = 0.8,
+      "navbar-light-color" = theme_color$light1,
+      "navbar-light-active-color" = "white",
+      "navbar-light-hover-color" = theme_color$secondary
     ),
-    navbar_options = navbar_options(bg = theme_color$primary),
+    navbar_options = navbar_options(bg = theme_color$primary, theme = "light"),
     header =
       tags$head(
+        useShinyjs(),
         tags$style(
           tags$link(rel = "shortcut icon", href = "favicon.ico"),
           HTML(
@@ -396,13 +427,16 @@ ui <-
             .reactable-text-input {
               max-width: 80px;
             }
-            
+
             .compact_button {
               width:auto;
               height:36px;
               padding:5px 20px;
             }
 
+            .selectize-dropdown {
+                  z-index: 999999 !important;
+                }
           "
           )
         ),
@@ -467,27 +501,36 @@ ui <-
       navset_card_tab(
         # title = div("Input Parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
         id = "input_panel",
-        !!!input_tab(),
-        nav_spacer(),
-        nav_menu(
-          title = "Options",
-          icon = icon("ellipsis-vertical"),
-          nav_item(
-            style = "margin: 0 20px",
-            fileInput(
-              "upload_parameter",
-              span(icon("upload"), "Upload input parameter file"),
-              accept = c("application/yaml", ".yaml", ".yml"),
-              width = "300px"
-            )
-          ),
-          nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
-          nav_item(span(
-            icon("download"),
-            downloadLink("download_parameter", "Download input parameters"),
-            style = "margin:0 20px"
-          ))
-        )
+        !!!input_tab()
+        # nav_spacer(),
+        # nav_menu(
+        #   title = "Options",
+        #   icon = icon("ellipsis-vertical"),
+        #   nav_item(
+        #     style = "margin: 0 20px",
+        #     fileInput(
+        #       "upload_parameter",
+        #       span(icon("upload"), "Upload input parameter file"),
+        #       accept = c("application/yaml", ".yaml", ".yml"),
+        #       width = "300px"
+        #     )
+        #   ),
+        #   nav_item(
+        #     style = "margin: 0 20px",
+        #     fileInput(
+        #       "upload_xls_parameter",
+        #       span(icon("upload"), "Upload and apply MS-Excel parameter file"),
+        #       accept = c("application/vnd.ms-excel", ".xlsx", ".xls", ".xlsm"),
+        #       width = "300px"
+        #     )
+        #   ),
+        #   nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
+        #   nav_item(span(
+        #     icon("download"),
+        #     downloadLink("download_parameter", "Download input parameters"),
+        #     style = "margin:0 20px"
+        #   ))
+        # )
       )
     ),
     
@@ -514,13 +557,13 @@ ui <-
               condition = "output.is_sim_output",
               actionButton(
                 "reset_button",
-                "Reset Output",
+                "Reset output log variables",
                 icon = icon("arrows-rotate"),
                 style = compact_button_style
               ),
-              downloadButton("download_output", "Download Output", style = compact_button_style)
-            ),
-            conditionalPanel(condition = "!output.is_sim_output", uiOutput("selected_vars_info"))
+              downloadButton("download_output", "Download output data", style = compact_button_style)
+            )
+            # conditionalPanel(condition = "!output.is_sim_output", uiOutput("selected_vars_info"))
           )
         ),
         card_body(
@@ -528,34 +571,47 @@ ui <-
           padding = 0,
           height = "100%",
           fillable = F,
+          ### TEMPORARY CONDITION ######################
           conditionalPanel(condition = "output.is_sim_output", uiOutput("sim_output_ui")),
+          
           conditionalPanel(
             condition = "!output.is_sim_output",
             card_body(
               padding = 10,
               height = "100%",
               class = "bordercard",
-              navset_card_tab(
-                nav_panel(
-                  "All Output Variables",
+              layout_column_wrap(
+                style = css(grid_template_columns = "2fr 1fr"),
+                width = NULL,
+                card(
+                  card_header(
+                    "Output log variable options",
+                    div(
+                      actionButton(
+                        "clear_selected_output_vars",
+                        "Clear selections",
+                        icon = icon("square"),
+                        class = "btn-sm"
+                      ),
+                      actionButton(
+                        "reset_default_output_vars",
+                        "Reset to default",
+                        icon = icon("arrows-rotate"),
+                        class = "btn-sm"
+                      )
+                    ),
+                    class = "d-flex justify-content-between",
+                    
+                  ),
                   reactableOutput("output_var_selector")
                 ),
-                nav_panel("Selected Variables", reactableOutput("output_var_selected")),
-                nav_spacer(),
-                nav_menu(title = "Options", nav_item(
-                  actionLink(
-                    "clear_selected_output_vars",
-                    "Clear selections",
-                    icon = icon("square")
-                  )
-                ), nav_item(
-                  actionLink(
-                    "reset_default_output_vars",
-                    "Reset to default",
-                    icon = icon("arrows-rotate")
-                  )
-                ))
-                
+                card(
+                  card_header(
+                    "Selected output log variabels:",
+                    uiOutput("selected_vars_info")
+                  ),
+                  uiOutput("output_var_selected")
+                ),
               )
             )
           )
@@ -592,7 +648,40 @@ ui <-
           # card_body(includeMarkdown("docs/library.md"))
         )
       )
+    ),
+    
+    nav_spacer(),
+    nav_menu(
+      title = "Options",
+      icon = icon("ellipsis-vertical"),
+      align = "right",
+      nav_item(
+        style = "margin: 0 20px",
+        fileInput(
+          "upload_parameter",
+          span(icon("upload"), "Upload input parameter file"),
+          accept = c("application/yaml", ".yaml", ".yml"),
+          width = "300px"
+        )
+      ),
+      nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
+      nav_item(
+        style = "margin: 0 20px",
+        fileInput(
+          "upload_xls_parameter",
+          span(
+            icon("file-excel"),
+            "Import and apply MS-Excel parameter file from earlier version of WaNuLCAS"
+          ),
+          accept = c("application/vnd.ms-excel", ".xlsx", ".xls", ".xlsm"),
+          width = "300px"
+        )
+      ),
+      nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
+      nav_item(span(
+        icon("download"),
+        downloadLink("download_parameter", "Download and save parameters"),
+        style = "margin:0 20px"
+      ))
     )
-    
-    
   )

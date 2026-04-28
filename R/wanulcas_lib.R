@@ -1495,7 +1495,7 @@ TF_MaleSinkperBunch_params <- c(
 # wanulcas_params <- read_yaml("default_params.yaml", handlers = yaml_handler)
 # xls_input_file <- "Wanulcas.xlsm"
 
-apply_xls_params <- function(xls_input_file, wanulcas_params) {
+apply_xls_params <- function(wanulcas_params, xls_input_file, xls_config_df) {
   # if (is.null(wanulcas_params)) {
   #   wpars <- default_params
   # } else {
@@ -1503,9 +1503,10 @@ apply_xls_params <- function(xls_input_file, wanulcas_params) {
   # }
   
   wpars <- wanulcas_params
-  parxls_df <- wb_to_df(xls_input_file, "LinkToStella")
+  wb <- openxlsx2::wb_load(xls_input_file)
+  parxls_df <- openxlsx2::wb_to_df(wb, "LinkToStella")
   par_names <- names(parxls_df)
-  xls_df <- read.csv("xls_param_config.csv")
+  # xls_df <- read.csv("xls_param_config.csv")
   
   get_par_xls_list <- function(unit_labels, coluMN_names) {
     l <- as.list(parxls_df[1:length(unit_labels), coluMN_names])
@@ -1705,8 +1706,8 @@ apply_xls_params <- function(xls_input_file, wanulcas_params) {
   
   ### graphs ################
   
-  for (i in 1:nrow(xls_df)) {
-    r <- xls_df[i, ]
+  for (i in 1:nrow(xls_config_df)) {
+    r <- xls_config_df[i, ]
     if (r$width == 1) {
       wpars$graphs[[r$group]]$xy_data[[r$var]]$y_val <- parxls_df[1:r$n, r$xls]
     } else {
@@ -1717,6 +1718,11 @@ apply_xls_params <- function(xls_input_file, wanulcas_params) {
       }
     }
   }
+  
+  crop_wb <- openxlsx2::wb_to_df(wb, "CROP MANAGEMENT", col_names = F)
+  wpars$arrays$crop_df$vars$CQ_Species <- as.character(crop_wb[5, c(2:6)]) 
+  tree_wb <- openxlsx2::wb_to_df(wb, "TREE MANAGEMENT", col_names = F)
+  wpars$arrays$tree_df$vars$T_Species <- as.character(tree_wb[5, c(5:7)])
   
   return(wpars)
 }
@@ -1757,6 +1763,11 @@ write_params <- function(wanulcas_params, filename) {
       t <- c(t, paste0(s, s, s, s, "x_val: [", paste0(x, collapse = ", "), "]"))
       t <- c(t, paste0(s, s, s, s, "y_val: [", paste0(y, collapse = ", "), "]"))
     }
+  }
+  
+  out <- wanulcas_params$output
+  if(!is.null(out)) {
+    t <- c(t, as.yaml(list(output = out)))
   }
   write(t, filename)
 }
@@ -2114,7 +2125,6 @@ get_monthly_avg_rain <- function(RAIN_DoY, p) {
 
 
 default_output_vars <- c(
-  "AF_DepthLay",
   "BC_ChangStock",
   "BC_CO2fromBurn",
   "BC_CPhotosynth",

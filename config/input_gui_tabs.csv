@@ -5,11 +5,11 @@ id,parent_id,title,desc
 4,0,Management,
 5,0,Economy,
 6,1,Agroforestry Design,"Tree planting density and tree spacing, soil depth and tree position accross zone  "
-7,1,Crop Parameters,Crop Parameters
-8,1,Tree Parameters,Tree Parameters
+7,119,Crop Library,
+8,120,Tree Library,
 9,2,Soil Water,
 10,2,Soil Nutrient,
-11,2,Soil Surface,
+11,2,Sloping Land,
 12,2,Roots,
 13,2,SOM,
 14,3,Rainfall,
@@ -22,17 +22,15 @@ id,parent_id,title,desc
 21,4,Maintenance Respiration,
 22,5,Profitability,Profitability
 23,9,Pedotransfer & Soil Hydraulic,"Pedotransfer functions for hydraulic properties of soil (adapted from Wosten et al., 1998 and Tomasella-Hodnett)"
-24,9,Pedo SOM,The Bulk Density pedotransfer and Soil Organic Matter pedotransfer for generating C organic per C reference value in Soil Organic Matter module
-29,11,Sloping Land,
+29,11,Soil Surface,
 30,11,Soil Erosion,
-31,11,Soil Evaporation,
+31,3,Soil Evaporation,
 32,12,Roots & Mycorrhiza,"Root Type (Rt_ATType or Rt_ACType): 0 = Lrv data, 1 = constant exponential/elliptical function, 2 = dynamic exponential/elliptical function"
 33,12,Root Parasitism,"An option is provided for simulating root parasitism by Tree 1 on roots of Tree2, Tree3 or any of the crop (or weed) types. The 'effectiveness' parameter specified here is multiplied with the product of the root length densities (in layer 1 and 2) of the host and the parasite to derive the fraction of roots that is parasitized (in all soil layers) and effectively belongs to (contributes to water and nutrient uptake) of the parasite in stead of the host."
 34,13,Soil Structure,
 35,13,Litterfall,
-36,13,Soil Organic Matter & Litter Quality,
 37,4,Grazing,"If G Graze[Zn] = 1, grazers have access to that zone regardless of crop stage; otherwise only if G_Graze Offseason? = 1 and crop stage = 0; The G_GrazingCycle determines the cycle in days at which animals graze the simulated patch, with G_GrazingCycle*Stockingrate as number, SLU as weight and G DayDemp[Comp] as daily requirement for DW, N and P, respectively"
-39,19,Slash & Burn,
+39,19,Ash,
 40,19,Burning Time,
 41,19,Burning Impacts,
 42,19,Slashing Calendar,
@@ -45,7 +43,6 @@ id,parent_id,title,desc
 49,14,Rain Type 4,
 50,15,Soil Temperature,
 51,15,Air Temperature,
-52,15,Soil Evaporation,
 53,18,Fertilizer,
 54,18,Killing Trees,
 55,4,Soil Tillage,"Soil tillage will move organic inputs from the soil surface to the soil organic matter pools. You can specify the years and day-of-year's that this will happen, as well as the zones to which it will apply. There is also an option to plough a fixed number of days before each new crop is planted."
@@ -78,7 +75,7 @@ id,parent_id,title,desc
 82,8,Allometric Branching (Above Ground),
 83,8,Roots,
 85,8,Erosion Protection,
-87,1,Oil Palm Parameters,
+87,121,Oil Palm Library,
 88,87,Trunk height increment,
 89,87,Trunk diameter,
 90,87,Frond length,
@@ -107,3 +104,9 @@ id,parent_id,title,desc
 116,7,Agronomic Yield,
 117,2,GHG,
 118,2,Soil Texture,
+119,1,Crop,
+120,1,Tree,
+121,1,Oil Palm,
+122,120,Tree Parameters,
+123,121,Oil Palm Parameters,
+124,17,Weeding,

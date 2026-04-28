@@ -2,7 +2,7 @@
 
 shp_ext <- c(".shp", ".shx", ".prj", ".dbf")
 
-write_data <- function(data, fname, type) {
+write_data_type <- function(data, fname, type) {
   if(is.null(data)) return()
   if (type == "df") {
     if(nrow(data) == 0) return()
@@ -27,6 +27,15 @@ write_data <- function(data, fname, type) {
   return(fname)
 }
 
+#' Title
+#'
+#' @param io_file_df is dataframe with two column: "var" and "file", where var is variable name, and file is filename (wiyhout the extension)
+#' @param vlist a list of variavle names with known prefix
+#'
+#' @returns
+#' @export
+#'
+#' @examples
 save_variables <- function(io_file_df, vlist) {
   fs <- c()
   for(i in 1:nrow(io_file_df)) {  
@@ -49,10 +58,10 @@ save_variables <- function(io_file_df, vlist) {
         for (id in ns) {
           data <- vlist[[vrlab]][[id]]
           f2 <- paste0(f, "-", id)
-          fs <- c(fs, write_data(data, f2, type2))
+          fs <- c(fs, write_data_type(data, f2, type2))
         }
       } else {
-        fs <- c(fs, write_data(data, f, type))
+        fs <- c(fs, write_data_type(data, f, type))
       }
     }
   }
@@ -143,7 +152,7 @@ download_as_zip <- function(filename, vars, vlist) {
       fs <- c()
       for(v in vars) {
         type <- suffix(v)
-        fs <- c(fs, write_data(vlist[[v]], v, type))
+        fs <- c(fs, write_data_type(vlist[[v]], v, type))
       }
       return(zip::zip(zipfile = fname, files = fs))
     },

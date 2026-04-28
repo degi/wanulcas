@@ -370,6 +370,7 @@ arrays:
       RT_CLraC: [50, 100, 50, 50, 100]
       RT_CRtAllocRespCurr: [0, 2, 0, 0, 0]
       RT_CSRLCurr: [70, 200, 50, 100, 150]
+      CQ_Species: [Cassava, Cassava, Cassava, Cassava, Cassava]
   cropanimal_df:
     keys:
       crop_id: [1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
@@ -657,6 +658,7 @@ arrays:
       TW_PotSuctAlphMax: [-1500, -1500, -1500]
       TW_PotSuctAlphMin: [-4500, -4500, -4500]
       TW_ResistFact: [50, 50, 50]
+      T_Species: [Cacao, Cacao, Cacao]
   treeanimal_df:
     keys:
       tree_id: [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]
