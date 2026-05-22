@@ -1,10 +1,6 @@
 
 
 
-
-
-
-
 ### INPUT GUI ###############
 
 crop_params_ui <- function() {
@@ -75,68 +71,65 @@ tree_params_ui <- function() {
   )
 }
 
-oilpalm_params_ui <- function() {
-  card_body(
-    class = "bordercard",
-    height = "100%",
-    div(
-      "Select at most 3 types of oilpalm you want to simulate from the tree library:"
-    ),
-    uiOutput("input_oilpalm_select"),
-    card(
-      card_header(
-        class = "d-flex justify-content-between",
-        "Oilpalm Library",
-        flowLayout(
-          cellArgs = list(style = "width:auto; margin:0px;"),
-          actionButton(
-            "add_oilpalm_button",
-            "Add New oilpalm Type",
-            icon = icon("plus"),
-            class = "compact_button"
-          ),
-          actionButton(
-            "remove_oilpalm_button",
-            "Remove oilpalm",
-            icon = icon("trash-can"),
-            class = "compact_button"
-          )
-        )
-      ),
-      p("You may add and define new oilpalm species to the library"),
-      reactableOutput("input_oilpalm_lib")
-    )
-  )
-}
+# oilpalm_params_ui <- function() {
+#   card_body(
+#     class = "bordercard",
+#     height = "100%",
+#     div(
+#       "Select at most 3 types of oilpalm you want to simulate from the tree library:"
+#     ),
+#     uiOutput("input_oilpalm_select"),
+#     card(
+#       card_header(
+#         class = "d-flex justify-content-between",
+#         "Oilpalm Library",
+#         flowLayout(
+#           cellArgs = list(style = "width:auto; margin:0px;"),
+#           actionButton(
+#             "add_oilpalm_button",
+#             "Add New oilpalm Type",
+#             icon = icon("plus"),
+#             class = "compact_button"
+#           ),
+#           actionButton(
+#             "remove_oilpalm_button",
+#             "Remove oilpalm",
+#             icon = icon("trash-can"),
+#             class = "compact_button"
+#           )
+#         )
+#       ),
+#       p("You may add and define new oilpalm species to the library"),
+#       reactableOutput("input_oilpalm_lib")
+#     )
+#   )
+# }
 
 get_input_graph <- function(title, desc, v) {
   title_tt <- div(title, style = "width:180px;")
   if (desc != "") {
     title_tt <- title_tt |> bslib::tooltip(desc, options = list(customClass = "custom-tooltip"))
   }
-  card(
-    id = paste("input_graph_card", v, sep = "-"),
-    full_screen = TRUE,
-    height = 300,
-    
-    card_body(
-      padding = 0,
-      navset_card_underline(
-        title = title_tt,
-        nav_panel("Plot", card_body(padding = 5, plotlyOutput(
-          paste("input_graph_plot", v, sep = "-")
-        ))),
-        nav_panel(
-          "Data",
-          layout_column_wrap(
-            width = "200px",
-            fill = F,
-            !!!lapply(graph_subvars[[v]], function(x) {
-              table_edit_ui(x, is_upload_button = F, vspace = "0px")
-            })
-          )
-        )
-      )
+  
+  # Safe lapply to avoid zero-length errors
+  graph_items <- lapply(graph_subvars[[v]], function(x) {
+    table_edit_ui(x, is_upload_button = F, vspace = "0px")
+  })
+  
+  div(
+    class = "whitecard",
+    navset_card_underline(
+      id = paste("input_graph_card", v, sep = "-"),
+      full_screen = TRUE,
+      height = 300,
+      
+      title = title_tt,
+      nav_panel("Plot", card_body(padding = 5, plotlyOutput(
+        paste("input_graph_plot", v, sep = "-")
+      ))),
+      nav_panel("Data", do.call(
+        layout_column_wrap, c(list(width = "200px", fill = FALSE), graph_items)
+      ))
     )
   )
 }
@@ -157,12 +150,6 @@ get_input_subcontent <- function(id, group_id) {
     par_df <- par_df[order(as.numeric(par_df$order)), ]
     if (nrow(par_df) > 0) {
       n_ui <- numeric_input_ui(par_df$ui_id[1], par_df, tooltip_class = "custom-tooltip")
-      # v_content <- list(layout_column_wrap(
-      #   width = "200px",
-      #   fill = F,
-      #   heights_equal = "row",
-      #   !!!n_ui
-      # ))
       v_content <- n_ui
     }
   }
@@ -177,12 +164,9 @@ get_input_subcontent <- function(id, group_id) {
       card(
         full_screen = TRUE,
         max_height = 300,
-        
         card_body(
           padding = 10,
-          # table_edit_ui(x, is_upload_button = F)
           table_edit_ui(x, is_upload_button = F, vspace = "4px")
-          # table_edit_ui(x, is_upload_button = F, height = "300px")
         )
       )
     })
@@ -198,7 +182,6 @@ get_input_subcontent <- function(id, group_id) {
     names(g_content) <- NULL
   }
   
-  # return(c(v_content, a_content, g_content))
   return(list(var = v_content, table = c(a_content, g_content)))
 }
 
@@ -212,27 +195,25 @@ get_input_content <- function(id) {
   g_id <- sort(unique(idf$group_id))
   page_content <- lapply(g_id, function(x) {
     sc <- get_input_subcontent(id, x)
+    
+    var_args <- if (!is.null(sc$var))
+      sc$var
+    else
+      list()
+    table_args <- if (!is.null(sc$table))
+      sc$table
+    else
+      list()
+    
     content <- card_body(
       padding = 10,
       class = "bordercard",
-      # layout_column_wrap(
-      #   width = "280px",
-      #   fill = F,
-      #   gap = 10,
-      #   heights_equal = "row",
-      #   # !!!get_input_subcontent(id, x)
-      #   !!!sc$var
-      # ),
-      flowLayout(cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$var),
-      flowLayout(cellArgs = list(style = "width:auto; margin:0px;"), !!!sc$table)
-      # layout_column_wrap(
-      #   width = "280px",
-      #   fill = F,
-      #   gap = 10,
-      #   heights_equal = "row",
-      #   # !!!get_input_subcontent(id, x)
-      #   !!!sc$table
-      # )
+      do.call(flowLayout, c(list(
+        cellArgs = list(style = "width:auto; margin:0px;")
+      ), var_args)),
+      do.call(flowLayout, c(list(
+        cellArgs = list(style = "width:auto; margin:0px;")
+      ), table_args))
     )
     g_df <- input_group_df[input_group_df$group_id == x, ]
     if (nrow(g_df) > 0) {
@@ -243,19 +224,13 @@ get_input_content <- function(id) {
   
   if (length(page_content) == 1)
     return(page_content)
+  
   card_body(
     class = "bordercard",
     height = "100%",
-    # layout_column_wrap(
-    #   width = "600px",
-    #   fill = F,
-    #   heights_equal = "row",
-    #   !!!page_content
-    # ),
-    flowLayout(
-      cellArgs = list(style = "width:auto; margin:0px;"),
-      !!!page_content
-    )
+    do.call(flowLayout, c(list(
+      cellArgs = list(style = "width:auto; margin:0px;")
+    ), page_content))
   )
 }
 
@@ -293,22 +268,22 @@ input_subtab <- function(st) {
         ))
       }
       # oilpalm parameter tab
-      if (id == 87) {
-        return(nav_panel(
-          x["title"],
-          card_body(
-            class = "subpanel",
-            padding = 0,
-            oilpalm_params_ui()
-          )
-        ))
-      }
-      nav_panel(x["title"],
-                card_body(
-                  class = "subpanel",
-                  padding = 0,
-                  navset_card_pill(!!!sst_ui)
-                ))
+      # if (id == 87) {
+      #   return(nav_panel(
+      #     x["title"],
+      #     card_body(
+      #       class = "subpanel",
+      #       padding = 0,
+      #       oilpalm_params_ui()
+      #     )
+      #   ))
+      # }
+      nav_panel(x["title"], card_body(
+        class = "subpanel",
+        padding = 0,
+        do.call(navset_card_pill, sst_ui)
+        # navset_card_pill(!!!sst_ui)
+      ))
     } else {
       content <- get_input_content(id)
       desc <- card_body(padding = 10,
@@ -332,25 +307,23 @@ input_tab <- function() {
       if (!is.null(content)) {
         st_ui <- c(list(nav_panel("Variables", content)), st_ui)
       }
-      nav_panel(x["title"],
-                card_body(
-                  class = "subpanel",
-                  padding = 0,
-                  navset_card_underline(!!!st_ui)
-                ))
+      nav_panel(x["title"], card_body(
+        class = "subpanel",
+        padding = 0,
+        do.call(navset_card_underline, st_ui)
+      ))
     } else {
       nav_panel(x["title"], x["desc"])
     }
   })
 }
 
-### OUTPUT ##############
 
 
 
 
 
-### MAIN GUI ####################
+### UI ####################
 
 ui <-
   page_navbar(
@@ -372,7 +345,6 @@ ui <-
     navbar_options = navbar_options(bg = theme_color$primary, theme = "light"),
     header =
       tags$head(
-        useShinyjs(),
         tags$style(
           tags$link(rel = "shortcut icon", href = "favicon.ico"),
           HTML(
@@ -404,6 +376,11 @@ ui <-
             .bordercard .card-header {
               border-width:1px;
               background-color: #F5F0E0;
+            }
+
+            .whitecard .card-header {
+              border-width:0px;
+              background-color: #FFFFFF;
             }
 
             .home {
@@ -498,40 +475,7 @@ ui <-
     nav_panel(
       title = "Input Parameters",
       icon = icon("arrow-down"),
-      navset_card_tab(
-        # title = div("Input Parameters", style = "color:#cc3d00;font-size:1.2em; padding:5px 0 0;font-family:'Arial black';"),
-        id = "input_panel",
-        !!!input_tab()
-        # nav_spacer(),
-        # nav_menu(
-        #   title = "Options",
-        #   icon = icon("ellipsis-vertical"),
-        #   nav_item(
-        #     style = "margin: 0 20px",
-        #     fileInput(
-        #       "upload_parameter",
-        #       span(icon("upload"), "Upload input parameter file"),
-        #       accept = c("application/yaml", ".yaml", ".yml"),
-        #       width = "300px"
-        #     )
-        #   ),
-        #   nav_item(
-        #     style = "margin: 0 20px",
-        #     fileInput(
-        #       "upload_xls_parameter",
-        #       span(icon("upload"), "Upload and apply MS-Excel parameter file"),
-        #       accept = c("application/vnd.ms-excel", ".xlsx", ".xls", ".xlsm"),
-        #       width = "300px"
-        #     )
-        #   ),
-        #   nav_item(style = "border-top: 2px dashed lightgray; margin:10px 20px"),
-        #   nav_item(span(
-        #     icon("download"),
-        #     downloadLink("download_parameter", "Download input parameters"),
-        #     style = "margin:0 20px"
-        #   ))
-        # )
-      )
+      do.call(navset_card_tab, c(list(id = "input_panel"), input_tab()))
     ),
     
     ### SIMULATION #############################
@@ -546,7 +490,7 @@ ui <-
           flowLayout(
             cellArgs = list(style = "width:auto; margin:0px; height:30px;"),
             div("Simulation Time (days):", style = "padding:5px 0;font-weight:bold"),
-            numericInput("n_iteration", NULL, value = 10, width = "150px"),
+            numericInput("n_iteration", NULL, value = 50, width = "150px"),
             input_task_button(
               "sim_run_button",
               "Run Simulation",
@@ -563,29 +507,41 @@ ui <-
               ),
               downloadButton("download_output", "Download output data", style = compact_button_style)
             )
-            # conditionalPanel(condition = "!output.is_sim_output", uiOutput("selected_vars_info"))
           )
         ),
         card_body(
-          class = "subpanel",
+          class = "bordercard",
           padding = 0,
           height = "100%",
           fillable = F,
-          ### TEMPORARY CONDITION ######################
-          conditionalPanel(condition = "output.is_sim_output", uiOutput("sim_output_ui")),
-          
+          conditionalPanel(condition = "output.is_sim_output", navset_card_tab(
+            nav_panel(
+              title = "Time series output",
+              card_body(
+                class = "whitecard",
+                padding = 0,
+                uiOutput("sim_output_ui")
+              )
+            ),
+            nav_panel(
+              title = "Final value output",
+              card_body(
+                class = "whitecard",
+                padding = 0,
+                uiOutput("sim_output_final_ui")
+              )
+            )
+          )),
           conditionalPanel(
             condition = "!output.is_sim_output",
             card_body(
               padding = 10,
               height = "100%",
-              class = "bordercard",
+              div("Please select the output variables below"),
               layout_column_wrap(
-                style = css(grid_template_columns = "2fr 1fr"),
-                width = NULL,
                 card(
                   card_header(
-                    "Output log variable options",
+                    "Time series output variables",
                     div(
                       actionButton(
                         "clear_selected_output_vars",
@@ -600,18 +556,50 @@ ui <-
                         class = "btn-sm"
                       )
                     ),
-                    class = "d-flex justify-content-between",
-                    
+                    class = "d-flex justify-content-between"
                   ),
-                  reactableOutput("output_var_selector")
+                  layout_column_wrap(
+                    style = css(grid_template_columns = "2fr 1fr"),
+                    width = NULL,
+                    reactableOutput("output_var_selector"),
+                    card(
+                      class = "whitecard",
+                      card_header("Selected variabels:", uiOutput("selected_vars_info")),
+                      uiOutput("output_var_selected")
+                    )
+                  ),
                 ),
                 card(
                   card_header(
-                    "Selected output log variabels:",
-                    uiOutput("selected_vars_info")
+                    "Final value output variables",
+                    div(
+                      actionButton(
+                        "clear_selected_output_final_vars",
+                        "Clear selections",
+                        icon = icon("square"),
+                        class = "btn-sm"
+                      ),
+                      actionButton(
+                        "reset_default_output_final_vars",
+                        "Reset to default",
+                        icon = icon("arrows-rotate"),
+                        class = "btn-sm"
+                      )
+                    ),
+                    class = "d-flex justify-content-between"
                   ),
-                  uiOutput("output_var_selected")
-                ),
+                  layout_column_wrap(
+                    style = css(grid_template_columns = "2fr 1fr"),
+                    width = NULL,
+                    reactableOutput("output_final_var_selector"),
+                    card(
+                      class = "whitecard",
+                      card_header("Selected variabels:", uiOutput("selected_final_vars_info")),
+                      uiOutput("output_final_var_selected")
+                    )
+                  ),
+                )
+                
               )
             )
           )
@@ -629,23 +617,28 @@ ui <-
         id = "info_panel",
         nav_panel(
           title = "About",
-          icon = icon("circle-info")
-          # card_body(includeMarkdown("docs/about.md"))
+          icon = icon("circle-info"),
+          card_body(includeMarkdown("docs/about.md"))
+        ),
+        nav_panel(
+          title = "Background",
+          icon = icon("book"),
+          card_body(includeMarkdown("docs/background.md"))
+        ),
+        nav_panel(
+          title = "Overview",
+          icon = icon("book"),
+          card_body(includeMarkdown("docs/overview.md"))
         ),
         nav_panel(
           title = "Tutorial",
-          icon = icon("book")
-          # card_body(includeMarkdown("docs/manual.md"))
+          icon = icon("book"),
+          card_body(includeMarkdown("docs/manual.md"))
         ),
         nav_panel(
-          title = "References",
-          icon = icon("bookmark")
-          # card_body(includeMarkdown("docs/references.md"))
-        ),
-        nav_panel(
-          title = "Software Library",
-          icon = icon("screwdriver-wrench")
-          # card_body(includeMarkdown("docs/library.md"))
+          title = "Technical Notes",
+          icon = icon("screwdriver-wrench"),
+          card_body(includeMarkdown("docs/w_notes.md"))
         )
       )
     ),

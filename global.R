@@ -1,6 +1,8 @@
 
 
 
+#github token: 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
+
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 install_load <- function (package1, ...)  {
@@ -21,12 +23,9 @@ libs <- c(
   "bsicons",
   "htmltools",
   "plotly",
-  # "shinyalert",
-  # "shinyWidgets",
   
   "reactable",
   "reactable.extras",
-  "reactablefmtr",
   "excelR",
   
   "RColorBrewer",
@@ -34,19 +33,15 @@ libs <- c(
   
   "yaml",
   "zip",
+  "markdown",
   "openxlsx2",
   "progress",
   "data.table",
   "lubridate",
-  # "config",
-  # "shinyjs",
   
-  # "future",
   "ipc",
-  # "promises"
   "mirai"
 )
-
 
 install_load(libs)
 
@@ -55,18 +50,14 @@ library("bslib")
 library("bsicons")
 library("htmltools")
 library("plotly")
-# library(shinyalert)
-# library(shinyWidgets)
-
 #table UI
 library("reactable")
 library(reactable.extras) #editable reactable
-library(reactablefmtr) #chart inside reactable
 library("excelR")
-# library(data.table)
 #file IO
 library("yaml")
 library("zip")
+library(markdown)
 #color
 library("paletteer")
 library("RColorBrewer")
@@ -74,25 +65,14 @@ library("RColorBrewer")
 library("openxlsx2")
 library("progress")
 library(lubridate)
-# library(later)
-
-# library(shinyjs)
-# library(config)
-
-#multisession
-# library(future)
-# library(promises)
-library(ipc) #AsyncProgress
+#AsyncProgress
+library(ipc)
 library(mirai)
 
-library(shinyjs)
-
-# shinyCyJS: flow chart
-
-# plan(multisession)
+# library(shinyjs)
 
 # Set the number of local daemons (e.g., 2)
-mirai::daemons(6L) 
+mirai::daemons(6L)
 
 # Register a function to shut down daemons when the app stops
 onStop(function() {
@@ -116,19 +96,16 @@ default_wd <- getwd()
 
 
 compact_button_style <- "width:auto;height:36px;padding:5px 20px;" #padding:0px 20px;
-
+text_output_empty <- "Please select the variables on left panel!"
 
 
 # setwd("R")
 source("R/wanulcas.R")
 source("R/wanulcas_lib.R")
 source("R/gui.R")
+source("R/utils.R")
 
-# setwd(default_wd)
 
-# is_run_online <- config::get("is_online")
-# print(is_run_online)
-# print(config::get("data_path"))
 is_run_online <- Sys.getenv('SHINY_PORT') != ""
 print(paste("Run locale:", !is_run_online))
 # force to run on one engine
@@ -145,23 +122,25 @@ vars_desc_group_df <- read.csv("config/vars_desc_group.csv")
 input_gui_tabs_df <- read.csv("config/input_gui_tabs.csv")
 input_vars_conf_df <- read.csv("config/input_vars.csv")
 input_group_df <- read.csv("config/input_group.csv")
-output_vars_option_df <- read.csv("R/output_vars.csv")
 xls_config_df <- read.csv("R/xls_param_config.csv")
 
-# output_vars <- default_output_vars
+output_vars_disp_df <- output_vars_df
+output_vars_disp_df$arr <- sapply(output_vars_df$arr, suffix_remove)
 
 input_gui_tabs_df[is.na(input_gui_tabs_df)] <- ""
-# input_vars_conf_df[is.na(input_vars_conf_df)] <- ""
-# input_vars_conf_df[input_vars_conf_df$group_id == "", "group_id"] <- 0
 
-v <- merge(input_vars_conf_df, vars_desc_df, by = "var", all.x = T)
+v <- merge(input_vars_conf_df,
+           vars_desc_df,
+           by = "var",
+           all.x = T)
 v[is.na(v)] <- ""
 v$desctolab <- F
-v[v$label == "" & v$desc != "" & nchar(v$desc) <= 50, "desctolab"] <- T 
-v[v$desctolab, "label"] <- v[v$desctolab, "desc"] 
+v[v$label == "" &
+    v$desc != "" & nchar(v$desc) <= 50, "desctolab"] <- T
+v[v$desctolab, "label"] <- v[v$desctolab, "desc"]
 v[v$group_id == "", "group_id"] <- 0
-input_vars_conf_df <- v  
-  
+input_vars_conf_df <- v
+
 
 input_vars_conf_df$var_label <- paste0(
   ifelse(
@@ -178,26 +157,62 @@ input_vars_conf_df$var_desc <- paste0(input_vars_conf_df$desc,
                                         input_vars_conf_df$var
                                       ), "]")))
 
-crop_key_col <- c("group", "var_label", "var_desc",	"sub_var")
-crop_species_col <- setdiff(colnames(crop_species_df), c("var",	"sub_var",	"order"))
-crop_var_df <- merge(crop_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
-crop_var_df <- merge(crop_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+crop_key_col <- c("group", "var_label", "var_desc", "sub_var")
+crop_species_col <- setdiff(colnames(crop_species_df), c("var", "sub_var", "order"))
+crop_var_df <- merge(
+  crop_species_df[c("var", "order")],
+  input_vars_conf_df[c("var", "var_label", "var_desc")],
+  by = "var",
+  all.x = T,
+  sort = F
+)
+crop_var_df <- merge(
+  crop_var_df,
+  vars_desc_group_df,
+  by = "var",
+  all.x = T,
+  sort = F
+)
 crop_var_df <- crop_var_df[order(crop_var_df$order), ]
-crop_species_df <- cbind(crop_var_df[-c(1,2)], crop_species_df)
+crop_species_df <- cbind(crop_var_df[-c(1, 2)], crop_species_df)
 
-tree_key_col <- c("group", "var_label", "var_desc",	"sub_var")
-tree_species_col <- setdiff(colnames(tree_species_df), c("var",	"sub_var",	"order"))
-tree_var_df <- merge(tree_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
-tree_var_df <- merge(tree_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+tree_key_col <- c("group", "var_label", "var_desc", "sub_var")
+tree_species_col <- setdiff(colnames(tree_species_df), c("var", "sub_var", "order"))
+tree_var_df <- merge(
+  tree_species_df[c("var", "order")],
+  input_vars_conf_df[c("var", "var_label", "var_desc")],
+  by = "var",
+  all.x = T,
+  sort = F
+)
+tree_var_df <- merge(
+  tree_var_df,
+  vars_desc_group_df,
+  by = "var",
+  all.x = T,
+  sort = F
+)
 tree_var_df <- tree_var_df[order(tree_var_df$order), ]
-tree_species_df <- cbind(tree_var_df[-c(1,2)], tree_species_df)
+tree_species_df <- cbind(tree_var_df[-c(1, 2)], tree_species_df)
 
-oilpalm_key_col <- c("group", "var_label", "var_desc",	"sub_var")
-oilpalm_species_col <- setdiff(colnames(oilpalm_species_df), c("var",	"sub_var",	"order"))
-oilpalm_var_df <- merge(oilpalm_species_df[c("var", "order")], input_vars_conf_df[c("var", "var_label", "var_desc")], by = "var", all.x = T, sort = F)
-oilpalm_var_df <- merge(oilpalm_var_df, vars_desc_group_df, by = "var", all.x = T, sort = F)
+oilpalm_key_col <- c("group", "var_label", "var_desc", "sub_var")
+oilpalm_species_col <- setdiff(colnames(oilpalm_species_df), c("var", "sub_var", "order"))
+oilpalm_var_df <- merge(
+  oilpalm_species_df[c("var", "order")],
+  input_vars_conf_df[c("var", "var_label", "var_desc")],
+  by = "var",
+  all.x = T,
+  sort = F
+)
+oilpalm_var_df <- merge(
+  oilpalm_var_df,
+  vars_desc_group_df,
+  by = "var",
+  all.x = T,
+  sort = F
+)
 oilpalm_var_df <- oilpalm_var_df[order(oilpalm_var_df$order), ]
-oilpalm_species_df <- cbind(oilpalm_var_df[-c(1,2)], oilpalm_species_df)
+oilpalm_species_df <- cbind(oilpalm_var_df[-c(1, 2)], oilpalm_species_df)
 
 # preparing variable input parameters
 
@@ -220,19 +235,29 @@ inputvars_df$ui_id <- paste("input_var", inputvars_df$id, inputvars_df$group_id,
 
 
 arr_ids_df <- unique(input_vars_conf_df[input_vars_conf_df$type == "arrays" &
-                                    input_vars_conf_df$id != "", c("subtype", "id", "group_id")])
+                                          input_vars_conf_df$id != "", c("subtype", "id", "group_id")])
 arr_ids_df$arr <- paste(arr_ids_df$subtype, "df", sep = "_")
-arr_ids_df$ui_id <- paste("input_array", arr_ids_df$subtype, arr_ids_df$id, arr_ids_df$group_id, sep = "_")
+arr_ids_df$ui_id <- paste("input_array",
+                          arr_ids_df$subtype,
+                          arr_ids_df$id,
+                          arr_ids_df$group_id,
+                          sep = "_")
 
 array_params_to_ui_inp <- function(array_params) {
   ui_inp <- apply(arr_ids_df, 1, function(x) {
-    df <- array_params[[x["arr"]]]$vars
     v <- input_vars_conf_df[input_vars_conf_df$type == "arrays" &
                               input_vars_conf_df$subtype == x["subtype"] &
                               input_vars_conf_df$id == as.numeric(x["id"]) &
                               input_vars_conf_df$group_id == as.numeric(x["group_id"]), "var"]
     
-    var_df <- df[v[v %in% names(df)]]
+    def_df <- wanulcas_params_def[["arrays"]][[x["arr"]]]$vars
+    def_vars <- v[v %in% names(def_df)]
+    var_df <- def_df[def_vars]
+    
+    df <- array_params[[x["arr"]]]$vars
+    in_vars <- v[v %in% names(df)]
+    var_df[in_vars] <- df[in_vars]
+    
     as.data.frame(c(array_params[[x["arr"]]]$keys, var_df))
   })
   names(ui_inp) <- arr_ids_df$ui_id
@@ -259,7 +284,7 @@ names(arr_conf) <- arr_ids_df$ui_id
 # preparing graph input parameters
 
 graph_vars <- names(wanulcas_params_def$graphs)
-graph_subvars <- sapply(graph_vars, function(a){
+graph_subvars <- sapply(graph_vars, function(a) {
   subvars <- names(wanulcas_params_def$graphs[[a]]$xy_data)
   paste("input_graph", a, subvars, sep = "-")
 })
@@ -268,7 +293,7 @@ graph_allvars <- unlist(graph_subvars, recursive = F, use.names = F)
 graph_params_to_ui_inp <- function(graph_params) {
   graph_ui_inp <- unlist(lapply(graph_params, function(a) {
     gv <- names(a$xy_data)
-    df_list <- lapply(gv, function(b){
+    df_list <- lapply(gv, function(b) {
       df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
       colnames(df) <- c(a$x_var, b)
       df
@@ -279,18 +304,6 @@ graph_params_to_ui_inp <- function(graph_params) {
 }
 
 graph_inp <- graph_params_to_ui_inp(wanulcas_params_def$graphs)
-
-# graph_inp <- unlist(lapply(wanulcas_params_def$graphs, function(a) {
-#   gv <- names(a$xy_data)
-#   df_list <- lapply(gv, function(b){
-#     df <- data.frame(a$xy_data[[b]]$x_val, a$xy_data[[b]]$y_val)
-#     colnames(df) <- c(a$x_var, b)
-#     df
-#   })
-# }), recursive = FALSE)
-# names(graph_inp) <- graph_allvars
-
-###
 
 download_link <- function(id, filename = NULL) {
   if (is.null(filename))

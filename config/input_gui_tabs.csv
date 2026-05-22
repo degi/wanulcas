@@ -27,8 +27,8 @@ id,parent_id,title,desc
 31,3,Soil Evaporation,
 32,12,Roots & Mycorrhiza,"Root Type (Rt_ATType or Rt_ACType): 0 = Lrv data, 1 = constant exponential/elliptical function, 2 = dynamic exponential/elliptical function"
 33,12,Root Parasitism,"An option is provided for simulating root parasitism by Tree 1 on roots of Tree2, Tree3 or any of the crop (or weed) types. The 'effectiveness' parameter specified here is multiplied with the product of the root length densities (in layer 1 and 2) of the host and the parasite to derive the fraction of roots that is parasitized (in all soil layers) and effectively belongs to (contributes to water and nutrient uptake) of the parasite in stead of the host."
-34,13,Soil Structure,
-35,13,Litterfall,
+34,2,Soil Structure,
+35,2,Litterfall,
 37,4,Grazing,"If G Graze[Zn] = 1, grazers have access to that zone regardless of crop stage; otherwise only if G_Graze Offseason? = 1 and crop stage = 0; The G_GrazingCycle determines the cycle in days at which animals graze the simulated patch, with G_GrazingCycle*Stockingrate as number, SLU as weight and G DayDemp[Comp] as daily requirement for DW, N and P, respectively"
 39,19,Ash,
 40,19,Burning Time,
@@ -43,7 +43,6 @@ id,parent_id,title,desc
 49,14,Rain Type 4,
 50,15,Soil Temperature,
 51,15,Air Temperature,
-53,18,Fertilizer,
 54,18,Killing Trees,
 55,4,Soil Tillage,"Soil tillage will move organic inputs from the soil surface to the soil organic matter pools. You can specify the years and day-of-year's that this will happen, as well as the zones to which it will apply. There is also an option to plough a fixed number of days before each new crop is planted."
 56,18,Tree Calendar,
@@ -106,7 +105,5 @@ id,parent_id,title,desc
 118,2,Soil Texture,
 119,1,Crop,
 120,1,Tree,
-121,1,Oil Palm,
-122,120,Tree Parameters,
-123,121,Oil Palm Parameters,
-124,17,Weeding,
+122,120,Specific Tree Parameters,
+124,4,Weeding,

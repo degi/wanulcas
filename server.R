@@ -5,9 +5,6 @@
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize = 1000 * 1024^2)
-  # options(future.globals.maxSize = 5000 * 1024^2)
-  
-  data_dir <- paste0(tempdir(), "/data_temp")
   
   options(
     reactable.theme = reactableTheme(
@@ -17,7 +14,7 @@ server <- function(input, output, session) {
     )
   )
   
-  
+  data_dir <- paste0(tempdir(), "/data_temp")
   
   #not working for vector of number
   f_number <- function(v, ...) {
@@ -28,10 +25,6 @@ server <- function(input, output, session) {
     sprintf("%0.1f%%", v * 100)
   }
   
-  
-  
-  
-  
   ### reactiveValues #############################################
   
   rv_var <- do.call(reactiveValues, wanulcas_params_def$vars)
@@ -41,14 +34,10 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     wanulcas_cfg = list(),
     sim_output = NULL,
-    output_vars = default_output_vars,
-    output_graph_cfg = list()
+    output_timeseries_vars = default_output_timeseries_vars,
+    output_final_vars = default_output_final_vars,
+    output_graph_cfg = wanulcas_params_def$output$timeseries_layout
   )
-  
-  # validate_output_vars <- function() {
-  #   print(rv$output_vars)
-  #   if(is.null(rv$output_vars)) rv$output_vars <- default_output_vars
-  # }
   
   ### conditional variables #####################################
   
@@ -96,9 +85,6 @@ server <- function(input, output, session) {
     })
   })
   
-  
-  
-  
   ### array input UI ######################
   
   rv_arr_edit <- reactiveValues()
@@ -132,8 +118,13 @@ server <- function(input, output, session) {
   rv_graph_edit <- reactiveValues()
   react_graph <- reactive({
     react_graph <- lapply(names(graph_inp), function(x) {
-      rv_graph_edit[[x]] <- table_edit_server(x, reactive(rv_graph[[x]]), allowRowModif = T, nrow = NA,
-                                              col_type = rep("numeric", length(rv_graph[[x]])))
+      rv_graph_edit[[x]] <- table_edit_server(
+        x,
+        reactive(rv_graph[[x]]),
+        allowRowModif = T,
+        nrow = NA,
+        col_type = rep("numeric", length(rv_graph[[x]]))
+      )
     })
   })
   
@@ -175,17 +166,15 @@ server <- function(input, output, session) {
       hoverlabel = list(namelength = -1)
     )
     
-    is_fullscreen <- input[[paste0("input_graph_card-", var, "_full_screen")]]
-    if (!is_fullscreen) {
-      fig <- fig |> plotly::layout(
-        xaxis = list(showgrid = F),
-        yaxis = list(title = ""),
-        margin = list(l = 0),
-        showlegend = F,
-        title = ""
-      )
-      fig <- fig |> plotly::config(displayModeBar = FALSE)
-    }
+    fig <- fig |> plotly::layout(
+      xaxis = list(showgrid = F),
+      yaxis = list(title = ""),
+      margin = list(l = 0),
+      showlegend = F,
+      title = ""
+    )
+    fig <- fig |> plotly::config(displayModeBar = FALSE)
+    # }
     return(fig)
   }
   
@@ -193,7 +182,6 @@ server <- function(input, output, session) {
     gp_id <- paste("input_graph_plot", x, sep = "-")
     output[[gp_id]] <- renderPlotly(generate_graph_plot(x))
   })
-  
   
   with_tooltip <- function(tooltip_col) {
     JS(
@@ -226,13 +214,17 @@ server <- function(input, output, session) {
   output$input_crop_select <- renderUI({
     crop_list <- get_crop_list()
     cr_select <- rv_arr[[crop_ui_id]]$CQ_Species
-    flowLayout(cellArgs = list(style = "width:200px; margin:0px;"),
-               !!!lapply(c(1:5), function(i) {
-                 selectInput(crop_select_ids[i],
-                             paste0("Crop ", i, ":"),
-                             crop_list,
-                             selected = cr_select[i])
-               }))
+    
+    # Safe lapply to avoid zero-length errors
+    crop_ui <- lapply(c(1:5), function(i) {
+      selectInput(crop_select_ids[i],
+                  paste0("Crop ", i, ":"),
+                  crop_list,
+                  selected = cr_select[i])
+    })
+    do.call(flowLayout, c(list(
+      cellArgs = list(style = "width:200px; margin:0px;")
+    ), crop_ui))
   })
   
   lapply(c(1:5), function(i) {
@@ -241,14 +233,13 @@ server <- function(input, output, session) {
     })
   })
   
-  
   output$input_crop_lib <- renderReactable({
     edit_crop <- user_crop()
     edit_col <- NULL
     if (length(edit_crop) > 0) {
       edit_col <- lapply(edit_crop, function(x) {
         colDef(
-          cell = text_extra("crop_edit_text", class = "reactable-text-input"),
+          cell = text_extra("crop_edit", class = "reactable-text-input"),
           headerStyle = list(
             background = theme_color$primary,
             color = "#FFF"
@@ -293,16 +284,21 @@ server <- function(input, output, session) {
     )
   })
   
+  observeEvent(input$crop_edit, {
+    i <- input$crop_edit
+    crop_species_df[i$row, i$column] <<- as.numeric(i$value)
+  })
+  
   observeEvent(input$add_crop_button, {
     show_input_dialog(
       "Add New Crop Type",
-      "Please select the default crop parameter from the available library and define the crop name",
+      "Select the base crop parameter from the available library and define the crop name",
       "confirm_add_crop",
       input_var = "input_crop_name",
       input_label = "New crop name:",
       custom_input = selectInput(
         "input_crop_def",
-        "Default crop paramaters:",
+        "Base parameters:",
         crop_species_col
       )
     )
@@ -344,7 +340,6 @@ server <- function(input, output, session) {
   observe({
     req(input$crop_edit_text)
     values <- input$crop_edit_text
-    print(values)
   })
   
   #### tree species library ###############
@@ -358,13 +353,16 @@ server <- function(input, output, session) {
   output$input_tree_select <- renderUI({
     tree_list <- get_tree_list()
     tr_select <- rv_arr[[tree_ui_id]]$T_Species
-    flowLayout(cellArgs = list(style = "width:300px; margin:0px;"),
-               !!!lapply(c(1:3), function(i) {
-                 selectInput(tree_select_ids[i],
-                             paste0("Tree ", i, ":"),
-                             tree_list,
-                             selected = tr_select[i])
-               }))
+    # Safe lapply to avoid zero-length errors
+    tree_ui <- lapply(c(1:3), function(i) {
+      selectInput(tree_select_ids[i],
+                  paste0("Tree ", i, ":"),
+                  tree_list,
+                  selected = tr_select[i])
+    })
+    do.call(flowLayout, c(list(
+      cellArgs = list(style = "width:300px; margin:0px;")
+    ), tree_ui))
   })
   
   lapply(c(1:3), function(i) {
@@ -380,7 +378,7 @@ server <- function(input, output, session) {
     if (length(edit_tree) > 0) {
       edit_col <- lapply(edit_tree, function(x) {
         colDef(
-          cell = text_extra("tree_edit_text", class = "reactable-text-input"),
+          cell = text_extra("tree_edit", class = "reactable-text-input"),
           headerStyle = list(
             background = theme_color$primary,
             color = "#FFF"
@@ -425,16 +423,21 @@ server <- function(input, output, session) {
     )
   })
   
+  observeEvent(input$tree_edit, {
+    i <- input$tree_edit
+    tree_species_df[i$row, i$column] <<- as.numeric(i$value)
+  })
+  
   observeEvent(input$add_tree_button, {
     show_input_dialog(
       "Add New tree Type",
-      "Please select the default tree parameter from the available library and define the tree name",
+      "Select the base tree parameter from the available library and define the tree name",
       "confirm_add_tree",
       input_var = "input_tree_name",
       input_label = "New tree name:",
       custom_input = selectInput(
         "input_tree_def",
-        "Default tree paramaters:",
+        "Base parameters:",
         tree_species_col
       )
     )
@@ -472,139 +475,7 @@ server <- function(input, output, session) {
     uc <-  uc[uc != rc]
     user_tree(uc)
   })
-  
-  observe({
-    req(input$tree_edit_text)
-    values <- input$tree_edit_text
-    print(values)
-  })
-  
-  #### oilpalm species library ###############
-  
-  output$input_oilpalm_select <- renderUI({
-    oilpalm_list <-  c(user_crop(), oilpalm_species_col)
-    flowLayout(
-      cellArgs = list(style = "width:300px; margin:0px;"),
-      selectInput("input_oilpalm_1", "oilpalm 1:", oilpalm_list),
-      selectInput("input_oilpalm_2", "oilpalm 2:", oilpalm_list),
-      selectInput("input_oilpalm_3", "oilpalm 3:", oilpalm_list)
-      
-      # selectInput("input_oilpalm_1", "oilpalm 1:", oilpalm_list, selected = oilpalm_list[1]),
-      # selectInput("input_oilpalm_2", "oilpalm 2:", oilpalm_list, selected = oilpalm_list[1]),
-      # selectInput("input_oilpalm_3", "oilpalm 3:", oilpalm_list, selected = oilpalm_list[1])
-    )
-  })
-  
-  output$input_oilpalm_lib <- renderReactable({
-    edit_oilpalm <- user_oilpalm()
-    
-    edit_col <- NULL
-    if (length(edit_oilpalm) > 0) {
-      edit_col <- lapply(edit_oilpalm, function(x) {
-        colDef(
-          cell = text_extra("oilpalm_edit_text", class = "reactable-text-input"),
-          headerStyle = list(
-            background = theme_color$primary,
-            color = "#FFF"
-          )
-        )
-      })
-      names(edit_col) <- edit_oilpalm
-    }
-    hpar <- list(color = theme_color$primary)
-    reactable(
-      oilpalm_species_df[c(oilpalm_key_col, edit_oilpalm , oilpalm_species_col)],
-      highlight = T,
-      compact = T,
-      striped = T,
-      pagination = F,
-      groupBy = "group",
-      columns = c(
-        list(
-          group = colDef(
-            name = "Categories",
-            width = 300,
-            style = list(color = theme_color$primary),
-            headerStyle = hpar
-          ),
-          var_desc = colDef(show = F),
-          var_label = colDef(
-            name = "Parameters",
-            width = 300,
-            style = list(color = theme_color$primary),
-            headerStyle = hpar,
-            html = TRUE,
-            cell = with_tooltip("var_desc")
-          ),
-          sub_var = colDef(
-            name = "Att",
-            style = list(color = theme_color$primary, width = 30),
-            headerStyle = hpar
-          )
-        ),
-        edit_col
-      )
-    )
-  })
-  
-  observeEvent(input$add_oilpalm_button, {
-    show_input_dialog(
-      "Add New oilpalm Type",
-      "Please select the default oilpalm parameter from the available library and define the oilpalm name",
-      "confirm_add_oilpalm",
-      input_var = "input_oilpalm_name",
-      input_label = "New oilpalm name:",
-      custom_input = selectInput(
-        "input_oilpalm_def",
-        "Default oilpalm paramaters:",
-        oilpalm_species_col
-      )
-    )
-  })
-  
-  user_oilpalm <- reactiveVal()
-  
-  observeEvent(input$confirm_add_oilpalm, {
-    removeModal()
-    cn <- input$input_oilpalm_name
-    if (cn == "")
-      return()
-    oilpalm_species_df[[cn]] <<- oilpalm_species_df[[input$input_oilpalm_def]]
-    user_oilpalm(c(user_oilpalm(), cn))
-  })
-  
-  observeEvent(input$remove_oilpalm_button, {
-    if (length(user_oilpalm()) == 0)
-      return()
-    show_input_dialog(
-      "Remove oilpalm",
-      "",
-      "confirm_remove_oilpalm",
-      custom_input = selectInput(
-        "removed_oilpalm",
-        "Select the oilpalm to removed:",
-        user_oilpalm()
-      )
-    )
-  })
-  
-  observeEvent(input$confirm_remove_oilpalm, {
-    removeModal()
-    rc <- input$removed_oilpalm
-    if (rc == "")
-      return()
-    oilpalm_species_df[[rc]] <<- NULL
-    uc <- user_oilpalm()
-    uc <-  uc[uc != rc]
-    user_oilpalm(uc)
-  })
-  
-  observe({
-    req(input$oilpalm_edit_text)
-    values <- input$oilpalm_edit_text
-    print(values)
-  })
-  
+
   ### Run Simulation #############
   validate_crop <- function(input_crop) {
     ifelse(is.null(input_crop),
@@ -618,45 +489,16 @@ server <- function(input, output, session) {
            input_tree)
   }
   
-  validate_oilpalm <- function(input_oilpalm) {
-    ifelse(is.null(input_oilpalm),
-           c(user_oilpalm(), oilpalm_species_col)[1],
-           input_oilpalm)
-  }
+  species_var_keys <- c("var", "sub_var")
   
   apply_species_params <- function(params) {
-    # croplist <- c(
-    #   validate_crop(input$input_crop_1),
-    #   validate_crop(input$input_crop_2),
-    #   validate_crop(input$input_crop_3),
-    #   validate_crop(input$input_crop_4),
-    #   validate_crop(input$input_crop_5)
-    # )
-    # croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
-    # treelist <- c(
-    #   validate_tree(input$input_tree_1),
-    #   validate_tree(input$input_tree_2),
-    #   validate_tree(input$input_tree_3)
-    # )
-    # treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
-    oilpalmlist <- c(
-      validate_oilpalm(input$input_oilpalm_1),
-      validate_oilpalm(input$input_oilpalm_2),
-      validate_oilpalm(input$input_oilpalm_3)
-    )
-    oilpalmlist_df <- oilpalm_species_df[c("var", "sub_var", oilpalmlist)]
-    
     croplist <- rv_arr[[crop_ui_id]]$CQ_Species
-    croplist_df <- crop_species_df[c("var", "sub_var", croplist)]
+    croplist_df <- crop_species_df[c(species_var_keys, croplist)]
     treelist <- rv_arr[[tree_ui_id]]$T_Species
-    treelist_df <- tree_species_df[c("var", "sub_var", treelist)]
-    
-    # params$arrays$crop_df$vars$CQ_Species <- croplist
-    # params$arrays$tree_df$vars$T_Species <- treelist
-    params <- params |> apply_croplist_params(croplist_df) |> apply_treelist_params(treelist_df) |> apply_oilpalmlist_params(oilpalmlist_df)
+    treelist_df <- tree_species_df[c(species_var_keys, treelist)]
+    params <- params |> apply_croplist_params(croplist_df) |> apply_treelist_params(treelist_df)
     return(params)
   }
-  
   
   get_input_parameters <- function() {
     params <- list()
@@ -691,6 +533,18 @@ server <- function(input, output, session) {
     }, params$graphs, xy, SIMPLIFY = F)
     
     params <- apply_species_params(params)
+    
+    # species library
+    edit_crop <- isolate(user_crop())
+    if(length(edit_crop) > 0) {
+      df <- crop_species_df[c(species_var_keys, edit_crop)]
+      params[["crop_library"]] <- df
+    }
+    edit_tree <- isolate(user_tree())
+    if(length(edit_tree) > 0) {
+      df <- tree_species_df[c(species_var_keys, edit_tree)]
+      params[["tree_library"]] <- df
+    }
     return(params)
   }
   
@@ -713,7 +567,7 @@ server <- function(input, output, session) {
     observeEvent(input$sim_run_button, {
       if (!is_simulation_ready())
         return()
-      print("Starting simulation")
+      
       n_iteration <- input$n_iteration
       pars <- isolate(get_input_parameters())
       progress <- AsyncProgress$new(
@@ -727,7 +581,14 @@ server <- function(input, output, session) {
       progress_trigger <- function(i, n) {
         progress$set(i, "Running simulation", paste("Day", i, "of", n))
       }
-      task$invoke(n_iteration, pars, rv$output_vars, progress)
+      print("Starting simulation: online")
+      task$invoke(
+        n_iteration,
+        pars,
+        output_timeseries_vars = rv$output_timeseries_vars,
+        output_final_vars = rv$output_final_vars,
+        progress = progress_trigger
+      )
     })
   } else {
     local_task <- eventReactive(input$sim_run_button, ignoreNULL = T, {
@@ -741,12 +602,19 @@ server <- function(input, output, session) {
       progress_trigger <- function(i, n) {
         progress$set(i, "Running simulation", paste("Day", i, "of", n))
       }
-      run_wanulcas(n_iteration, pars, rv$output_vars, progress_trigger)
+      print("Starting simulation: local")
+      run_wanulcas(
+        n_iteration,
+        pars,
+        output_timeseries_vars = rv$output_timeseries_vars,
+        output_final_vars = rv$output_final_vars,
+        progress = progress_trigger
+      )
     })
   }
   
   is_simulation_ready <- function() {
-    if (length(rv$output_vars) == 0) {
+    if (length(rv$output_timeseries_vars) == 0) {
       show_alert(
         "Output variables was not selected",
         "Please select the output variable on the table below by checking the correspondent box."
@@ -761,330 +629,13 @@ server <- function(input, output, session) {
   observe(rv$sim_output <- local_task())
   observe(rv$sim_output <- task$result())
   
-  check_dynamic_card_container <- function() {
-    runjs(
-      "Shiny.setInputValue('card_container_exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
-    )
-  }
-  
-  observe({
-    out <- rv$sim_output
-    if (is.null(out))
-      return()
-    formatted_output_data(format_output_data(out))
-    output_cfg <- isolate(rv$output_graph_cfg)
-    if (length(output_cfg) > 0) {
-      check_dynamic_card_container()
-      # runjs(
-      #   "Shiny.setInputValue('exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
-      # )
-    }
-  })
-  
-  # if not being checked and existed, the card can't be displayed automatically
-  observeEvent(input$card_container_exists, {
-    if (input$card_container_exists) {
-      output_cfg <- isolate(rv$output_graph_cfg)
-      if (length(output_cfg) > 0) {
-        reset_output_config(output_cfg)
-      }
-    } else {
-      shinyjs::delay(1000, check_dynamic_card_container())
-      #                {
-      #   runjs(
-      #     "Shiny.setInputValue('exists', document.getElementById('dynamic_card_container') !== null, {priority: 'event'});"
-      #   )
-      # })
-    }
-  })
-  
-  output$sim_output_ui_old <- renderUI({
-    result <- rv$sim_output
-    if (is.null(result))
-      return()
-    print("Simulation done!")
-    showNotification("Simulation done!")
-    navset_card_underline(
-      id = "output_tabs",
-      height = "100%",
-      nav_panel(
-        "Output Variables",
-        card_body(padding = 20, reactableOutput("output_vars_table"))
-      ),
-      !!!output_arr_panels(result)
-    )
-  })
-  
-  generate_output_plot <- function(df, key_df, arr) {
-    # variable filter
-    vars <- input[[paste0("input_plot_vars-", arr)]]
-    if (!is.null(vars)) {
-      df <- df[c("time", names(key_df), vars)]
-    } else {
-      vars <- setdiff(names(df), c("time", names(key_df)))
-    }
-    
-    if (arr == "single_df") {
-      fig <- plot_ly(type = "scatter", mode = "lines+markers")
-      for (v in vars) {
-        fig <- fig |> add_trace(
-          x = df[["time"]],
-          y = df[[v]],
-          name = v,
-          color = I(chart_color[match(v, vars)])
-        )
-      }
-      return(fig)
-    }
-    # subplot filter
-    sp <- input[[paste0("input_subplot-", arr)]]
-    if (!is.null(sp)) {
-      k_df <- as.data.frame(t(sapply(sp, function(a) {
-        unlist(strsplit(a, " "))
-      })))
-      k <- unique(k_df[[1]])
-      f_df <- df
-      f_key_df <- key_df
-      for (x in k) {
-        f_df <- f_df[f_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
-        f_key_df <- f_key_df[f_key_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
-      }
-      df <- f_df
-      if (class(f_key_df) == "data.frame") {
-        key_df <- f_key_df
-      } else {
-        key_df <- data.frame(f_key_df)
-        colnames(key_df) <- k
-      }
-    }
-    kn <- names(key_df)
-    ncolplot <- length(unique(key_df[[1]]))
-    nrowplot <- nrow(key_df) / ncolplot
-    key_df$row <- 1:nrow(key_df)
-    subfont = list(size = 14)
-    figs <- apply(key_df, 1, function(k) {
-      # get data with similar id for all selected keys
-      row <- as.numeric(k[["row"]])
-      coltitle <- ""
-      if (row <= ncolplot) {
-        coltitle <- paste0("<i>", kn[1], ":</i> <b>", k[[kn[1]]], "</b>")
-      }
-      k <- as.data.frame(t(as.data.frame(k)))
-      k$row <- NULL
-      rowtitle <- ""
-      if (row %% ncolplot == 1 | ncolplot == 1) {
-        rowtitle <-  paste(paste0("<i>", kn[-1], ":</i> <b>", k[-1], "</b>"), collapse = "; ")
-      }
-      kk <- k[rep(1, nrow(df)), ]
-      kk_is <- df[kn] == kk
-      df2 <- df[apply(kk_is, 1, function(x)
-        all(x == T)), ]
-      
-      fig <- plot_ly(
-        type = "scatter",
-        mode = "lines",
-        showlegend = ifelse(row == 1, T, F)
-        
-      )
-      for (v in vars) {
-        fig <- fig |> add_trace(
-          x = df2[["time"]],
-          y = df2[[v]],
-          name = v,
-          legendgroup = v,
-          color = I(chart_color[match(v, vars)])
-        )
-      }
-      fig <- fig |> plotly::layout(
-        annotations = list(
-          list(
-            y = 1,
-            yref = 'paper',
-            yanchor = "bottom",
-            text = coltitle,
-            showarrow = FALSE,
-            font = subfont
-          )
-        ),
-        xaxis = list(title = "Time"),
-        yaxis = list(title = list(text = rowtitle, font = subfont)),
-        hoverlabel = list(namelength = -1),
-        
-      )
-      return(fig)
-    })
-    
-    subplot(
-      figs,
-      shareX = T,
-      shareY = T,
-      titleX = T,
-      titleY = T,
-      nrows = nrowplot
-    )
-  }
-  
-  observeEvent(input$show_plot, {
-    i <- input$show_plot$index
-    arr <- output_vars_df[i, "arr"]
-    var <- output_vars_df[i, "var"]
-    id = paste0("input_plot_vars-", arr)
-    nav_select(id = "output_tabs", selected = arr)
-    updateSelectInput(session, inputId = id, selected = var)
-  })
-  
-  output_vars_df <- NULL
-  io_file_df <- NULL
-  
-  observe({
-    result <- rv$sim_output
-    if (is.null(result))
-      return()
-    
-    io_df <- data.frame(var = names(result))
-    io_df$file <- sapply(io_df$var, prefix)
-    io_file_df <<- io_df
-    
-    vars_df <- data.frame(var = sort(isolate(rv$output_vars)))
-    vars_df$arr <- ""
-    vars_df$details <- NA
-    lapply(names(result), function(x) {
-      df <- result[[x]]
-      vars <- setdiff(names(df), c("time", names(wanulcas_def_arr[[x]])))
-      vars_df[vars_df$var %in% vars, "arr"] <<- x
-    })
-    vars_df$cat <- sapply(vars_df$var, prefix)
-    output_vars_df <<- vars_df
-    
-    output$output_vars_table <- renderReactable(
-      reactable(
-        vars_df,
-        highlight = T,
-        compact = T,
-        striped = T,
-        filterable = T,
-        showPageSizeOptions = T,
-        pageSizeOptions = c(10, 20, 40, 100),
-        defaultPageSize = 20,
-        groupBy = "cat",
-        paginateSubRows = T,
-        
-        columns = list(
-          details = colDef(
-            name = "",
-            sortable = FALSE,
-            cell = function()
-              actionButton(
-                "show_plot",
-                "Show Plot",
-                icon = icon("chart-line", style = "margin-right:5px;"),
-                style = compact_button_style
-              )
-          ),
-          var = colDef(name = "Variable"),
-          arr = colDef(name = "Array Dimension")
-        ),
-        onClick = JS(
-          "function(rowInfo, column) {
-          if (column.id !== 'details') return
-          if (window.Shiny) {
-            Shiny.setInputValue('show_plot', { index: rowInfo.index + 1 }, { priority: 'event' })
-          }
-        }"
-        )
-      )
-    )
-    
-    lapply(names(result), function(x) {
-      output[[paste("output_plot", x, sep = "_")]] <- renderPlotly(generate_output_plot(result[[x]], wanulcas_def_arr[[x]], x))
-      output[[paste("output_data", x, sep = "_")]] <- renderReactable(reactable(
-        result[[x]],
-        pagination = F,
-        highlight = T,
-        compact = T,
-        groupBy = names(wanulcas_def_arr[[x]])
-      ))
-    })
-    
-  })
-  
-  
-  output_arr_panels <- function(result) {
-    lapply(names(result), function(x) {
-      df <- result[[x]]
-      
-      subplot <- NULL
-      keys <- NULL
-      if (x != "single_df") {
-        keys <- apply(wanulcas_def_arr[[x]], 2, unique, simplify = F)
-        subplot <- sapply(names(keys), function(a) {
-          k <- paste(a, keys[[a]])
-          kk <- as.list(k)
-          names(kk) <- k
-          kk
-        }, simplify = F, USE.NAMES = T)
-        
-      }
-      vars <- setdiff(names(df), c("time", names(keys)))
-      
-      nav_panel(x,
-                card_body(
-                  class = "bordercard",
-                  padding = 10,
-                  
-                  navset_card_underline(
-                    full_screen = T,
-                    
-                    title = flowLayout(
-                      cellArgs = list(style = "width:auto; margin:0px;"),
-                      div(
-                        class = "d-flex align-items-center",
-                        tags$label("Subplot filter:", style = "margin-right: 10px;"),
-                        selectInput(
-                          inputId = paste0("input_subplot-", x),
-                          label = NULL,
-                          choices = subplot,
-                          multiple = TRUE
-                        )
-                      ),
-                      div(
-                        class = "d-flex align-items-center",
-                        tags$label("Variables:", style = "margin-right: 10px;"),
-                        selectInput(
-                          inputId = paste0("input_plot_vars-", x),
-                          label = NULL,
-                          choices = vars,
-                          multiple = TRUE
-                        )
-                      )
-                    ),
-                    nav_panel(
-                      "Plot",
-                      icon = icon("chart-line"),
-                      card_body(padding = 5, plotlyOutput(paste(
-                        "output_plot", x, sep = "_"
-                      )))
-                    ),
-                    nav_panel(
-                      "Data",
-                      icon = icon("table"),
-                      card_body(padding = 5, reactableOutput(paste(
-                        "output_data", x, sep = "_"
-                      )))
-                    )
-                  )
-                ))
-    })
-  }
-  
   #### Output vars selection ###################
   
   output$output_var_selector <- renderReactable({
-    # selected <- which(output_vars_option_df$var %in% default_output_vars,
-    #                   arr.ind = TRUE)
-    selected <- which(output_vars_option_df$var %in% rv$output_vars, arr.ind = TRUE)
+    selected <- which(output_vars_disp_df$var %in% rv$output_timeseries_vars,
+                      arr.ind = TRUE)
     reactable(
-      output_vars_option_df,
+      output_vars_disp_df,
       selection = "multiple",
       onClick = "select",
       defaultSelected = selected,
@@ -1095,67 +646,83 @@ server <- function(input, output, session) {
       showPageSizeOptions = T,
       pageSizeOptions = c(10, 20, 40, 100),
       defaultPageSize = 20,
-      groupBy = "cat",
       paginateSubRows = T,
       columns = list(
-        cat = colDef(name = "Category"),
         var = colDef(name = "Variable"),
         arr = colDef(name = "Array Dimension")
       )
     )
   })
   
-  # output$output_var_selected <- renderReactable({
-  #   i <- getReactableState("output_var_selector", "selected")
-  #   df <- output_vars_option_df[i, c("var", "arr")]
-  #   rownames(df) <- NULL
-  #   reactable(
-  #     df,
-  #     highlight = T,
-  #     compact = T,
-  #     striped = T,
-  #     showPageSizeOptions = T,
-  #     pageSizeOptions = c(10, 20, 40, 100),
-  #     defaultPageSize = 20,
-  #     paginateSubRows = T,
-  #     rownames = T,
-  #     columns = list(
-  #       var = colDef(name = "Variable"),
-  #       arr = colDef(name = "Array Dimension")
-  #     )
-  #   )
-  # })
+  output$output_final_var_selector <- renderReactable({
+    selected <- which(output_vars_disp_df$var %in% rv$output_final_vars,
+                      arr.ind = TRUE)
+    reactable(
+      output_vars_disp_df,
+      selection = "multiple",
+      onClick = "select",
+      defaultSelected = selected,
+      highlight = T,
+      compact = T,
+      striped = T,
+      filterable = T,
+      showPageSizeOptions = T,
+      pageSizeOptions = c(10, 20, 40, 100),
+      defaultPageSize = 20,
+      paginateSubRows = T,
+      columns = list(
+        var = colDef(name = "Variable"),
+        arr = colDef(name = "Array Dimension")
+      )
+    )
+  })
+  
   
   output$output_var_selected <- renderUI({
     i <- getReactableState("output_var_selector", "selected")
-    df <- output_vars_option_df[i, "var"]
+    df <- output_vars_disp_df[i, "var"]
+    output$selected_vars_info <- renderUI(tags$strong(length(df)))
     tags$ul(lapply(df, tags$li))
   })
   
   observe({
     i <- getReactableState("output_var_selector", "selected")
-    if (is.null(i))
-      return()
-    rv$output_vars <- output_vars_option_df[i, "var"]
-    output$selected_vars_info <- renderUI(
-      #div(
-      # "Selected log variabels:",
-      tags$strong(
-        length(rv$output_vars)
-        # )
-      )
-    )
+    if (!is.null(i)) {
+      rv$output_timeseries_vars <- output_vars_disp_df[i, "var"]
+    }
   })
   
-  observeEvent(input$clear_selected_output_vars, rv$output_vars <- c())
+  observeEvent(input$clear_selected_output_vars,
+               rv$output_timeseries_vars <- c())
   
   observeEvent(input$reset_default_output_vars, {
-    selected <- which(output_vars_option_df$var %in% default_output_vars,
+    selected <- which(output_vars_disp_df$var %in% default_output_timeseries_vars,
                       arr.ind = TRUE)
     updateReactable("output_var_selector", selected = selected)
   })
   
+  output$output_final_var_selected <- renderUI({
+    i <- getReactableState("output_final_var_selector", "selected")
+    df <- output_vars_disp_df[i, "var"]
+    output$selected_final_vars_info <- renderUI(tags$strong(length(df)))
+    tags$ul(lapply(df, tags$li))
+  })
   
+  observe({
+    i <- getReactableState("output_final_var_selector", "selected")
+    if (!is.null(i)) {
+      rv$output_final_vars <- output_vars_disp_df[i, "var"]
+    }
+  })
+  
+  observeEvent(input$clear_selected_output_final_vars,
+               rv$output_final_vars <- c())
+  
+  observeEvent(input$reset_default_output_final_vars, {
+    selected <- which(output_vars_disp_df$var %in% default_output_final_vars,
+                      arr.ind = TRUE)
+    updateReactable("output_final_var_selector", selected = selected)
+  })
   
   observeEvent(input$reset_button, {
     show_input_dialog(
@@ -1170,347 +737,61 @@ server <- function(input, output, session) {
     removeModal()
     rv$sim_output <- NULL
   })
-  
-  
+
   #### dynamic output graph  #########################
-  
-  # output_graph_cfg <- reactiveVal(list())
-  
+
   card_id_counter <- 0
   get_next_card_id <- function() {
     card_id_counter <<- card_id_counter + 1
     return(paste0("outgraph", card_id_counter))
   }
   
-  reset_output_config <- function(cfg = NULL) {
+  page_id_counter <- 0
+  get_next_page_id <- function() {
+    page_id_counter <<- page_id_counter + 1
+    return(paste0("page", page_id_counter))
+  }
+
+  reset_output_config <- function() {
     card_id_counter <<- 0
-    prev_cfg <- isolate(rv$output_graph_cfg)
-    lapply(names(prev_cfg), function(id) {
-      ns <- NS(id)
-      # removeUI(selector = paste0("#", ns("card"), " *"), multiple = TRUE)
-      removeUI(selector = paste0("#", ns("card")))
-    })
+    page_id_counter <<- 0
     rv$output_graph_cfg <- list()
-    if (!is.null(cfg)) {
-      set_output_config(cfg)
-    }
   }
   
-  create_dynamic_card <- function(id,
-                                  data,
-                                  def_vars = NULL,
-                                  def_filter = NULL,
-                                  def_vars_ext = NULL) {
-    cfg <- isolate(rv$output_graph_cfg)
-    cfg[[id]] <- list()
-    rv$output_graph_cfg <- cfg
-    
-    # print("create_dynamic_card")
-    # print(id)
-    # print(def_vars)
-    # print(def_filter)
-    
-    var_df <- data$var_df
-    arr_data <- data$arr_data
-    
-    # find other variables which has similar array dimension with the selected dimensions
-    get_match_vars <- function(keys, arr) {
-      dim_choices <- arr_data[[arr]]$keys
-      ks <- unlist(lapply(names(dim_choices), function(k) {
-        n <- sum(keys %in% dim_choices[[k]])
-        if (n == 1) {
-          NULL
+  generate_dim_keys <- function(sp, arr, df) {
+    if (is.null(arr) || is.na(arr))
+      return()
+    # filter dataframe with the selected dimension keys
+    if (arr == "single_df") {
+      key_df <- data.frame(single = 0)
+    } else {
+      key_df <- wanulcas_def_arr[[arr]]
+      if (!is.null(sp)) {
+        k_df <- as.data.frame(t(sapply(sp, function(a) {
+          unlist(strsplit(a, " "))
+        })))
+        k <- unique(k_df[[1]])
+        f_df <- df
+        f_key_df <- key_df
+        for (x in k) {
+          f_df <- f_df[f_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
+          f_key_df <- f_key_df[f_key_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
+        }
+        df <- f_df
+        if (class(f_key_df) == "data.frame") {
+          key_df <- f_key_df
         } else {
-          k
-        }
-      }))
-      arr_match <- unlist(sapply(arr_data, function(x)
-        if (setequal(names(x$keys), ks))
-          x$arr))
-      
-      if (length(arr_match) > 0 && arr_match == arr)
-        return(NULL)
-      if (is.null(ks))
-        ks <- "single"
-      list(vars = var_df[var_df$arr == arr_match, "vars"],
-           dim = ks,
-           arr = arr_match)
-    }
-    
-    
-    def_v_choices <- var_df$vars
-    def_arr <- NULL
-    def_dim_choices <- NULL
-    def_v_ext_choices <- NULL
-    if (!is.null(def_vars)) {
-      def_arr <- var_df[var_df$vars == def_vars[1], "arr"]
-      def_v_choices <- var_df[var_df$arr == def_arr, "vars"]
-      def_dim_choices <- arr_data[[def_arr]]$keys
-      v_ext <- get_match_vars(def_filter, def_arr)
-      def_v_ext_choices <- v_ext$vars
-    }
-    
-    ns <- NS(id)
-    button_id <- ns("remove_card_button")
-    var_select_id <- ns("var_select")
-    dim_id <- ns("dim_compare")
-    var_ext_select_id <- ns("var_ext_select")
-    sp_select_id <- ns("sp_select")
-    graph_id <- ns("graph_id")
-    card_title_id <- ns("card_title")
-    table_id <- ns("table")
-    
-    dim_label <- function(x)
-      markdown(sprintf(
-        "Comparable variables (array dimension: **%s**):",
-        trimws(paste(x, collapse = ", "))
-      ))
-    
-    observeEvent(input[[button_id]], {
-      removeUI(selector = paste0("#", ns("card")))
-      cfg <- isolate(rv$output_graph_cfg)
-      cfg[[id]] <- NULL
-      rv$output_graph_cfg <- cfg
-    })
-    
-    
-    
-    render_dim <- function(v_ext) {
-      if (is.null(v_ext) || length(v_ext$vars) == 0) {
-        output[[dim_id]] <- NULL
-      } else {
-        output[[dim_id]] <- renderUI(dim_label(v_ext$dim))
-      }
-    }
-    
-    # variable selection
-    observeEvent(input[[var_select_id]], {
-      vs <- input[[var_select_id]]
-      output[[card_title_id]] <- renderText(paste(vs, collapse = ", "))
-      if (is.null(vs)) {
-        updateSelectizeInput(session, var_select_id, choices = var_df$vars)
-        updateSelectizeInput(session,
-                             sp_select_id,
-                             choices = character(0),
-                             selected = character(0))
-        updateSelectizeInput(session, var_ext_select_id, choices = character(0))
-        output[[dim_id]] <- NULL
-      } else if (length(vs) == 1) {
-        arr <- var_df[var_df$vars == vs, "arr"]
-        vfilt <- var_df[var_df$arr == arr, "vars"]
-        dim_choices <- arr_data[[arr]]$keys
-        
-        sp <- input[[sp_select_id]]
-        # if (is.null(sp) && !is.null(def_vars)) {
-        #   sp <- def_filter
-        # }
-        # if(!is.null(def_filter)) {
-        #   sp <- def_filter
-        # }
-        # print(dim_choices)
-        v_ext <- NULL
-        if (length(sp) >= 1) {
-          v_ext <- get_match_vars(sp, arr)
-          render_dim(v_ext)
-        }
-        updateSelectizeInput(session,
-                             var_select_id,
-                             choices = vfilt,
-                             selected = vs)
-        updateSelectizeInput(session,
-                             sp_select_id,
-                             choices = dim_choices,
-                             selected = sp)
-        updateSelectizeInput(session, var_ext_select_id, choices = v_ext$vars)
-        def_vars <<- NULL
-        def_filter <<- NULL
-      }
-    }, ignoreNULL = FALSE)
-    
-    
-    # sub plot or array dimension selection
-    observeEvent(input[[sp_select_id]], {
-      sp <- input[[sp_select_id]]
-      vs <- input[[var_select_id]]
-      arr <- var_df[var_df$vars == vs[1], "arr"]
-      vfilt <- var_df[var_df$arr == arr, "vars"]
-      if (is.null(sp)) {
-        output[[dim_id]] <- NULL
-        updateSelectizeInput(session, var_ext_select_id, choices = character(0))
-      } else if (length(sp) >= 1) {
-        v_ext <- get_match_vars(sp, arr)
-        render_dim(v_ext)
-        updateSelectizeInput(session,
-                             var_select_id,
-                             choices = vfilt,
-                             selected = vs)
-        updateSelectizeInput(session,
-                             var_ext_select_id,
-                             choices = v_ext$vars,
-                             selected = def_vars_ext)
-        def_vars_ext <<- NULL
-      }
-    }, ignoreNULL = FALSE)
-    
-    observe({
-      vs <- input[[var_select_id]]
-      if (is.null(vs) || is.null(var_df)) {
-        t <- "Please select the variables on left panel!"
-        output[[graph_id]] <- renderPlotly(validate(need(F, t)))
-        output[[table_id]] <- renderReactable(validate(need(F, t)))
-        return()
-      }
-      v_df <- var_df[var_df$vars %in% vs, ]
-      arr <- unique(v_df$arr)[1]
-      df <- arr_data[[arr]]$data[c("time", names(arr_data[[arr]]$keys), vs)]
-      sp <- input[[sp_select_id]]
-      vs_ext <- input[[var_ext_select_id]]
-      
-      #save to config
-      cfg <- isolate(rv$output_graph_cfg)
-      cfg[[id]][["vars"]] <- vs
-      cfg[[id]][["filter"]] <- sp
-      cfg[[id]][["vars_ext"]] <- vs_ext
-      rv$output_graph_cfg <- cfg
-      
-      # print(vs)
-      # print(var_df)
-      # print(arr)
-      
-      
-      # filter dataframe with the selected dimension keys
-      if (arr == "single_df") {
-        key_df <- data.frame(single = 0)
-      } else {
-        key_df <- wanulcas_def_arr[[arr]]
-        if (!is.null(sp)) {
-          k_df <- as.data.frame(t(sapply(sp, function(a) {
-            unlist(strsplit(a, " "))
-          })))
-          k <- unique(k_df[[1]])
-          f_df <- df
-          f_key_df <- key_df
-          for (x in k) {
-            f_df <- f_df[f_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
-            f_key_df <- f_key_df[f_key_df[[x]] %in% k_df[k_df[[1]] == x, 2], ]
-          }
-          df <- f_df
-          if (class(f_key_df) == "data.frame") {
-            key_df <- f_key_df
-          } else {
-            key_df <- data.frame(f_key_df)
-            colnames(key_df) <- k
-          }
+          key_df <- data.frame(f_key_df)
+          colnames(key_df) <- k
         }
       }
-      # is there any addition data from other array
-      
-      if (!is.null(vs_ext)) {
-        vx_df <- var_df[var_df$vars %in% vs_ext, ]
-        arr_ext <- unique(vx_df$arr)[1]
-        df_ext <- arr_data[[arr_ext]]$data[vs_ext]
-        df <- cbind(df, df_ext)
-        vs <- c(vs, vs_ext)
-      }
-      
-      
-      
-      output[[table_id]] <- renderReactable(
-        reactable(
-          df,
-          highlight = T,
-          compact = T,
-          showPageSizeOptions = T,
-          defaultColDef = colDef(
-            cell = function(value) {
-              # Only format if the value is not an integer
-              if (is.numeric(value) && value %% 1 != 0) {
-                if (abs(value) >= 10) {
-                  format(round(value, 2), nsmall = 2)
-                } else {
-                  format(round(value, 4), nsmall = 4)
-                }
-              } else {
-                value
-              }
-            }
-          )
-        )
-      )
-      
-      output[[graph_id]] <- renderPlotly({
-        # generate_output_graph_data(df, key_df, vs)
-        generate_output_graph(df, key_df, vs)
-      })
-    })
-    
-    
-    # graph setting ui
-    div(
-      id = ns("card"),
-      navset_card_underline(
-        full_screen = T,
-        title = textOutput(card_title_id),
-        
-        sidebar = sidebar(
-          selectizeInput(
-            inputId = var_select_id,
-            label = "Variables:",
-            choices = def_v_choices,
-            selected = def_vars,
-            multiple = TRUE,
-            options = list(dropdownParent = 'body')
-          ),
-          conditionalPanel(
-            condition = "input['var_select'].length > 0",
-            ns = ns,
-            selectizeInput(
-              inputId = sp_select_id,
-              label = "Filter:",
-              choices = def_dim_choices,
-              selected = def_filter,
-              multiple = TRUE,
-              options = list(dropdownParent = 'body')
-            )
-          ),
-          div(
-            style = "padding: 0; margin: 0;",
-            uiOutput(dim_id),
-            conditionalPanel(
-              condition = "output['dim_compare'] != null",
-              ns = ns,
-              selectizeInput(
-                inputId = var_ext_select_id,
-                label = NULL,
-                choices = def_v_ext_choices,
-                selected = def_vars_ext,
-                multiple = TRUE,
-                options = list(dropdownParent = 'body')
-              )
-            )
-          )
-        ),
-        nav_panel(
-          "Graph",
-          icon = icon("chart-line"),
-          card_body(padding = 0, plotlyOutput(graph_id, height = "300px"))
-        ),
-        nav_panel(
-          "Data",
-          icon = icon("table"),
-          card_body(
-            padding = 0,
-            download_link(table_id),
-            reactableOutput(table_id)
-          )
-        ),
-        nav_item(actionLink(button_id, "", icon = icon("trash-can")))
-      )
-    )
+    }
+    return(key_df)
   }
-  
   
   generate_output_graph <- function(df, key_df, vars) {
+    if (is.null(key_df))
+      return()
     kn <- names(key_df)
     ncolplot <- length(unique(key_df[[1]]))
     nrowplot <- nrow(key_df) / ncolplot
@@ -1518,12 +799,12 @@ server <- function(input, output, session) {
     subfont = list(size = 14)
     figs <- apply(key_df, 1, function(k) {
       # get data with similar id for all selected keys
+      row <- as.numeric(k[["row"]])
       if (kn[1] == "single") {
         df2 <- df
         coltitle <- ""
         rowtitle <- ""
       } else {
-        row <- as.numeric(k[["row"]])
         coltitle <- ""
         if (row <= ncolplot) {
           coltitle <- paste0("<i>", kn[1], ":</i> <b>", k[[kn[1]]], "</b>")
@@ -1539,7 +820,6 @@ server <- function(input, output, session) {
         df2 <- df[apply(kk_is, 1, function(x)
           all(x == T)), ]
       }
-      
       
       fig <- plot_ly(
         type = "scatter",
@@ -1566,7 +846,7 @@ server <- function(input, output, session) {
             font = subfont
           )
         ),
-        xaxis = list(title = "Time"),
+        xaxis = list(title = "Days"),
         yaxis = list(title = list(text = rowtitle, font = subfont)),
         hoverlabel = list(namelength = -1)
       )
@@ -1583,103 +863,206 @@ server <- function(input, output, session) {
     )
   }
   
-  generate_output_graph_data <- function(df, key_df, vars) {
-    kn <- names(key_df)
-    ncolplot <- length(unique(key_df[[1]]))
-    nrowplot <- nrow(key_df) / ncolplot
-    key_df$row <- 1:nrow(key_df)
-    subfont = list(size = 14)
-    d <- apply(key_df, 1, function(k) {
-      # get data with similar id for all selected keys
-      if (kn[1] == "single") {
-        df2 <- df
-        coltitle <- ""
-        rowtitle <- ""
-      } else {
-        row <- as.numeric(k[["row"]])
-        coltitle <- ""
-        if (row <= ncolplot) {
-          coltitle <- paste0("<i>", kn[1], ":</i> <b>", k[[kn[1]]], "</b>")
-        }
-        k <- as.data.frame(t(as.data.frame(k)))
-        k$row <- NULL
-        rowtitle <- ""
-        if (row %% ncolplot == 1 | ncolplot == 1) {
-          rowtitle <-  paste(paste0("<i>", kn[-1], ":</i> <b>", k[-1], "</b>"), collapse = "; ")
-        }
-        kk <- k[rep(1, nrow(df)), ]
-        kk_is <- df[kn] == kk
-        df2 <- df[apply(kk_is, 1, function(x)
-          all(x == T)), ]
-        
-      }
-      print(rowtitle)
-      print(coltitle)
-      print(df2)
-      
-      
-    })
-    
-    
-  }
+  ### output time series UI ##############
   
   output$sim_output_ui <- renderUI({
-    card_body(
-      fileInput(
-        "upload_output_data_button",
-        span(icon("upload"), "Upload output data file"),
-        accept = c("application/zip", ".zip"),
-        width = "300px"
-      ),
-      div(
-        style = "width:100%",
-        fileInput(
-          "upload_output_cfg",
-          "Upload Output Configuration",
-          accept = c("application/yaml", ".yaml")
+    out <- rv$sim_output
+    if (is.null(out))
+      return()
+    formatted_output_data(format_output_data(out$timeseries_vars))
+    output_cfg <- isolate(rv$output_graph_cfg)
+    #reset the output cfg
+    reset_output_config()
+    
+    page_panels <- NULL
+    if (length(output_cfg) > 0) {
+      n <- length(output_cfg)
+      page_ids <- replicate(n, get_next_page_id())
+      page_panels <- lapply(1:n, function(i) {
+        create_output_page_panel(page_ids[i], output_cfg[[i]]$title, output_cfg[[i]]$content)
+      })
+      names(page_panels) <- NULL
+    }
+    
+    btn <- actionButton(
+      "add_output_page_button",
+      "Add New Page",
+      icon = icon("plus"),
+      style = compact_button_style
+    )
+    card_body(do.call(navset_card_pill, c(
+      list(id = "output_timeseries", nav_item(btn), nav_spacer()),
+      page_panels
+    )))
+  })
+  
+  observeEvent(input$add_output_page_button, {
+    show_input_dialog(
+      "Add New Output Page",
+      confirm_id = "confirm_add_page",
+      input_var = "input_page_title",
+      input_label = "Page title:"
+    )
+  })
+  
+  user_crop <- reactiveVal()
+  
+  observeEvent(input$confirm_add_page, {
+    removeModal()
+    p_id <- get_next_page_id()
+    add_output_page(p_id, input$input_page_title)
+  })
+  
+  get_output_page_ui <- function(page_id, title, content_list = NULL) {
+    add_card_button_id <- paste0("add_dynamic_card_button_", page_id)
+    observeEvent(input[[add_card_button_id]], add_output_card(page_id, title))
+    
+    remove_page_button_id <- paste0("remove_page_button_", page_id)
+    observeEvent(input[[remove_page_button_id]], nav_remove("output_timeseries", page_id))
+    
+    nav_panel(value = page_id, title = title, div(
+      do.call(layout_column_wrap, c(
+        list(
+          id = paste0("dynamic_card_container_", page_id),
+          width = "400px",
+          style = "margin:10px"
         ),
-        downloadLink(style = "float:right; margin-right:50px", "download_output_cfg", "Save Output Configuration")
-      ),
-      layout_column_wrap(
-        id = "dynamic_card_container",
-        width = "400px",
-        style = "margin:10px"
-      ),
+        content_list
+      )),
       div(
         style = "width:100%",
         actionButton(
           style = "float:right; margin-right:50px",
-          "add_dynamic_card_button",
+          add_card_button_id,
           "Add Output Graph",
           icon = icon("plus")
+        ),
+        actionButton(
+          style = "float:right; margin-right:20px",
+          remove_page_button_id,
+          "Remove This Page",
+          icon = icon("trash-can")
         )
       )
-    )
-  })
+    ))
+  }
   
-  add_dynamic_card <- function(def_vars = NULL,
-                               def_filter = NULL,
-                               def_vars_ext = NULL) {
+  add_output_page <- function(page_id, title) {
+    set_output_config_page(page_id, title)
+    nav_insert("output_timeseries",
+               get_output_page_ui(page_id, title),
+               select = TRUE)
+  }
+  
+  set_output_config_page <- function(page_id, title) {
+    rv$output_graph_cfg[[page_id]][["title"]] <- title
+  }
+  
+  set_output_config_content <- function(page_id,
+                                        page_title,
+                                        card_id,
+                                        vars = NULL,
+                                        filter = NULL) {
+    if (!is.null(page_title)) {
+      rv$output_graph_cfg[[page_id]][["title"]] <- page_title
+    }
+    rv$output_graph_cfg[[page_id]][["content"]][[card_id]][["vars"]] <- vars
+    rv$output_graph_cfg[[page_id]][["content"]][[card_id]][["filter"]] <- filter
+  }
+  
+  create_output_page_panel <- function(page_id, title, content_cfg = NULL) {
+    content_list <- list()
+    if (!is.null(content_cfg)) {
+      n <- length(content_cfg)
+      card_ids <- replicate(n, get_next_card_id())
+      data <- isolate(formatted_output_data())
+      content_list <- lapply(1:n, function(i) {
+        id <- card_ids[i]
+        vars <- content_cfg[[i]]$vars
+        filter <- content_cfg[[i]]$filter
+        card_graph_ui(id, data, vars, filter)
+      })
+      names(content_list) <- NULL
+      
+      lapply(1:n, function(i) {
+        id <- card_ids[i]
+        card_graph_server(
+          id,
+          data,
+          content_cfg = content_cfg[[i]],
+          page_id = page_id,
+          page_title = title,
+          update_card = set_output_config_content
+        )
+      })
+    }
+    
+    content_list <- c(content_list, uiOutput(paste0("graph_add_", page_id)))
+    get_output_page_ui(page_id, title, content_list)
+    
+  }
+  
+  add_output_card <- function(page_id, title) {
     id <- get_next_card_id()
+    data <- isolate(formatted_output_data())
+    ui <- card_graph_ui(id, data)
     insertUI(
-      selector = "#dynamic_card_container",
+      selector = paste0("#dynamic_card_container_", page_id),
       where = "beforeEnd",
-      ui = create_dynamic_card(
-        id,
-        formatted_output_data(),
-        def_vars,
-        def_filter,
-        def_vars_ext
-      )
+      ui = ui
+    )
+    card_graph_server(
+      id,
+      data,
+      page_id = page_id,
+      page_title = title,
+      update_card = set_output_config_content
     )
     return(id)
   }
   
+  ### output final vars UI ###############
   
+  fin_id_prefix <- "output_final_var_"
   
-  observeEvent(input$add_dynamic_card_button, add_dynamic_card())
+  output$sim_output_final_ui <- renderUI({
+    out <- rv$sim_output
+    if (is.null(out))
+      return()
+    out_list <- out$final_vars
+    # Safe lapply to avoid zero-length errors
+    out_ui <- lapply(names(out_list), function(x) {
+      card(
+        full_screen = T,
+        card_header(
+          class = "d-flex justify-content-between",
+          suffix_remove(x),
+          table_download_link(
+            paste0(fin_id_prefix, x),
+            paste0(suffix_remove(x), "_final_vars.csv")
+          )
+        ),
+        reactableOutput(paste0(fin_id_prefix, x))
+      )
+    })
+    card_body(do.call(flowLayout, c(list(
+      cellArgs = list(style = "width:auto; margin:0px; max-width:600px")
+    ), out_ui)))
+  })
   
-  
+  observe({
+    out <- rv$sim_output
+    if (is.null(out))
+      return()
+    out_list <- out$final_vars
+    lapply(names(out_list), function(x) {
+      output[[paste0(fin_id_prefix, x)]] <- renderReactable(reactable(
+        out_list[[x]],
+        defaultColDef = colDef(width = 120, cell = numeric_cell_coldef)
+      ))
+    })
+  })
+
   output$download_output_cfg <- downloadHandler(
     filename = function() {
       paste("output_config.yaml")
@@ -1689,18 +1072,6 @@ server <- function(input, output, session) {
     },
     contentType = "application/yaml"
   )
-  
-  set_output_config <- function(cfg) {
-    cs <- lapply(cfg, function(x) {
-      add_dynamic_card(x$vars, x$filter, x$vars_ext)
-    })
-  }
-  
-  observeEvent(input$upload_output_cfg, {
-    dpath <- input$upload_output_cfg$datapath
-    # set_output_config(read_yaml(dpath))
-    reset_output_config(read_yaml(dpath))
-  })
   
   ### UPLOAD ######################
   
@@ -1733,6 +1104,20 @@ server <- function(input, output, session) {
       rv_graph[[x]] <- graph_df[[x]]
     })
     
+    if(!is.null(params$crop_library)) {
+      df <- as.data.frame(do.call(cbind, params$crop_library))
+      crop_names <- setdiff(names(df), species_var_keys)
+      crop_species_df <<- cbind(crop_species_df, df[crop_names])
+      user_crop(crop_names)
+    }
+    
+    if(!is.null(params$tree_library)) {
+      df <- as.data.frame(do.call(cbind, params$tree_library))
+      tree_names <- setdiff(names(df), species_var_keys)
+      tree_species_df <<- cbind(tree_species_df, df[tree_names])
+      user_tree(tree_names)
+    }
+    
     crops <- rv_arr[[crop_ui_id]]$CQ_Species
     for (i in 1:5) {
       updateSelectInput(session, crop_select_ids[i], selected = crops[i])
@@ -1743,28 +1128,11 @@ server <- function(input, output, session) {
       updateSelectInput(session, tree_select_ids[i], selected = trees[i])
     }
     
-    if (!is.null(params$output)) {
-      rv$output_vars <- params$output$time_vars
-      rv$output_graph_cfg <- params$output$output_cfg
-    }
-    
-    
+    if (!is.null(params$output$timeseries_vars))
+      rv$output_timeseries_vars <- params$output$timeseries_vars
+    if (!is.null(params$output$timeseries_layout))
+      rv$output_graph_cfg <- params$output$timeseries_layout
   }
-  
-  # observe({
-  #   crops <- rv_arr[["input_array_crop_117_0"]]$CQ_Species
-  #   for (i in 1:5) {
-  #     updateSelectInput(session, crop_select_ids[i], selected = crops[i])
-  #   }
-  # })
-  #
-  # observe({
-  #   trees <- rv_arr[["input_array_tree_117_0"]]$T_Species
-  #   for (i in 1:5) {
-  #     updateSelectInput(session, tree_select_ids[i], selected = trees[i])
-  #   }
-  # })
-  
   
   observeEvent(input$upload_xls_parameter, {
     dpath <- input$upload_xls_parameter$datapath
@@ -1806,6 +1174,7 @@ server <- function(input, output, session) {
       )
     })
     names(var_data) <- names(data)
+    
     v <- unlist(sapply(var_data, function(x)
       x[["vars"]]))
     a <- unlist(sapply(var_data, function(x)
@@ -1869,8 +1238,10 @@ server <- function(input, output, session) {
     },
     content = function(fname) {
       pars <- isolate(get_input_parameters())
-      pars$output <- list(time_vars = rv$output_vars,
-                          output_cfg = rv$output_graph_cfg)
+      pars$output <- list(
+        timeseries_vars = rv$output_timeseries_vars,
+        timeseries_layout = rv$output_graph_cfg
+      )
       write_params(pars, fname)
     }
   )
@@ -1880,12 +1251,247 @@ server <- function(input, output, session) {
       paste("wanulcas_output.zip")
     },
     content = function(fname) {
+      sim_output <- rv$sim_output
+      if (is.null(sim_output))
+        return()
+      
+      lv <- sim_output$log_vars
+      log_arr <- paste0("log_", names(lv))
+      names(lv) <- log_arr
+      
+      fv <- sim_output$final_vars
+      fin_arr <- paste0("final_", names(fv))
+      names(fv) <- fin_arr
+      
+      io_df <- data.frame(var = c(log_arr, fin_arr))
+      io_df$file <- sapply(io_df$var, function(x)
+        paste(head(unlist(
+          strsplit(x, "_")
+        ), -1), collapse = "_"))
+      
       setwd(tempdir())
-      fs <- save_variables(io_file_df, isolate(rv$sim_output))
+      fs <- save_variables(io_df, c(lv, fv))
       z <- zip::zip(zipfile = fname, files = fs)
       return(z)
     },
     contentType = "application/zip"
   )
+  
+  
+  ### GUI #######################
+  
+  
+  card_graph_ui <- function(id,
+                            data,
+                            def_vars = NULL,
+                            def_filter = NULL) {
+    var_df <- data$var_df
+    arr_data <- data$arr_data
+    def_v_choices <- var_df$vars
+    def_arr <- NULL
+    def_dim_choices <- NULL
+    if (!is.null(def_vars)) {
+      def_arr <- var_df[var_df$vars == def_vars[1], "arr"]
+      if (length(def_arr) > 0) {
+        def_v_choices <- var_df[var_df$arr == def_arr, "vars"]
+        def_dim_choices <- arr_data[[def_arr]]$keys
+      }
+    }
+    
+    ns <- NS(id)
+    button_id <- ns("remove_card_button")
+    var_select_id <- ns("var_select")
+    dim_id <- ns("dim_compare")
+    var_ext_select_id <- ns("var_ext_select")
+    sp_select_id <- ns("sp_select")
+    graph_id <- ns("graph_id")
+    card_title_id <- ns("card_title")
+    table_id <- ns("table")
+    
+    div(
+      id = ns("card"),
+      navset_card_underline(
+        full_screen = T,
+        title = textOutput(card_title_id),
+        
+        sidebar = sidebar(
+          open = is.null(def_vars),
+          selectizeInput(
+            inputId = var_select_id,
+            label = "Variables:",
+            choices = def_v_choices,
+            selected = def_vars,
+            multiple = TRUE,
+            options = list(dropdownParent = 'body')
+          ),
+          conditionalPanel(
+            condition = "input['var_select'].length > 0",
+            ns = ns,
+            selectizeInput(
+              inputId = sp_select_id,
+              label = "Filter:",
+              choices = def_dim_choices,
+              selected = def_filter,
+              multiple = TRUE,
+              options = list(dropdownParent = 'body')
+            )
+          )
+        ),
+        nav_spacer(),
+        nav_panel(
+          "Graph",
+          icon = icon("chart-line"),
+          card_body(padding = 0, plotlyOutput(graph_id, height = "300px"))
+        ),
+        nav_panel(
+          "Data",
+          icon = icon("table"),
+          card_body(
+            padding = 0,
+            download_link(table_id),
+            reactableOutput(table_id)
+          )
+        ),
+        nav_item(actionLink(button_id, "", icon = icon("trash-can")))
+      )
+    )
+  }
+  
+  card_graph_server <- function(id,
+                                data,
+                                content_cfg = NULL,
+                                page_id,
+                                page_title,
+                                update_card) {
+    moduleServer(id, function(input, output, session) {
+      variable_df <- reactiveVal(data$var_df)
+      array_data <- reactiveVal(data$arr_data)
+      
+      selected_df <- reactiveVal()
+      key_df <- reactiveVal()
+      
+      page_id <- page_id
+      page_title <- page_title
+      button_id <- "remove_card_button"
+      var_select_id <- "var_select"
+      dim_id <- "dim_compare"
+      sp_select_id <- "sp_select"
+      graph_id <- "graph_id"
+      card_title_id <- "card_title"
+      table_id <- "table"
+      
+      observeEvent(input[[button_id]], {
+        ns <- NS(id)
+        removeUI(selector = paste0("#", ns("card")))
+        update_card(page_id, page_title, id, NULL, NULL)
+      })
+      
+      # variable selection
+      observeEvent(input[[var_select_id]], {
+        vs <- input[[var_select_id]]
+        sp <- input[[sp_select_id]]
+        var_df <- variable_df()
+        arr_data <- array_data()
+        output[[card_title_id]] <- renderText(paste(vs, collapse = ", "))
+        if (is.null(vs)) {
+          if (is.null(content_cfg)) {
+            updateSelectizeInput(session, var_select_id, choices = var_df$vars)
+            updateSelectizeInput(session,
+                                 sp_select_id,
+                                 choices = character(0),
+                                 selected = character(0))
+          } else {
+            updateSelectizeInput(
+              session,
+              var_select_id,
+              choices = var_df$vars,
+              selected = content_cfg$vars
+            )
+            content_cfg <<- NULL
+          }
+          output[[dim_id]] <- NULL
+        } else if (length(vs) == 1) {
+          arr <- var_df[var_df$vars == vs, "arr"]
+          vfilt <- var_df[var_df$arr == arr, "vars"]
+          dim_choices <- arr_data[[arr]]$keys
+          # sp <- input[[sp_select_id]]
+          updateSelectizeInput(session,
+                               var_select_id,
+                               choices = vfilt,
+                               selected = vs)
+          updateSelectizeInput(session,
+                               sp_select_id,
+                               choices = dim_choices,
+                               selected = sp)
+        }
+        update_card(page_id, page_title, id, vs, sp)
+      }, ignoreNULL = FALSE)
+      
+      # sub plot or array dimension selection
+      observeEvent(input[[sp_select_id]], {
+        sp <- input[[sp_select_id]]
+        vs <- input[[var_select_id]]
+        var_df <- variable_df()
+        arr <- var_df[var_df$vars == vs[1], "arr"]
+        vfilt <- var_df[var_df$arr == arr, "vars"]
+        if (is.null(sp)) {
+          output[[dim_id]] <- NULL
+        } else if (length(sp) >= 1) {
+          updateSelectizeInput(session,
+                               var_select_id,
+                               choices = vfilt,
+                               selected = vs)
+          
+        }
+        update_card(page_id, page_title, id, vs, sp)
+      }, ignoreNULL = FALSE)
+      
+      output[[graph_id]] <- renderPlotly({
+        vs <- input[[var_select_id]]
+        if (is.null(vs)) {
+          validate(need(F, text_output_empty))
+        } else {
+          generate_output_graph(selected_df(), key_df(), vs)
+        }
+      })
+      
+      output[[table_id]] <- renderReactable({
+        vs <- input[[var_select_id]]
+        if (is.null(vs)) {
+          validate(need(F, text_output_empty))
+        } else {
+          reactable(
+            selected_df(),
+            highlight = T,
+            compact = T,
+            showPageSizeOptions = T,
+            defaultColDef = colDef(cell = numeric_cell_coldef)
+          )
+        }
+      })
+ 
+      observe({
+        vs <- input[[var_select_id]]
+        sp <- input[[sp_select_id]]
+        var_df <- variable_df()
+        arr_data <- array_data()
+        v_df <- var_df[var_df$vars %in% vs, ]
+        arr <- unique(v_df$arr)[1]
+        df <- arr_data[[arr]]$data[c("time", names(arr_data[[arr]]$keys), vs)]
+        keys <- generate_dim_keys(sp, arr, df)
+        f_df <- df
+        if (!is.null(keys) && ncol(keys) > 0) {
+          for (n in names(keys)) {
+            if (n == "single")
+              next
+            f_df <- f_df[f_df[[n]] %in% unique(keys[[n]]), ]
+          }
+        }
+        key_df(keys)
+        selected_df(f_df)
+      })
+      
+    })
+  }
   
 }

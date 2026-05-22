@@ -171,7 +171,7 @@ MC2_KPass,,Decay rate for decomposition of active pool of soil organic matter,,,
 MC2_kRelLayer,,"Factor determined decay rate for decomposition of active, passive and slow pool for each soil layer (relative to decay rate for decomposition for each pool).",fraction,,
 MC2_KSlw,,Decay rate for decomposition of active pool of soil organic matter,,,
 MC2_KStruc,,Decay rate for decomposition of active pool of soil organic matter,,,
-MC2_pH,Soil Properties,Soil pH (only for soil organic matter type 2),,,
+MC2_pH,Soil pH,Soil pH (only for soil organic matter type 2),,,
 MC2_pHCoeffCref,,Coefficient of pH based on tabulated of Cref for soil organic matter type 2,,,
 MC2_RainTransfer,,Rain factor which control transferring process of litter to SOM pool, ,,
 MC2_Silt,,Proportion of silt in soil (only for soil organic matter type 2),,0,1

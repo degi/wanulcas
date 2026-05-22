@@ -634,3 +634,28 @@ format_var_desc <- function(vars_desc_df) {
   paste0(vars_desc_df$desc,
          ifelse(vars_desc_df$label == "", "", paste0(" [", trimws(vars_desc_df$var), "]")))
 }
+
+#' The function definition for colDef list of cell numbering format on reactable
+#'
+#' @param value 
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+#' 
+#' defaultColDef = colDef(cell = numeric_cell_coldef)
+#' 
+numeric_cell_coldef <- function(value) {
+  if(is.null(value) || is.nan(value) || is.na(value)) return()
+  # Only format if the value is not an integer
+  if (is.numeric(value) && value %% 1 != 0) {
+    if (abs(value) >= 10) {
+      format(round(value, 2), nsmall = 2)
+    } else {
+      format(round(value, 4), nsmall = 4)
+    }
+  } else {
+    value
+  }
+}

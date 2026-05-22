@@ -3,9 +3,11 @@
 shp_ext <- c(".shp", ".shx", ".prj", ".dbf")
 
 write_data_type <- function(data, fname, type) {
-  if(is.null(data)) return()
+  if (is.null(data))
+    return()
   if (type == "df") {
-    if(nrow(data) == 0) return()
+    if (nrow(data) == 0)
+      return()
     fname <- paste0(fname, ".csv")
     write.csv(data, fname, row.names = F, na = "")
   } else if (type == "cfg") {
@@ -30,7 +32,7 @@ write_data_type <- function(data, fname, type) {
 #' Title
 #'
 #' @param io_file_df is dataframe with two column: "var" and "file", where var is variable name, and file is filename (wiyhout the extension)
-#' @param vlist a list of variavle names with known prefix
+#' @param vlist a list of variable names with known prefix
 #'
 #' @returns
 #' @export
@@ -38,7 +40,7 @@ write_data_type <- function(data, fname, type) {
 #' @examples
 save_variables <- function(io_file_df, vlist) {
   fs <- c()
-  for(i in 1:nrow(io_file_df)) {  
+  for (i in 1:nrow(io_file_df)) {
     f <- io_file_df[i, "file"]
     vr <- unlist(strsplit(io_file_df[i, "var"], split = ".", fixed = T))
     vrlab <- vr[1]
@@ -94,13 +96,15 @@ read_data <- function(fpath, type) {
   return(data)
 }
 
-upload_variables <- function(io_file_df, data_dir = "/", vlist = NULL) {
-  if(is.null(vlist))
+upload_variables <- function(io_file_df,
+                             data_dir = "/",
+                             vlist = NULL) {
+  if (is.null(vlist))
     vlist <- list()
-  for(i in 1:nrow(io_file_df)) {  
+  for (i in 1:nrow(io_file_df)) {
     f <- io_file_df[i, "file"]
     fpath <- paste0(data_dir, "/", f)
-    iv <- unlist(strsplit(io_file_df[i,"var"], split = ".", fixed = T))
+    iv <- unlist(strsplit(io_file_df[i, "var"], split = ".", fixed = T))
     vr <- tail(iv, 1)
     type <- suffix(vr)
     if (type == "list") {
@@ -116,7 +120,8 @@ upload_variables <- function(io_file_df, data_dir = "/", vlist = NULL) {
       }
     } else {
       data <- read_data(fpath, type)
-      if(is.null(data)) next
+      if (is.null(data))
+        next
       i1 <- iv[1]
       if (length(iv) == 1) {
         vlist[[i1]] <- data
@@ -142,6 +147,10 @@ prefix <- function(v, sep = "_", n = 1) {
   return(p[1:min(length(p), n)])
 }
 
+suffix_remove <- function(v, sep = "_", n = 1) {
+  paste(head(unlist(strsplit(v, sep)), -n), collapse = sep)
+}
+
 download_as_zip <- function(filename, vars, vlist) {
   downloadHandler(
     filename = function() {
@@ -150,7 +159,7 @@ download_as_zip <- function(filename, vars, vlist) {
     content = function(fname) {
       setwd(tempdir())
       fs <- c()
-      for(v in vars) {
+      for (v in vars) {
         type <- suffix(v)
         fs <- c(fs, write_data_type(vlist[[v]], v, type))
       }
@@ -196,16 +205,14 @@ list_to_df_json <- function(d) {
 day_to_seconds <- 86400
 
 convert_flow_to_mmdaily <- function(flow_m3psec, area_m2) {
-  return((flow_m3psec/area_m2)*day_to_seconds*1000)
+  return((flow_m3psec / area_m2) * day_to_seconds * 1000)
 }
 
 get_rainfall_data <- function() {
   require(GSODR)
   ## bogor
-  n <- nearest_stations(LAT = -6.5790138, LON = 106.7352587, distance = 100)
+  n <- nearest_stations(LAT = -6.5790138,
+                        LON = 106.7352587,
+                        distance = 100)
   tbar <- get_GSOD(years = 2023, station = "967510-99999")
 }
-
-
-
-
