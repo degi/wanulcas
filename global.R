@@ -1,8 +1,5 @@
 
 
-
-#github token: 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
-
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
 install_load <- function (package1, ...)  {
