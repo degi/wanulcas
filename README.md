@@ -19,7 +19,7 @@ To run the application locally without cloning the repository, open your R conso
 if (!require("shiny")) install.packages("shiny")
 
 # Run the application from the GitHub repository
-shiny::runGitHub("wanulcas", "degi")
+shiny::runGitHub("wanulcas", "talas-tools")
 ```
 
 ### 3. Run Locally (Clone/Download)
